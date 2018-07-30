@@ -74,6 +74,9 @@ public:
     virtual void takeStep(
       const Teuchos::RCP<SolutionHistory<Scalar> >& solutionHistory);
 
+    virtual std::string getStepperType() const
+      { return stepperPL_->get<std::string>("Stepper Type"); }
+
     /// Get a default (initial) StepperState
     virtual Teuchos::RCP<Tempus::StepperState<Scalar> > getDefaultStepperState();
     virtual Scalar getOrder() const {return 1.0;}
@@ -90,6 +93,10 @@ public:
     virtual bool isOneStepMethod()   const {return true;}
     virtual bool isMultiStepMethod() const {return !isOneStepMethod();}
   //@}
+
+  /// Pass initial guess to Newton solver (only relevant for implicit solvers) 
+  virtual void setInitialGuess(Teuchos::RCP<const Thyra::VectorBase<Scalar> > initial_guess)
+       {initial_guess_ = initial_guess;}
 
   /// Provide temporary xDot memory for Stepper if SolutionState doesn't.
   virtual Teuchos::RCP<Thyra::VectorBase<Scalar> > getXDotTemp(
@@ -129,6 +136,7 @@ protected:
   Teuchos::RCP<StepperForwardEulerObserver<Scalar> > stepperFEObserver_;
 
   Teuchos::RCP<Thyra::VectorBase<Scalar> >            xDotTemp_;
+  Teuchos::RCP<const Thyra::VectorBase<Scalar> >      initial_guess_;  
 };
 
 } // namespace Tempus

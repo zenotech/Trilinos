@@ -54,8 +54,15 @@
 #include "Tpetra_Details_gathervPrint.hpp"
 #include "KokkosCompat_View.hpp"
 #include "KokkosBlas1_nrm2w_squared.hpp"
+#include "Teuchos_CommHelpers.hpp"
 
 namespace Tpetra {
+
+  template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+  Vector<Scalar, LocalOrdinal, GlobalOrdinal, Node>::
+  Vector ()
+    : base_type ()
+  {}
 
   template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
   Vector<Scalar, LocalOrdinal, GlobalOrdinal, Node>::
