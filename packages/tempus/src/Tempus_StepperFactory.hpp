@@ -24,6 +24,7 @@
 #include "Tempus_StepperLeapfrog.hpp"
 #include "Tempus_StepperOperatorSplit.hpp"
 #include "Tempus_StepperTrapezoidal.hpp"
+#include "Tempus_StepperGeneralizedAlpha.hpp"
 
 
 namespace Tempus {
@@ -97,6 +98,8 @@ private:
       return rcp(new StepperNewmarkExplicitAForm<Scalar>(model, stepperPL));
     else if (stepperType == "HHT-Alpha")
       return rcp(new StepperHHTAlpha<Scalar>(model, stepperPL));
+    else if (stepperType == "Generalized-Alpha")
+      return rcp(new StepperGeneralizedAlpha<Scalar>(model, stepperPL));
     else if (
       stepperType == "RK Forward Euler" ||
       stepperType == "RK Explicit 4 Stage" ||
@@ -184,6 +187,7 @@ private:
       << "    'Newmark Implicit a-Form'\n"
       << "    'Newmark Implicit d-Form'\n"
       << "    'Newmark Explicit a-Form'\n"
+      << "    'Generalized-Alpha'\n"
       << "    'HHT-Alpha'\n"
       << "  Explicit Runge-Kutta Methods:\n"
       << "    'RK Forward Euler'\n"
