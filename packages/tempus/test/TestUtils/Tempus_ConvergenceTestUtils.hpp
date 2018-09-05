@@ -68,11 +68,11 @@ void LinearRegression<Scalar>::validateXYData_(
     "x and y data are note the same size for linear regression\n");
   TEUCHOS_TEST_FOR_EXCEPTION(x.size() < 2, std::logic_error,
     "Not enough data points for linear regression!\n");
-  int N = Teuchos::as<int>(x.size());
+  std::size_t N = x.size();
   // There must be at least two unique x values
   Scalar alpha = x[0];
-  int numUnique = 1;
-  for (int i=1; i<N ; ++i) {
+  std::size_t numUnique = 1;
+  for (std::size_t i=1; i<N ; ++i) {
     if (x[i] != alpha) {
       numUnique++;
     }
@@ -100,11 +100,11 @@ void LinearRegression<Scalar>::compute_()
   TEUCHOS_TEST_FOR_EXCEPT(!isInitialized_);
   typedef Teuchos::ScalarTraits<Scalar> ST;
 
-  int N = Teuchos::as<int>(x_.size());
+  std::size_t N = x_.size();
 
   Scalar sum1 = ST::zero();
   Scalar sum2 = ST::zero();
-  for (int i=0 ; i<N ; ++i) {
+  for (std::size_t i=0 ; i<N ; ++i) {
     sum1 += x_[i]*y_[i];
     sum2 += x_[i]*x_[i];
   }
@@ -113,8 +113,8 @@ void LinearRegression<Scalar>::compute_()
 
   Scalar sum3 = ST::zero();
   Scalar sum4 = ST::zero();
-  for (int i=0 ; i<N ; ++i) {
-    for (int j=0 ; j<N ; ++j) {
+  for (std::size_t i=0 ; i<N ; ++i) {
+    for (std::size_t j=0 ; j<N ; ++j) {
       sum3 += x_[i]*y_[j];
       sum4 += x_[i]*x_[j];
     }
@@ -125,7 +125,7 @@ void LinearRegression<Scalar>::compute_()
   slope_ = ( sum3 + sum1 ) / ( sum4 + sum2 );
 
   yIntercept_ = ST::zero();
-  for (int i=0 ; i<N ; ++i ) {
+  for (std::size_t i=0 ; i<N ; ++i ) {
     yIntercept_ += y_[i]-slope_*x_[i];
   }
   yIntercept_ *= Scalar(ST::one()/Scalar(N));
@@ -158,11 +158,11 @@ Scalar computeLinearRegressionLogLog(
   std::vector<Scalar>& x, std::vector<Scalar>& y)
 {
   TEUCHOS_TEST_FOR_EXCEPT(x.size() != y.size());
-  int N = Teuchos::as<int>(x.size());
+  std::size_t N = x.size();
   std::vector<Scalar> xlog;
   std::vector<Scalar> ylog;
 
-  for (int i=0 ; i<N ; ++i) {
+  for (std::size_t i=0 ; i<N ; ++i) {
     xlog.push_back(log(x[i]));
     ylog.push_back(log(y[i]));
   }
@@ -196,7 +196,7 @@ void writeOrderError(
   Scalar & xDotDotSlope)
 {
   Scalar order = stepper->getOrder();
-  int lastElem = solutions.size()-1;     // Last element is the reference soln.
+  std::size_t lastElem = solutions.size()-1;     // Last element is the reference soln.
   std::vector<Scalar> dt;
 
   auto ref_solution = solutions[lastElem];
@@ -243,7 +243,7 @@ void writeOrderError(
 
   std::ofstream ftmp(filename);
   Scalar factor = 0.0;
-  for (int n=0; n<lastElem; n++) {
+  for (std::size_t n=0; n<lastElem; n++) {
     factor = 0.8*(pow(dt[n]/dt[0], order));
     ftmp << dt[n]
          << "   " << xErrorNorm[n]       << "   " << factor*xErrorNorm[0];
