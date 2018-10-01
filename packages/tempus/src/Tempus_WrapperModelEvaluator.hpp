@@ -50,16 +50,16 @@ public:
   virtual Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >
     getAppModel() const = 0;
 
-  /// Set InArgs the wrapper ModelEvalutor.
+  /// Set InArgs the wrapper ModelEvaluator.
   virtual void setInArgs(Thyra::ModelEvaluatorBase::InArgs<Scalar> inArgs) = 0;
 
-  /// Get InArgs the wrapper ModelEvalutor.
+  /// Get InArgs the wrapper ModelEvaluator.
   virtual Thyra::ModelEvaluatorBase::InArgs<Scalar> getInArgs() = 0;
 
-  /// Set OutArgs the wrapper ModelEvalutor.
+  /// Set OutArgs the wrapper ModelEvaluator.
   virtual void setOutArgs(Thyra::ModelEvaluatorBase::OutArgs<Scalar> outArgs)=0;
 
-  /// Get OutArgs the wrapper ModelEvalutor.
+  /// Get OutArgs the wrapper ModelEvaluator.
   virtual Thyra::ModelEvaluatorBase::OutArgs<Scalar> getOutArgs() = 0;
 
   /// Set parameters for application implicit ModelEvaluator solve.
