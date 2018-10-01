@@ -54,6 +54,8 @@
 #include "NOX_Abstract_Group.H"    // class definition
 #include "NOX_Solver_SolverUtils.H"
 #include "Teuchos_ParameterList.hpp"  // class data element
+#include "NOX_Observer.hpp"
+#include "NOX_SolverStats.hpp"
 
 NOX::Solver::SingleStep::
 SingleStep(const Teuchos::RCP<NOX::Abstract::Group>& xGrp,
@@ -72,11 +74,12 @@ SingleStep(const Teuchos::RCP<NOX::Abstract::Group>& xGrp,
   validParams.set("Update Jacobian",true,"Recompute the Jacobian at each Newton iteration.");
   validParams.set("Print Norms",false,"Print the norms at each iteration.");
   validParams.set("Compute Relative Norm",false, "Computes relative norm, print only if \"Print Norms\" is enabled.");
+  validParams.sublist("Linear Solver"); // Allows for arbitrary/user defined linear solve parameters to be set
   p->sublist("Single Step Solver").validateParametersAndSetDefaults(validParams,0);
   NOX::Solver::validateSolverOptionsSublist(p->sublist("Solver Options"));
   globalDataPtr = Teuchos::rcp(new NOX::GlobalData(p));
   utilsPtr = globalDataPtr->getUtils();
-  prePostOperator.reset(utilsPtr,p->sublist("Solver Options"));
+  observer = NOX::Solver::parseObserver(p->sublist("Solver Options"));
   ignoreLinearSolverFailures = p->sublist("Single Step Solver").get<bool>("Ignore Linear Solver Failures");
   updateJacobian = p->sublist("Single Step Solver").get<bool>("Update Jacobian");
   if (not updateJacobian)
@@ -92,6 +95,7 @@ void NOX::Solver::SingleStep::init()
   // Initialize
   nIter = 0;
   status = NOX::StatusTest::Unconverged;
+  globalDataPtr->getNonConstSolverStatistics()->reset();
 
   // Print out parameters
   if (utilsPtr->isPrintType(NOX::Utils::Parameters))
@@ -104,10 +108,20 @@ void NOX::Solver::SingleStep::init()
 }
 
 void NOX::Solver::SingleStep::
+reset()
+{
+  nIter = 0;
+  status = NOX::StatusTest::Unconverged;
+  globalDataPtr->getNonConstSolverStatistics()->reset();
+}
+
+void NOX::Solver::SingleStep::
 reset(const NOX::Abstract::Vector& initialGuess)
 {
   solnPtr->setX(initialGuess);
-  init();
+  nIter = 0;
+  status = NOX::StatusTest::Unconverged;
+  globalDataPtr->getNonConstSolverStatistics()->reset();
 }
 
 void NOX::Solver::SingleStep::
@@ -115,7 +129,9 @@ reset(const NOX::Abstract::Vector& initialGuess,
       const Teuchos::RCP<NOX::StatusTest::Generic>&)
 {
   solnPtr->setX(initialGuess);
-  init();
+  nIter = 0;
+  status = NOX::StatusTest::Unconverged;
+  globalDataPtr->getNonConstSolverStatistics()->reset();
 }
 
 NOX::Solver::SingleStep::~SingleStep()
@@ -123,7 +139,7 @@ NOX::Solver::SingleStep::~SingleStep()
 
 }
 
-NOX::StatusTest::StatusType NOX::Solver::SingleStep::getStatus()
+NOX::StatusTest::StatusType NOX::Solver::SingleStep::getStatus() const
 {
   return status;
 }
@@ -158,26 +174,34 @@ bool NOX::Solver::SingleStep::try_step()
 
   // Reuse memory in group instead of new allocation for dir
   NOX::Abstract::Vector& dir = const_cast<NOX::Abstract::Vector&>(solnPtr->getNewton());
-  const auto ls_status = jacobian->applyJacobianInverse(paramsPtr->sublist("Linear Solver"),
+  const auto ls_status = jacobian->applyJacobianInverse(paramsPtr->sublist("Single Step Solver").sublist("Linear Solver"),
                                                         solnPtr->getF(),
                                                         dir);
+
+  jacobian->logLastLinearSolveStats(*globalDataPtr->getNonConstSolverStatistics());
 
   if (!ignoreLinearSolverFailures) {
     if (!check(ls_status,"solve Newton system"))
       return false;
   }
 
+  observer->runPreSolutionUpdate(dir,*this);
   solnPtr->computeX(*oldSolnPtr, dir, -1.0);
+  observer->runPostSolutionUpdate(*this);
 
   return true;
 }
 
 NOX::StatusTest::StatusType NOX::Solver::SingleStep::step()
 {
-  prePostOperator.runPreIterate(*this);
+  observer->runPreIterate(*this);
+
+  // SingleStep solver means step() is always a new solve
+  globalDataPtr->getNonConstSolverStatistics()->incrementNumNonlinearSolves();
 
   // Update iteration count.
   nIter ++;
+  globalDataPtr->getNonConstSolverStatistics()->incrementNumNonlinearIterations();
 
   // Copy current soln to the old soln.
   *oldSolnPtr = *solnPtr;
@@ -187,7 +211,7 @@ NOX::StatusTest::StatusType NOX::Solver::SingleStep::step()
   else
     status = NOX::StatusTest::Failed;
 
-  prePostOperator.runPostIterate(*this);
+  observer->runPostIterate(*this);
 
   printUpdate();
 
@@ -196,11 +220,13 @@ NOX::StatusTest::StatusType NOX::Solver::SingleStep::step()
 
 NOX::StatusTest::StatusType NOX::Solver::SingleStep::solve()
 {
-  prePostOperator.runPreSolve(*this);
+  observer->runPreSolve(*this);
+
+  this->reset();
 
   step();
 
-  prePostOperator.runPostSolve(*this);
+  observer->runPostSolve(*this);
 
   return status;
 }
@@ -244,6 +270,12 @@ Teuchos::RCP< const Teuchos::ParameterList >
 NOX::Solver::SingleStep::getListPtr() const
 {
    return paramsPtr;
+}
+
+Teuchos::RCP<const NOX::SolverStats>
+NOX::Solver::SingleStep::getSolverStatistics() const
+{
+  return globalDataPtr->getSolverStatistics();
 }
 
 // protected
