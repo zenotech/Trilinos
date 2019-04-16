@@ -25,6 +25,7 @@
 namespace Tempus {
 
 enum OrderODE {
+  NONE             = 0,  ///< Stepper does not integrate an ODE.
   FIRST_ORDER_ODE  = 1,  ///< Stepper integrates first-order ODEs
   SECOND_ORDER_ODE = 2,  ///< Stepper integrates second-order ODEs
 };
