@@ -328,6 +328,8 @@ computeOffsetsFromCounts (const OffsetsViewType& ptr,
       constexpr bool countsAccessibleFromOffsetsExecSpace =
         Kokkos::Impl::VerifyExecutionCanAccessMemorySpace<memory_space,
         typename CVT::memory_space>::value;
+//#define JHUHACK
+#ifndef JHUHACK
       if (countsAccessibleFromOffsetsExecSpace) {
 #ifdef KOKKOS_ENABLE_CUDA
         // If 'counts' is a UVM allocation, then conservatively fence
@@ -344,6 +346,7 @@ computeOffsetsFromCounts (const OffsetsViewType& ptr,
         Kokkos::parallel_scan (range, functor, total, funcName);
       }
       else { // make tmp copy of counts accessible from offsets' space
+#endif //JHUHACK
         using dev_counts_type = Kokkos::View<count_type*,
           typename CVT::array_layout, device_type>;
         dev_counts_type counts_d ("counts_d", numCounts);
@@ -353,7 +356,9 @@ computeOffsetsFromCounts (const OffsetsViewType& ptr,
           ComputeOffsetsFromCounts<OVT, dev_counts_type, SizeType>;
         functor_type functor (ptr, counts_d);
         Kokkos::parallel_scan (range, functor, total, funcName);
+#ifndef JHUHACK
       }
+#endif //JHUHACK
     }
     catch (std::exception& e) {
       TEUCHOS_TEST_FOR_EXCEPTION
