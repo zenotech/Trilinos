@@ -195,7 +195,7 @@ void StepperExplicitRK<Scalar>::initialize()
 
   this->setObserver();
 
-  TEUCHOS_TEST_FOR_EXCEPTION( this->stepperObserver_->getSize() < 1 
+  TEUCHOS_TEST_FOR_EXCEPTION( this->stepperObserver_->getSize() < 1
     , std::logic_error,
     "Error - Composite Observer is empty!\n");
 
@@ -354,6 +354,153 @@ void StepperExplicitRK<Scalar>::takeStep(
 
     workingState->setOrder(this->getOrder());
     this->stepperObserver_->observeEndTakeStep(solutionHistory, *this);
+  }
+  return;
+}
+
+
+/** \brief takeStep with Modifier
+ *
+ *  This is the standard Explicit RK with Modifier to allow
+ *  applications to modify the solution and stage solutions
+ *  at specific locations in the ExplicitRK algorithm.
+ *
+ *  The following is the Explicit RK algorithm with the Modifier
+ *  locations
+ *   - for \f$i = 1 \ldots s\f$ do
+ *     - if ( i==1 && useFSAL && (previous step not failed) )
+ *       - tmp = \f$\dot{X}_1\f$
+ *       - \f$\dot{X}_1 = \dot{X}_s\f$
+ *       - \f$\dot{X}_s\f$ = tmp
+ *     - else
+ *       - Modify stage solution, \f$X_i\f$ at beginning of stage.  <-----------
+ *       - \f$X_i \leftarrow x_{n-1}
+ *                + \Delta t\,\sum_{j=1}^{i-1} a_{ij}\,\dot{X}_j\f$
+ *       - Evaluate \f$\bar{f}(X_{i},t_{n-1}+c_{i}\Delta t)\f$
+ *       - \f$\dot{X}_i \leftarrow \bar{f}(X_i,t_{n-1}+c_i\Delta t)\f$
+ *   - end for
+ *   - \f$x_n \leftarrow x_{n-1} + \Delta t\,\sum_{i=1}^{s}b_i\,\dot{X}_i\f$
+ *   - Modify next time step solution, \f$x_n\f$ at end of step.    <-----------
+ *
+ *  Note that
+ *   - the last solution at \f$t_{n-1}\f$, \f$x_{n-1}\f$, is obtained
+ *     through the current solution state (i.e.,
+ *     solutionHistory->getCurrentState()->getX()).
+ *   - the next solution at \f$t_n\f$, \f$x_n\f$, is obtained
+ *     through the working solution state (i.e.,
+ *     solutionHistory->getWorkingState()->getX()).
+ *   - the stage solution at \f$t_{n-1}+c_{i}\Delta t\f$, \f$X_i\f$,
+ *     is obtained through the stepper member data, stageX_.
+ */
+template<class Scalar>
+void StepperExplicitRK<Scalar>::takeStep_modify(
+  const Teuchos::RCP<SolutionHistory<Scalar> >& solutionHistory)
+{
+  using Teuchos::RCP;
+
+  TEMPUS_FUNC_TIME_MONITOR("Tempus::StepperExplicitRK::takeStep_modify()");
+  {
+    TEUCHOS_TEST_FOR_EXCEPTION(solutionHistory->getNumStates() < 2,
+      std::logic_error,
+      "Error - StepperExplicitRK<Scalar>::takeStep_modify(...)\n"
+      "Need at least two SolutionStates for ExplicitRK.\n"
+      "  Number of States = " << solutionHistory->getNumStates() << "\n"
+      "Try setting in \"Solution History\" \"Storage Type\" = \"Undo\"\n"
+      "  or \"Storage Type\" = \"Static\" and \"Storage Limit\" = \"2\"\n");
+
+    RCP<SolutionState<Scalar> > currentState=solutionHistory->getCurrentState();
+    RCP<SolutionState<Scalar> > workingState=solutionHistory->getWorkingState();
+    const Scalar dt = workingState->getTimeStep();
+    const Scalar time = currentState->getTime();
+
+    const int numStages = tableau_->numStages();
+    Teuchos::SerialDenseMatrix<int,Scalar> A = tableau_->A();
+    Teuchos::SerialDenseVector<int,Scalar> b = tableau_->b();
+    Teuchos::SerialDenseVector<int,Scalar> c = tableau_->c();
+
+    // Compute stage solutions
+    for (int i=0; i < numStages; ++i) {
+
+      if ( i == 0 && this->getUseFSAL() &&
+           workingState->getNConsecutiveFailures() == 0 ) {
+
+        RCP<Thyra::VectorBase<Scalar> > tmp = stageXDot_[0];
+        stageXDot_[0] = stageXDot_.back();
+        stageXDot_.back() = tmp;
+
+      } else {
+
+        Thyra::assign(stageX_.ptr(), *(currentState->getX()));
+        for (int j=0; j < i; ++j) {
+          if (A(i,j) != Teuchos::ScalarTraits<Scalar>::zero()) {
+            Thyra::Vp_StV(stageX_.ptr(), dt*A(i,j), *stageXDot_[j]);
+          }
+        }
+        const Scalar ts = time + c(i)*dt;
+
+        modifier_->modify(stageX_, STAGEX_BEGINSTAGE);
+
+        auto p = Teuchos::rcp(new ExplicitODEParameters<Scalar>(dt));
+
+        // Evaluate xDot = f(x,t).
+        this->evaluateExplicitODE(stageXDot_[i], stageX_, ts, p);
+      }
+    }
+
+    // Sum for solution: x_n = x_n-1 + Sum{ b(i) * dt*f(i) }
+    auto x = workingState->getX();
+    Thyra::assign(x.ptr(), *(currentState->getX()));
+    for (int i=0; i < numStages; ++i) {
+      if (b(i) != Teuchos::ScalarTraits<Scalar>::zero()) {
+        Thyra::Vp_StV(x.ptr(), dt*b(i), *(stageXDot_[i]));
+      }
+    }
+
+    modifier_->modify(x, X_ENDSTEP);
+
+    // At this point, the stepper has passed.
+    // But when using adaptive time stepping, the embedded method
+    // can change the step status
+    workingState->setSolutionStatus(Status::PASSED);
+
+    if (tableau_->isEmbedded() and this->getUseEmbedded()) {
+
+      RCP<SolutionStateMetaData<Scalar> > metaData=workingState->getMetaData();
+      const Scalar tolAbs = metaData->getTolRel();
+      const Scalar tolRel = metaData->getTolAbs();
+
+      // just compute the error weight vector
+      // (all that is needed is the error, and not the embedded solution)
+      Teuchos::SerialDenseVector<int,Scalar> errWght = b ;
+      errWght -= tableau_->bstar();
+
+      //compute local truncation error estimate: | u^{n+1} - \hat{u}^{n+1} |
+      // Sum for solution: ee_n = Sum{ (b(i) - bstar(i)) * dt*f(i) }
+      assign(ee_.ptr(), Teuchos::ScalarTraits<Scalar>::zero());
+      for (int i=0; i < numStages; ++i) {
+         if (errWght(i) != Teuchos::ScalarTraits<Scalar>::zero()) {
+            Thyra::Vp_StV(ee_.ptr(), dt*errWght(i), *(stageXDot_[i]));
+         }
+      }
+
+      // compute: Atol + max(|u^n|, |u^{n+1}| ) * Rtol
+      Thyra::abs( *(currentState->getX()), abs_u0.ptr());
+      Thyra::abs( *(workingState->getX()), abs_u.ptr());
+      Thyra::pair_wise_max_update(tolRel, *abs_u0, abs_u.ptr());
+      Thyra::add_scalar(tolAbs, abs_u.ptr());
+
+      //compute: || ee / sc ||
+      assign(sc.ptr(), Teuchos::ScalarTraits<Scalar>::zero());
+      Thyra::ele_wise_divide(Teuchos::as<Scalar>(1.0), *ee_, *abs_u, sc.ptr());
+      Scalar err = std::abs(Thyra::norm_inf(*sc));
+      metaData->setErrorRel(err);
+
+      // test if step should be rejected
+      if (std::isinf(err) || std::isnan(err) || err > Teuchos::as<Scalar>(1.0))
+        workingState->setSolutionStatus(Status::FAILED);
+    }
+
+    workingState->setOrder(this->getOrder());
   }
   return;
 }

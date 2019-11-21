@@ -13,6 +13,7 @@
 #include "Tempus_StepperExplicit.hpp"
 #include "Tempus_RKButcherTableau.hpp"
 #include "Tempus_StepperRKObserverComposite.hpp"
+#include "Tempus_StepperExplicitRKModifierBasic.hpp"
 
 
 namespace Tempus {
@@ -75,6 +76,16 @@ namespace Tempus {
  *   - end for
  *   - \f$x_n \leftarrow x_{n-1} + \Delta t\,\sum_{i=1}^{s}b_i\,\dot{X}_i\f$
  *
+ *  Note that
+ *   - the last solution at \f$t_{n-1}\f$, \f$x_{n-1}\f$, is obtained
+ *     through the current solution state (i.e.,
+ *     solutionHistory->getCurrentState()->getX()).
+ *   - the next solution at \f$t_n\f$, \f$x_n\f$, is obtained
+ *     through the working solution state (i.e.,
+ *     solutionHistory->getWorkingState()->getX()).
+ *   - the stage solution at \f$t_{n-1}+c_{i}\Delta t\f$, \f$X_i\f$,
+ *     is obtained through the stepper member data, stageX_.
+ *
  *   For Explicit RK, FSAL requires \f$c_1 = 0\f$, \f$c_s = 1\f$, and
  *   be stiffly accurate (\f$a_{sj} = b_j\f$).  An example of this is
  *   the Bogacki-Shampine 3(2) method.
@@ -115,6 +126,10 @@ public:
     virtual void takeStep(
       const Teuchos::RCP<SolutionHistory<Scalar> >& solutionHistory);
 
+    /// Take the specified timestep, dt, with Modifier calls.
+    virtual void takeStep_modify(
+      const Teuchos::RCP<SolutionHistory<Scalar> >& solutionHistory);
+
     /// Get a default (initial) StepperState
     virtual Teuchos::RCP<Tempus::StepperState<Scalar> > getDefaultStepperState();
     virtual Scalar getOrder() const {return tableau_->order();}
@@ -148,7 +163,7 @@ public:
 
   /// \name Accessors methods
   //@{
-    /** \brief Use embedded if avialable. */
+    /** \brief Use embedded if available. */
     virtual void setUseEmbedded(bool a) { useEmbedded_ = a; }
     virtual bool getUseEmbedded() const { return useEmbedded_; }
     virtual bool getUseEmbeddedDefault() const { return false; }
