@@ -13,7 +13,8 @@
 #include "Tempus_StepperExplicit.hpp"
 #include "Tempus_RKButcherTableau.hpp"
 #include "Tempus_StepperRKObserverComposite.hpp"
-#include "Tempus_StepperExplicitRKModifierBasic.hpp"
+#include "Tempus_StepperExplicitRKModifier.hpp"
+#include "Tempus_StepperExplicitRKModifierDefault.hpp"
 
 
 namespace Tempus {
@@ -109,6 +110,9 @@ public:
     virtual void setObserver(
       Teuchos::RCP<StepperObserver<Scalar> > obs = Teuchos::null);
 
+    virtual void setModifier(
+      Teuchos::RCP<StepperExplicitRKModifier<Scalar> > stepperModifier);
+
     virtual Teuchos::RCP<const RKButcherTableau<Scalar> > getTableau()
     { return tableau_; }
 
@@ -167,6 +171,9 @@ public:
     virtual void setUseEmbedded(bool a) { useEmbedded_ = a; }
     virtual bool getUseEmbedded() const { return useEmbedded_; }
     virtual bool getUseEmbeddedDefault() const { return false; }
+
+    virtual void setUseModifier(bool a) { useModifier_ = a; }
+    virtual bool getUseModifier() const { return useModifier_; }
   //@}
 
 
@@ -176,9 +183,21 @@ protected:
   virtual void setupDefault();
 
   /// Setup for constructor.
+  [[deprecated("New setup interface includes Modifier.")]]
   virtual void setup(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
     const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    bool useFSAL,
+    std::string ICConsistency,
+    bool ICConsistencyCheck,
+    bool useEmbedded);
+
+  /// Setup for constructor.
+  virtual void setup(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
+    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperExplicitRKModifier<Scalar> >& mod,
+    bool useModifier,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
@@ -189,10 +208,12 @@ protected:
 
   Teuchos::RCP<RKButcherTableau<Scalar> >                tableau_;
 
-  std::vector<Teuchos::RCP<Thyra::VectorBase<Scalar> > >     stageXDot_;
-  Teuchos::RCP<Thyra::VectorBase<Scalar> >                   stageX_;
+  std::vector<Teuchos::RCP<Thyra::VectorBase<Scalar> > > stageXDot_;
+  Teuchos::RCP<Thyra::VectorBase<Scalar> >               stageX_;
 
-  Teuchos::RCP<StepperRKObserverComposite<Scalar> >          stepperObserver_;
+  Teuchos::RCP<StepperRKObserverComposite<Scalar> >      stepperObserver_;
+  Teuchos::RCP<StepperExplicitRKModifier<Scalar> >       stepperModifier_;
+  bool                                                   useModifier_;
 
   // For Embedded RK
   bool useEmbedded_;

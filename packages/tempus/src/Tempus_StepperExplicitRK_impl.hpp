@@ -25,8 +25,10 @@ void StepperExplicitRK<Scalar>::setupDefault()
   this->setICConsistencyCheck( this->getICConsistencyCheckDefault());
   this->setUseEmbedded(        this->getUseEmbeddedDefault());
 
-  this->stepperObserver_ =
-    Teuchos::rcp(new StepperRKObserverComposite<Scalar>());
+  this->setObserver(Teuchos::rcp(new StepperRKObserverComposite<Scalar>()));
+
+  this->setModifier(Teuchos::rcp(new StepperExplicitRKModifierDefault<Scalar>()));
+  this->setUseModifier(false);
 }
 
 
@@ -47,6 +49,37 @@ void StepperExplicitRK<Scalar>::setup(
   this->stepperObserver_ =
     Teuchos::rcp(new StepperRKObserverComposite<Scalar>());
   this->setObserver(obs);
+  this->setModifier(Teuchos::rcp(new StepperExplicitRKModifierDefault<Scalar>()));
+  this->setUseModifier(false);
+
+  if (appModel != Teuchos::null) {
+    this->setModel(appModel);
+    this->initialize();
+  }
+}
+
+
+template<class Scalar>
+void StepperExplicitRK<Scalar>::setup(
+  const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
+  const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+  const Teuchos::RCP<StepperExplicitRKModifier<Scalar> >& mod,
+  bool useModifier,
+  bool useFSAL,
+  std::string ICConsistency,
+  bool ICConsistencyCheck,
+  bool useEmbedded)
+{
+  this->setUseFSAL(            useFSAL);
+  this->setICConsistency(      ICConsistency);
+  this->setICConsistencyCheck( ICConsistencyCheck);
+  this->setUseEmbedded(        useEmbedded);
+
+  this->stepperObserver_ =
+    Teuchos::rcp(new StepperRKObserverComposite<Scalar>());
+  this->setObserver(obs);
+  this->setModifier(mod);
+  this->setUseModifier(useModifier);
 
   if (appModel != Teuchos::null) {
     this->setModel(appModel);
@@ -183,6 +216,14 @@ void StepperExplicitRK<Scalar>::setObserver(
 
 
 template<class Scalar>
+void StepperExplicitRK<Scalar>::setModifier(
+  Teuchos::RCP<StepperExplicitRKModifier<Scalar> > stepperModifier)
+{
+  stepperModifier_ = stepperModifier;
+}
+
+
+template<class Scalar>
 void StepperExplicitRK<Scalar>::initialize()
 {
   TEUCHOS_TEST_FOR_EXCEPTION( tableau_ == Teuchos::null, std::logic_error,
@@ -237,6 +278,8 @@ template<class Scalar>
 void StepperExplicitRK<Scalar>::takeStep(
   const Teuchos::RCP<SolutionHistory<Scalar> >& solutionHistory)
 {
+  if (getUseModifier()) return takeStep_modify(solutionHistory);
+
   using Teuchos::RCP;
 
   TEMPUS_FUNC_TIME_MONITOR("Tempus::StepperExplicitRK::takeStep()");
@@ -438,7 +481,7 @@ void StepperExplicitRK<Scalar>::takeStep_modify(
         }
         const Scalar ts = time + c(i)*dt;
 
-        modifier_->modify(stageX_, STAGEX_BEGINSTAGE);
+        stepperModifier_->modify(stageX_, STAGEX_BEGINSTAGE);
 
         auto p = Teuchos::rcp(new ExplicitODEParameters<Scalar>(dt));
 
@@ -456,7 +499,7 @@ void StepperExplicitRK<Scalar>::takeStep_modify(
       }
     }
 
-    modifier_->modify(x, X_ENDSTEP);
+    stepperModifier_->modify(x, X_ENDSTEP);
 
     // At this point, the stepper has passed.
     // But when using adaptive time stepping, the embedded method

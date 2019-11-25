@@ -279,7 +279,7 @@ TEUCHOS_UNIT_TEST(ExplicitRK, SinCos)
   RKMethodErrors.push_back(4.16603e-05);
   RKMethodErrors.push_back(1.39383e-07);
   RKMethodErrors.push_back(4.16603e-05);
-  RKMethodErrors.push_back(0.00166645); 
+  RKMethodErrors.push_back(0.00166645);
   RKMethodErrors.push_back(4.16603e-05);
   //RKMethodErrors.push_back(3.85613e-07); // SSPERK54
 
@@ -329,6 +329,13 @@ TEUCHOS_UNIT_TEST(ExplicitRK, SinCos)
       pl->sublist("Demo Integrator")
         .sublist("Time Step Control").set("Initial Time Step", dt);
       integrator = Tempus::integratorBasic<double>(pl, model);
+
+      {
+        auto stepper =
+          Teuchos::rcp_dynamic_cast<Tempus::StepperExplicitRK<double> >
+            (integrator->getStepper());
+        stepper->setUseModifier(true);
+      }
 
       // Initial Conditions
       // During the Integrator construction, the initial SolutionState

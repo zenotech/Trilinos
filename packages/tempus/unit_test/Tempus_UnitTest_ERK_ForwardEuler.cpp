@@ -66,6 +66,7 @@ TEUCHOS_UNIT_TEST(ERK_ForwardEuler, Arglist_Construction)
   auto defaultStepper = rcp(new Tempus::StepperERK_ForwardEuler<double>());
   auto model = rcp(new Tempus_Test::SinCosModel<double>());
   auto obs = rcp(new Tempus::StepperRKObserverComposite<double>());
+  auto mod = rcp(new Tempus::StepperExplicitRKModifierDefault<double>());
 
   auto stepper = rcp(new Tempus::StepperERK_ForwardEuler<double>(
                            model, obs,

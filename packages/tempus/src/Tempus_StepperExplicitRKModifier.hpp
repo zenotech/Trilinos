@@ -6,11 +6,12 @@
 // ****************************************************************************
 // @HEADER
 
-#ifndef Tempus_StepperExplicitRKModifierBasic_hpp
-#define Tempus_StepperExplicitRKModifierBasic_hpp
+#ifndef Tempus_StepperExplicitRKModifier_hpp
+#define Tempus_StepperExplicitRKModifier_hpp
 
 
 namespace Tempus {
+
 
 /// MODIFIER_TYPE indicates solution variable and stepper location to modify.
 enum MODIFIER_TYPE {
@@ -19,7 +20,7 @@ enum MODIFIER_TYPE {
 };
 
 
-/** \brief Basic Modifier illustrating usage.
+/** \brief Pure virtual Modifier class.
  *
  *  The Modifier allows applications to modify the solution and
  *  stage solutions in StepperExplicitRK::takeStep_modify() at
@@ -29,22 +30,16 @@ enum MODIFIER_TYPE {
  *  algorithm.
  */
 template<class Scalar>
-class StepperExplicitRKModifierBasic
+class StepperExplicitRKModifier
 {
 public:
 
-  /// Constructor
-  StepperExplicitRKModifierBasic(){}
-
-  /// Destructor
-  virtual ~StepperExplicitRKModifierBasic(){}
-
   /// Modify solution based on the MODIFIER_TYPE.
-  virtual void modify(RCP<Thyra::VectorBase<Scalar> > /* x */,
-                      MODIFIER_TYPE /* modType */){}
+  virtual void modify(Teuchos::RCP<Thyra::VectorBase<Scalar> > x,
+                      MODIFIER_TYPE modType) = 0;
 };
 
 } // namespace Tempus
 
 
-#endif // Tempus_StepperExplicitRKModifierBasic_hpp
+#endif // Tempus_StepperExplicitRKModifier_hpp
