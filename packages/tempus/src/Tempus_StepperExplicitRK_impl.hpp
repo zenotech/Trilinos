@@ -402,28 +402,30 @@ void StepperExplicitRK<Scalar>::takeStep(
 }
 
 
-/** \brief takeStep with Modifier
- *
+/** \brief
  *  This is the standard Explicit RK with Modifier to allow
  *  applications to modify the solution and stage solutions
  *  at specific locations in the ExplicitRK algorithm.
  *
  *  The following is the Explicit RK algorithm with the Modifier
  *  locations
+ *   - \em modify \f$x_{n-1}\f$ given \f$t\f$ and \f$\Delta\f$ (X_BEGINSTEP)
  *   - for \f$i = 1 \ldots s\f$ do
  *     - if ( i==1 && useFSAL && (previous step not failed) )
  *       - tmp = \f$\dot{X}_1\f$
  *       - \f$\dot{X}_1 = \dot{X}_s\f$
  *       - \f$\dot{X}_s\f$ = tmp
  *     - else
- *       - Modify stage solution, \f$X_i\f$ at beginning of stage.  <-----------
+ *       - \em modify \f$X_i\f$ given \f$t\f$ and \f$\Delta\f$ (X_BEGINSTAGE)
  *       - \f$X_i \leftarrow x_{n-1}
  *                + \Delta t\,\sum_{j=1}^{i-1} a_{ij}\,\dot{X}_j\f$
  *       - Evaluate \f$\bar{f}(X_{i},t_{n-1}+c_{i}\Delta t)\f$
  *       - \f$\dot{X}_i \leftarrow \bar{f}(X_i,t_{n-1}+c_i\Delta t)\f$
+ *       - \em modify \f$\dot{X}_i\f$ given \f$t\f$ and \f$\Delta\f$ (XDOT_ENDSTAGE)
  *   - end for
  *   - \f$x_n \leftarrow x_{n-1} + \Delta t\,\sum_{i=1}^{s}b_i\,\dot{X}_i\f$
  *   - Modify next time step solution, \f$x_n\f$ at end of step.    <-----------
+ *   - \em modify \f$x_n\f$ given \f$t\f$ and \f$\Delta\f$ (X_ENDSTEP)
  *
  *  Note that
  *   - the last solution at \f$t_{n-1}\f$, \f$x_{n-1}\f$, is obtained
@@ -440,6 +442,7 @@ void StepperExplicitRK<Scalar>::takeStep_modify(
   const Teuchos::RCP<SolutionHistory<Scalar> >& solutionHistory)
 {
   using Teuchos::RCP;
+  typedef typename StepperExplicitRKModifier<Scalar>::MODIFIER_TYPE ERK_MODIFIER_TYPE;
 
   TEMPUS_FUNC_TIME_MONITOR("Tempus::StepperExplicitRK::takeStep_modify()");
   {
@@ -455,6 +458,9 @@ void StepperExplicitRK<Scalar>::takeStep_modify(
     RCP<SolutionState<Scalar> > workingState=solutionHistory->getWorkingState();
     const Scalar dt = workingState->getTimeStep();
     const Scalar time = currentState->getTime();
+
+    stepperModifier_->modify(currentState->getX(), time, dt,
+      ERK_MODIFIER_TYPE::X_BEGINSTEP);
 
     const int numStages = tableau_->numStages();
     Teuchos::SerialDenseMatrix<int,Scalar> A = tableau_->A();
@@ -479,14 +485,19 @@ void StepperExplicitRK<Scalar>::takeStep_modify(
             Thyra::Vp_StV(stageX_.ptr(), dt*A(i,j), *stageXDot_[j]);
           }
         }
-        const Scalar ts = time + c(i)*dt;
+        const Scalar DT = c(i)*dt;
+        const Scalar ts = time + DT;
 
-        stepperModifier_->modify(stageX_, STAGEX_BEGINSTAGE);
+        stepperModifier_->modify(stageX_, time, DT,
+          ERK_MODIFIER_TYPE::X_BEGINSTAGE);
 
         auto p = Teuchos::rcp(new ExplicitODEParameters<Scalar>(dt));
 
         // Evaluate xDot = f(x,t).
         this->evaluateExplicitODE(stageXDot_[i], stageX_, ts, p);
+
+        stepperModifier_->modify(stageXDot_[i], time, DT,
+          ERK_MODIFIER_TYPE::XDOT_ENDSTAGE);
       }
     }
 
@@ -499,7 +510,7 @@ void StepperExplicitRK<Scalar>::takeStep_modify(
       }
     }
 
-    stepperModifier_->modify(x, X_ENDSTEP);
+    stepperModifier_->modify(x, time, dt, ERK_MODIFIER_TYPE::X_ENDSTEP);
 
     // At this point, the stepper has passed.
     // But when using adaptive time stepping, the embedded method

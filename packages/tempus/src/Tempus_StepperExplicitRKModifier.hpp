@@ -13,19 +13,13 @@
 namespace Tempus {
 
 
-/// MODIFIER_TYPE indicates solution variable and stepper location to modify.
-enum MODIFIER_TYPE {
-  STAGEX_BEGINSTAGE, ///< Modify stage x value at beginning of stage.
-  X_ENDSTEP          ///< Modify solution x value at end step.
-};
-
 
 /** \brief Pure virtual Modifier class.
  *
  *  The Modifier allows applications to modify the solution and
  *  stage solutions in StepperExplicitRK::takeStep_modify() at
- *  specific locations in the ExplicitRK algorithm.  This is
- *  specified through the MODIFIER_TYPE.  See
+ *  specific locations in the ExplicitRK algorithm.  The locations
+ *  are specified through the MODIFIER_TYPE.  See
  *  StepperExplicitRK<Scalar>::takeStep_modify() for details on
  *  algorithm.
  */
@@ -34,9 +28,17 @@ class StepperExplicitRKModifier
 {
 public:
 
+  /// MODIFIER_TYPE indicates solution variable and stepper location to modify.
+  enum MODIFIER_TYPE {
+    X_BEGINSTEP,     ///< Modify x at the beginning of the step.
+    X_BEGINSTAGE,    ///< Modify x at the beginning of the stage.
+    XDOT_ENDSTAGE,   ///< Modify xDot at the end of the stage.
+    X_ENDSTEP        ///< Modify x at the end of the step.
+  };
+
   /// Modify solution based on the MODIFIER_TYPE.
   virtual void modify(Teuchos::RCP<Thyra::VectorBase<Scalar> > x,
-                      MODIFIER_TYPE modType) = 0;
+                      Scalar time, Scalar dt, MODIFIER_TYPE modType) = 0;
 };
 
 } // namespace Tempus

@@ -15,18 +15,13 @@
 namespace Tempus {
 
 
-/** \brief Default Modifier illustrating usage.
+/** \brief Default Modifier which is a no-op.
  *
- *  The Modifier allows applications to modify the solution and
- *  stage solutions in StepperExplicitRK::takeStep_modify() at
- *  specific locations in the ExplicitRK algorithm.  This is
- *  specified through the MODIFIER_TYPE.  See
- *  StepperExplicitRK<Scalar>::takeStep_modify() for details on
- *  algorithm.
+ *  See StepperExplicitRKModifier for details.
  */
 template<class Scalar>
 class StepperExplicitRKModifierDefault
- : virtual public Tempus::StepperExplicitRKModifier<Scalar>
+ : virtual public StepperExplicitRKModifier<Scalar>
 {
 public:
 
@@ -37,8 +32,10 @@ public:
   virtual ~StepperExplicitRKModifierDefault(){}
 
   /// Modify solution based on the MODIFIER_TYPE.
-  virtual void modify(Teuchos::RCP<Thyra::VectorBase<Scalar> > /* x */,
-                      MODIFIER_TYPE /* modType */){}
+  virtual void modify(
+    Teuchos::RCP<Thyra::VectorBase<Scalar> > /* x */,
+    Scalar /* time */, Scalar /* dt */,
+    typename StepperExplicitRKModifier<Scalar>::MODIFIER_TYPE /* modType */){}
 };
 
 } // namespace Tempus

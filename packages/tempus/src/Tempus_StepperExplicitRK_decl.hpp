@@ -183,7 +183,7 @@ protected:
   virtual void setupDefault();
 
   /// Setup for constructor.
-  [[deprecated("New setup interface includes Modifier.")]]
+  //[[deprecated("New setup interface includes Modifier.")]]
   virtual void setup(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
     const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
