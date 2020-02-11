@@ -36,7 +36,42 @@ TRIBITS_ADD_EXECUTABLE_AND_TEST(
   NUM_MPI_PROCS 1
   )
 
+TRIBITS_ADD_EXECUTABLE_AND_TEST(
+  BE
+  SOURCES Tempus_BETest.cpp ${TEUCHOS_STD_UNIT_TEST_MAIN}
+  TESTONLYLIBS tempus_test_models
+  NUM_MPI_PROCS 1
+  )
+
+TRIBITS_ADD_EXECUTABLE_AND_TEST(
+  BE_Combined_FSA
+  SOURCES Tempus_BE_Combined_FSA.cpp Tempus_BE_FSA.hpp ${TEUCHOS_STD_UNIT_TEST_MAIN}
+  TESTONLYLIBS tempus_test_models
+  NUM_MPI_PROCS 1
+  )
+
+TRIBITS_ADD_EXECUTABLE_AND_TEST(
+  BE_Staggered_FSA
+  SOURCES Tempus_BE_Staggered_FSA.cpp Tempus_BE_FSA.hpp ${TEUCHOS_STD_UNIT_TEST_MAIN}
+  TESTONLYLIBS tempus_test_models
+  NUM_MPI_PROCS 1
+  )
+
+TRIBITS_ADD_EXECUTABLE_AND_TEST(
+  BE_PseudoTransient_SA
+  SOURCES Tempus_BE_PseudoTransient_SA.cpp ${TEUCHOS_STD_UNIT_TEST_MAIN}
+  TESTONLYLIBS tempus_test_models
+  NUM_MPI_PROCS 1
+  )
+
+TRIBITS_ADD_EXECUTABLE_AND_TEST(
+  BE_ASA
+  SOURCES Tempus_BE_ASA.cpp ${TEUCHOS_STD_UNIT_TEST_MAIN}
+  TESTONLYLIBS tempus_test_models
+  NUM_MPI_PROCS 1
+  )
+
 TRIBITS_COPY_FILES_TO_BINARY_DIR(Test_BackwardEuler_CopyFiles
   DEST_FILES Tempus_BackwardEuler_SinCos.xml Tempus_BackwardEuler_CDR.xml Tempus_BackwardEuler_VanDerPol.xml Tempus_BackwardEuler_SteadyQuadratic.xml
-  EXEDEPS BackwardEuler
+  EXEDEPS BackwardEuler BE
   )
