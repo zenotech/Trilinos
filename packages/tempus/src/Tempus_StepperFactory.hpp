@@ -19,6 +19,7 @@
 #include "Tempus_StepperNewmarkExplicitAForm.hpp"
 #include "Tempus_StepperHHTAlpha.hpp"
 #include "Tempus_StepperRKButcherTableau.hpp"
+#include "Tempus_StepperRKBT.hpp"
 #include "Tempus_StepperIMEX_RK.hpp"
 #include "Tempus_StepperIMEX_RK_Partition.hpp"
 #include "Tempus_StepperLeapfrog.hpp"
