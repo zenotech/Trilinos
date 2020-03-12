@@ -13,6 +13,17 @@
 #include "Tempus_StepperForwardEuler.hpp"
 #include "Tempus_StepperBackwardEuler.hpp"
 #include "Tempus_StepperBE.hpp"
+#include "Tempus_StepperERK.hpp"
+#include "Tempus_StepperBDF2.hpp"
+#include "Tempus_StepperNewmarkImplicitAForm.hpp"
+#include "Tempus_StepperNewmarkImplicitDForm.hpp"
+#include "Tempus_StepperNewmarkExplicitAForm.hpp"
+#include "Tempus_StepperHHTAlpha.hpp"
+#include "Tempus_StepperRKButcherTableau.hpp"
+#include "Tempus_StepperRKBT.hpp"
+#include "Tempus_StepperIMEX_RK.hpp"
+#include "Tempus_StepperIMEX_RK_Partition.hpp"
+#include "Tempus_StepperLeapfrog.hpp"
 #include "Tempus_StepperBDF2.hpp"
 #include "Tempus_StepperNewmarkImplicitAForm.hpp"
 #include "Tempus_StepperNewmarkImplicitDForm.hpp"
@@ -255,6 +266,20 @@ public:
   /// Set StepperRK member data from the ParameterList.
   void setStepperRKValues(
     Teuchos::RCP<StepperExplicitRK<Scalar> > stepper,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    if (stepperPL != Teuchos::null) {
+      stepperPL->validateParametersAndSetDefaults(
+                                              *stepper->getValidParameters());
+      setStepperValues(stepper, stepperPL);
+      stepper->setUseEmbedded(
+        stepperPL->get<bool>("Use Embedded",stepper->getUseEmbeddedDefault()));
+    }
+  }
+
+  /// Set StepperRK member data from the ParameterList.
+  void setStepperERKValues(
+    Teuchos::RCP<StepperERK<Scalar> > stepper,
     Teuchos::RCP<Teuchos::ParameterList> stepperPL)
   {
     if (stepperPL != Teuchos::null) {
@@ -932,6 +957,249 @@ public:
     return stepper;
   }
 
+
+//----------------
+  Teuchos::RCP<StepperERKNew_General<Scalar> >
+  createStepperERKNew_General(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_General<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (stepperPL != Teuchos::null) {
+      if (stepperPL->isParameter("Tableau")) {
+        auto t = createTableau(stepperPL);
+        stepper->setTableau( t->A(),t->b(),t->c(),
+                             t->order(),t->orderMin(),t->orderMax(),
+                             t->bstar() );
+      }
+    }
+    TEUCHOS_TEST_FOR_EXCEPTION(
+      stepper->getTableau()->isImplicit() == true, std::logic_error,
+      "Error - General ERK received an implicit Butcher Tableau!\n");
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_ForwardEuler<Scalar> >
+  createStepperERKNew_ForwardEuler(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_ForwardEuler<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_4Stage4thOrder<Scalar> >
+  createStepperERKNew_4Stage4thOrder(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_4Stage4thOrder<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_3_8Rule<Scalar> >
+  createStepperERKNew_3_8Rule(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_3_8Rule<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_4Stage3rdOrderRunge<Scalar> >
+  createStepperERKNew_4Stage3rdOrderRunge(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_4Stage3rdOrderRunge<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_5Stage3rdOrderKandG<Scalar> >
+  createStepperERKNew_5Stage3rdOrderKandG(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_5Stage3rdOrderKandG<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_3Stage3rdOrder<Scalar> >
+  createStepperERKNew_3Stage3rdOrder(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_3Stage3rdOrder<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_3Stage3rdOrderTVD<Scalar> >
+  createStepperERKNew_3Stage3rdOrderTVD(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL,
+    const std::string stepperType)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_3Stage3rdOrderTVD<Scalar>());
+    stepper->setStepperType(stepperType);
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_SSPERK54<Scalar> >
+  createStepperERKNew_SSPERK54(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_SSPERK54<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_3Stage3rdOrderHeun<Scalar> >
+  createStepperERKNew_3Stage3rdOrderHeun(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_3Stage3rdOrderHeun<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_Midpoint<Scalar> >
+  createStepperERKNew_Midpoint(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_Midpoint<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_Trapezoidal<Scalar> >
+  createStepperERKNew_Trapezoidal(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL,
+    std::string stepperType)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_Trapezoidal<Scalar>());
+    stepper->setStepperType(stepperType);
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_BogackiShampine32<Scalar> >
+  createStepperERKNew_BogackiShampine32(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_BogackiShampine32<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+
+  Teuchos::RCP<StepperERKNew_Merson45<Scalar> >
+  createStepperERKNew_Merson45(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
+    Teuchos::RCP<Teuchos::ParameterList> stepperPL)
+  {
+    auto stepper = Teuchos::rcp(new StepperERKNew_Merson45<Scalar>());
+    setStepperERKValues(stepper, stepperPL);
+
+    if (model != Teuchos::null) {
+      stepper->setModel(model);
+      stepper->initialize();
+    }
+
+    return stepper;
+  }
+// ----------------
+
   Teuchos::RCP<StepperDIRK_General<Scalar> >
   createStepperDIRK_General(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
@@ -1353,6 +1621,38 @@ private:
       return createStepperERK_BogackiShampine32(model, stepperPL);
     else if (stepperType == "Merson 4(5) Pair" )
       return createStepperERK_Merson45(model, stepperPL);
+
+    else if (stepperType == "General ERKNew" )
+      return createStepperERKNew_General(model, stepperPL);
+    else if (stepperType == "RKNew Forward Euler" )
+      return createStepperERKNew_ForwardEuler(model, stepperPL);
+    else if (stepperType == "RKNew Explicit 4 Stage" )
+      return createStepperERKNew_4Stage4thOrder(model, stepperPL);
+    else if (stepperType == "RKNew Explicit 3/8 Rule" )
+      return createStepperERKNew_3_8Rule(model, stepperPL);
+    else if (stepperType == "RKNew Explicit 4 Stage 3rd order by Runge" )
+      return createStepperERKNew_4Stage3rdOrderRunge(model, stepperPL);
+    else if (stepperType == "RKNew Explicit 5 Stage 3rd order by Kinnmark and Gray" )
+      return createStepperERKNew_5Stage3rdOrderKandG(model, stepperPL);
+    else if (stepperType == "RKNew Explicit 3 Stage 3rd order" )
+      return createStepperERKNew_3Stage3rdOrder(model, stepperPL);
+    else if (stepperType == "RKNew Explicit 3 Stage 3rd order TVD" ||
+             stepperType == "NewSSPERK33")
+      return createStepperERKNew_3Stage3rdOrderTVD(model, stepperPL, stepperType);
+    else if (stepperType == "RKNew Explicit 3 Stage 3rd order by Heun" )
+      return createStepperERKNew_3Stage3rdOrderHeun(model, stepperPL);
+    else if (stepperType == "RKNew Explicit Midpoint" )
+      return createStepperERKNew_Midpoint(model, stepperPL);
+    else if (stepperType == "RKNew Explicit Trapezoidal" ||
+             stepperType == "Heuns Method" || stepperType == "SSPERK22")
+      return createStepperERKNew_Trapezoidal(model, stepperPL, stepperType);
+    else if (stepperType == "NewSSPERK54" )
+      return createStepperERKNew_SSPERK54(model, stepperPL);
+    else if (stepperType == "NewBogacki-Shampine 3(2) Pair" )
+      return createStepperERKNew_BogackiShampine32(model, stepperPL);
+    else if (stepperType == "NewMerson 4(5) Pair" )
+      return createStepperERKNew_Merson45(model, stepperPL);
+
     else if (stepperType == "General DIRK" )
       return createStepperDIRK_General(model, stepperPL);
     else if (stepperType == "RK Backward Euler" )

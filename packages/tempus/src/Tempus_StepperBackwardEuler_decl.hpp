@@ -11,7 +11,10 @@
 
 #include "Tempus_StepperImplicit.hpp"
 #include "Tempus_WrapperModelEvaluator.hpp"
-#include "Tempus_StepperBackwardEulerObserver.hpp"
+#ifndef TEMPUS_HIDE_DEPRECATED_CODE
+ #include "Tempus_StepperBackwardEulerObserver.hpp"
+#endif
+#include "Tempus_StepperBackwardEulerAppAction.hpp"
 #include "Tempus_StepperOptimizationInterface.hpp"
 
 
@@ -62,11 +65,12 @@ public:
 
   /** \brief Default constructor.
    *
-   *  Requires subsequent setModel() and initialize()
+   *  Requires subsequent setModel(), setSolver() and initialize()
    *  calls before calling takeStep().
   */
   StepperBackwardEuler();
 
+#ifndef TEMPUS_HIDE_DEPRECATED_CODE
   /// Constructor
   StepperBackwardEuler(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
@@ -77,22 +81,40 @@ public:
     std::string ICConsistency,
     bool ICConsistencyCheck,
     bool zeroInitialGuess);
+#endif
+
+  /// Constructor
+  StepperBackwardEuler(
+    const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
+    const Teuchos::RCP<StepperBackwardEulerAppAction<Scalar> >& stepperBEAppAction,
+    const Teuchos::RCP<Thyra::NonlinearSolverBase<Scalar> >& solver,
+    const Teuchos::RCP<Stepper<Scalar> >& predictorStepper,
+    bool useFSAL,
+    std::string ICConsistency,
+    bool ICConsistencyCheck,
+    bool zeroInitialGuess);
 
   /// \name Basic stepper methods
   //@{
-    virtual void setModel(
-      const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel);
-
+#ifndef TEMPUS_HIDE_DEPRECATED_CODE
+    TEMPUS_DEPRECATED
     virtual void setObserver(
       Teuchos::RCP<StepperObserver<Scalar> > obs = Teuchos::null);
 
+    TEMPUS_DEPRECATED
     virtual Teuchos::RCP<StepperObserver<Scalar> > getObserver() const
     { return stepperBEObserver_; }
+#endif
+
+    virtual void setBEAppAction(
+      Teuchos::RCP<StepperBEAppAction<Scalar> > appAction);
+
+    virtual Teuchos::RCP<StepperBEAppAction<Scalar> > getBEAppAction() const
+    { return stepperBEAppAction_; }
 
     /// Set the predictor
-    void setPredictor(std::string predictorType);
-    void setPredictor(Teuchos::RCP<Stepper<Scalar> > predictorStepper =
-      Teuchos::null);
+    void setPredictor(std::string predictorType = "None");
+    void setPredictor(Teuchos::RCP<Stepper<Scalar> > predictorStepper);
 
     /// Set the initial conditions and make them consistent.
     virtual void setInitialConditions (

@@ -34,13 +34,13 @@ template<class Scalar> class StepperBE;
  *  \renewcommand{\thealgorithm}{}
  *  \caption{Backward Euler with the locations of the application actions indicated.}
  *  \begin{algorithmic}[1]
- *    \State \quad {\it appAction.execute(solutionHistory, stepper, BEGIN\_STEP)}
+ *    \State {\it appAction.execute(solutionHistory, stepper, BEGIN\_STEP)}
  *    \State Compute the predictor (e.g., apply stepper to $x_n$).
- *    \State \quad {\it appAction.execute(solutionHistory, stepper, BEFORE\_SOLVE)}
+ *    \State {\it appAction.execute(solutionHistory, stepper, BEFORE\_SOLVE)}
  *    \State Solve $\mathcal{F}_n(\dot{x}=(x_n-x_{n-1})/\Delta t_n, x_n, t_n)=0$ for $x_n$
- *    \State \quad {\it appAction.execute(solutionHistory, stepper, AFTER\_SOLVE)}
+ *    \State {\it appAction.execute(solutionHistory, stepper, AFTER\_SOLVE)}
  *    \State $\dot{x}_n \leftarrow (x_n-x_{n-1})/\Delta t_n$
- *    \State \quad {\it appAction.execute(solutionHistory, stepper, END\_STEP)}
+ *    \State {\it appAction.execute(solutionHistory, stepper, END\_STEP)}
  *  \end{algorithmic}
  *  \f}
  */

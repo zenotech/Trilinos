@@ -36,28 +36,28 @@ namespace Tempus {
  *  \f]
  */
 template<class Scalar>
-class StepperERK_ForwardEuler :
+class StepperERKNew_ForwardEuler :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_ForwardEuler()
+  StepperERKNew_ForwardEuler()
   {
-    this->setStepperType("RK Forward Euler");
+    this->setStepperType("RKNew Forward Euler");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_ForwardEuler(
+  StepperERKNew_ForwardEuler(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
     bool useEmbedded)
   {
-    this->setStepperType("RK Forward Euler");
+    this->setStepperType("RKNew Forward Euler");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -108,28 +108,28 @@ protected:
  *  \f]
  */
 template<class Scalar>
-class StepperERK_4Stage4thOrder :
+class StepperERKNew_4Stage4thOrder :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_4Stage4thOrder()
+  StepperERKNew_4Stage4thOrder()
   {
-    this->setStepperType("RK Explicit 4 Stage");
+    this->setStepperType("RKNew Explicit 4 Stage");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_4Stage4thOrder(
+  StepperERKNew_4Stage4thOrder(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
     bool useEmbedded)
   {
-    this->setStepperType("RK Explicit 4 Stage");
+    this->setStepperType("RKNew Explicit 4 Stage");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -186,7 +186,7 @@ class StepperERK_4Stage4thOrder :
 
 
 // ----------------------------------------------------------------------------
-/** \brief Explicit RK Bogacki-Shampine Butcher Tableau
+/** \brief Explicit RKNew Bogacki-Shampine Butcher Tableau
  *
  *  The tableau (order=3(2)) is
  *  \f[
@@ -208,20 +208,20 @@ class StepperERK_4Stage4thOrder :
  *              Applied Mathematics Letters, 2(4):321 – 325, 1989.
  */
 template<class Scalar>
-class StepperERK_BogackiShampine32 :
+class StepperERKNew_BogackiShampine32 :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_BogackiShampine32()
+  StepperERKNew_BogackiShampine32()
   {
     this->setStepperType("Bogacki-Shampine 3(2) Pair");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_BogackiShampine32(
+  StepperERKNew_BogackiShampine32(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
@@ -229,7 +229,7 @@ class StepperERK_BogackiShampine32 :
   {
     this->setStepperType("Bogacki-Shampine 3(2) Pair");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -296,7 +296,7 @@ protected:
 
 
 // ----------------------------------------------------------------------------
-/** \brief Explicit RK Merson Butcher Tableau
+/** \brief Explicit RKNew Merson Butcher Tableau
  *
  *  The tableau (order=4(5)) is
  *  \f[
@@ -321,20 +321,20 @@ protected:
  *
  */
 template<class Scalar>
-class StepperERK_Merson45 :
+class StepperERKNew_Merson45 :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_Merson45()
+  StepperERKNew_Merson45()
   {
     this->setStepperType("Merson 4(5) Pair");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_Merson45(
+  StepperERKNew_Merson45(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
@@ -342,7 +342,7 @@ class StepperERK_Merson45 :
   {
     this->setStepperType("Merson 4(5) Pair");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -420,7 +420,7 @@ protected:
 
 
 // ----------------------------------------------------------------------------
-/** \brief Explicit RK 3/8th Rule Butcher Tableau
+/** \brief Explicit RKNew 3/8th Rule Butcher Tableau
  *
  *  The tableau (order=4) is
  *  \f[
@@ -441,29 +441,29 @@ protected:
  *              Table 1.2, pg 138.
  */
 template<class Scalar>
-class StepperERK_3_8Rule :
+class StepperERKNew_3_8Rule :
   virtual public StepperERK<Scalar>
 {
 public:
 
-  StepperERK_3_8Rule()
+  StepperERKNew_3_8Rule()
   {
-    this->setStepperType("RK Explicit 3/8 Rule");
+    this->setStepperType("RKNew Explicit 3/8 Rule");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_3_8Rule(
+  StepperERKNew_3_8Rule(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
     bool useEmbedded)
   {
-    this->setStepperType("RK Explicit 3/8 Rule");
+    this->setStepperType("RKNew Explicit 3/8 Rule");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -524,7 +524,7 @@ protected:
 
 
 // ----------------------------------------------------------------------------
-/** \brief RK Explicit 4 Stage 3rd order by Runge
+/** \brief RKNew Explicit 4 Stage 3rd order by Runge
  *
  *  The tableau (order=3) is
  *  \f[
@@ -545,28 +545,28 @@ protected:
  *              Table 1.1, pg 135.
  */
 template<class Scalar>
-class StepperERK_4Stage3rdOrderRunge :
+class StepperERKNew_4Stage3rdOrderRunge :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_4Stage3rdOrderRunge()
+  StepperERKNew_4Stage3rdOrderRunge()
   {
-    this->setStepperType("RK Explicit 4 Stage 3rd order by Runge");
+    this->setStepperType("RKNew Explicit 4 Stage 3rd order by Runge");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_4Stage3rdOrderRunge(
+  StepperERKNew_4Stage3rdOrderRunge(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
     bool useEmbedded)
   {
-    this->setStepperType("RK Explicit 4 Stage 3rd order by Runge");
+    this->setStepperType("RKNew Explicit 4 Stage 3rd order by Runge");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -623,7 +623,7 @@ protected:
 
 
 // ----------------------------------------------------------------------------
-/** \brief RK Explicit 5 Stage 3rd order by Kinnmark and Gray
+/** \brief RKNew Explicit 5 Stage 3rd order by Kinnmark and Gray
  *
  *  The tableau (order=3) is
  *  \f[
@@ -643,28 +643,28 @@ protected:
  *              routine in the HOMME atmosphere model code.
  */
 template<class Scalar>
-class StepperERK_5Stage3rdOrderKandG :
+class StepperERKNew_5Stage3rdOrderKandG :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_5Stage3rdOrderKandG()
+  StepperERKNew_5Stage3rdOrderKandG()
   {
-    this->setStepperType("RK Explicit 5 Stage 3rd order by Kinnmark and Gray");
+    this->setStepperType("RKNew Explicit 5 Stage 3rd order by Kinnmark and Gray");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_5Stage3rdOrderKandG(
+  StepperERKNew_5Stage3rdOrderKandG(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
     bool useEmbedded)
   {
-    this->setStepperType("RK Explicit 5 Stage 3rd order by Kinnmark and Gray");
+    this->setStepperType("RKNew Explicit 5 Stage 3rd order by Kinnmark and Gray");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -725,7 +725,7 @@ protected:
 
 
 // ----------------------------------------------------------------------------
-/** \brief RK Explicit 3 Stage 3rd order
+/** \brief RKNew Explicit 3 Stage 3rd order
  *
  *  The tableau (order=3) is
  *  \f[
@@ -741,28 +741,28 @@ protected:
  *  \f]
  */
 template<class Scalar>
-class StepperERK_3Stage3rdOrder :
+class StepperERKNew_3Stage3rdOrder :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_3Stage3rdOrder()
+  StepperERKNew_3Stage3rdOrder()
   {
-    this->setStepperType("RK Explicit 3 Stage 3rd order");
+    this->setStepperType("RKNew Explicit 3 Stage 3rd order");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_3Stage3rdOrder(
+  StepperERKNew_3Stage3rdOrder(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
     bool useEmbedded)
   {
-    this->setStepperType("RK Explicit 3 Stage 3rd order");
+    this->setStepperType("RKNew Explicit 3 Stage 3rd order");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -815,7 +815,7 @@ protected:
 
 
 // ----------------------------------------------------------------------------
-/** \brief RK Explicit 3 Stage 3rd order TVD
+/** \brief RKNew Explicit 3 Stage 3rd order TVD
  *
  *  The tableau (order=3) is
  *  \f[
@@ -842,28 +842,28 @@ protected:
     \endverbatim
  */
 template<class Scalar>
-class StepperERK_3Stage3rdOrderTVD :
+class StepperERKNew_3Stage3rdOrderTVD :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_3Stage3rdOrderTVD()
+  StepperERKNew_3Stage3rdOrderTVD()
   {
-    this->setStepperType("RK Explicit 3 Stage 3rd order TVD");
+    this->setStepperType("RKNew Explicit 3 Stage 3rd order TVD");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_3Stage3rdOrderTVD(
+  StepperERKNew_3Stage3rdOrderTVD(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
     bool useEmbedded)
   {
-    this->setStepperType("RK Explicit 3 Stage 3rd order TVD");
+    this->setStepperType("RKNew Explicit 3 Stage 3rd order TVD");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -871,7 +871,7 @@ class StepperERK_3Stage3rdOrderTVD :
   {
     std::ostringstream Description;
     Description << this->getStepperType() << "\n"
-                  << "This Stepper is known as 'RK Explicit 3 Stage 3rd order TVD' or 'SSPERK33'.\n"
+                  << "This Stepper is known as 'RKNew Explicit 3 Stage 3rd order TVD' or 'SSPERK33'.\n"
                   << "Sigal Gottlieb and Chi-Wang Shu\n"
                   << "`Total Variation Diminishing Runge-Kutta Schemes'\n"
                   << "Mathematics of Computation\n"
@@ -925,7 +925,7 @@ protected:
 
 
 // ----------------------------------------------------------------------------
-/** \brief RK Explicit 3 Stage 3rd order by Heun
+/** \brief RKNew Explicit 3 Stage 3rd order by Heun
  *
  *  The tableau (order=3) is
  *  \f[
@@ -945,28 +945,28 @@ protected:
  *              Table 1.1, pg 135.
  */
 template<class Scalar>
-class StepperERK_3Stage3rdOrderHeun :
+class StepperERKNew_3Stage3rdOrderHeun :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_3Stage3rdOrderHeun()
+  StepperERKNew_3Stage3rdOrderHeun()
   {
-    this->setStepperType("RK Explicit 3 Stage 3rd order by Heun");
+    this->setStepperType("RKNew Explicit 3 Stage 3rd order by Heun");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_3Stage3rdOrderHeun(
+  StepperERKNew_3Stage3rdOrderHeun(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
     bool useEmbedded)
   {
-    this->setStepperType("RK Explicit 3 Stage 3rd order by Heun");
+    this->setStepperType("RKNew Explicit 3 Stage 3rd order by Heun");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -1023,7 +1023,7 @@ protected:
 
 
 // ----------------------------------------------------------------------------
-/** \brief RK Explicit Midpoint
+/** \brief RKNew Explicit Midpoint
  *
  *  The tableau (order=2) is
  *  \f[
@@ -1042,28 +1042,28 @@ protected:
  *              Table 1.1, pg 135.
  */
 template<class Scalar>
-class StepperERK_Midpoint :
+class StepperERKNew_Midpoint :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_Midpoint()
+  StepperERKNew_Midpoint()
   {
-    this->setStepperType("RK Explicit Midpoint");
+    this->setStepperType("RKNew Explicit Midpoint");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_Midpoint(
+  StepperERKNew_Midpoint(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
     bool useEmbedded)
   {
-    this->setStepperType("RK Explicit Midpoint");
+    this->setStepperType("RKNew Explicit Midpoint");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -1115,7 +1115,7 @@ protected:
 
 
 // ----------------------------------------------------------------------------
-/** \brief RK Explicit Trapezoidal
+/** \brief RKNew Explicit Trapezoidal
  *
  *  The tableau (order=2) is
  *  \f[
@@ -1130,28 +1130,28 @@ protected:
  *  \f]
  */
 template<class Scalar>
-class StepperERK_Trapezoidal :
+class StepperERKNew_Trapezoidal :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_Trapezoidal()
+  StepperERKNew_Trapezoidal()
   {
-    this->setStepperType("RK Explicit Trapezoidal");
+    this->setStepperType("RKNew Explicit Trapezoidal");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_Trapezoidal(
+  StepperERKNew_Trapezoidal(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
     bool useEmbedded)
   {
-    this->setStepperType("RK Explicit Trapezoidal");
+    this->setStepperType("RKNew Explicit Trapezoidal");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -1159,7 +1159,7 @@ class StepperERK_Trapezoidal :
   {
     std::ostringstream Description;
     Description << this->getStepperType() << "\n"
-                << "This Stepper is known as 'RK Explicit Trapezoidal' or 'Heuns Method' or 'SSPERK22'.\n"
+                << "This Stepper is known as 'RKNew Explicit Trapezoidal' or 'Heuns Method' or 'SSPERK22'.\n"
                 << "c = [  0   1  ]'\n"
                 << "A = [  0      ]\n"
                 << "    [  1   0  ]\n"
@@ -1200,7 +1200,7 @@ protected:
 
 
 // ----------------------------------------------------------------------------
-/** \brief Strong Stability Preserving Explicit RK Butcher Tableau
+/** \brief Strong Stability Preserving Explicit RKNew Butcher Tableau
  *
  *  The tableau (stage=5, order=4) is
  *  \f[
@@ -1218,20 +1218,20 @@ protected:
  *
  */
 template<class Scalar>
-class StepperERK_SSPERK54 :
+class StepperERKNew_SSPERK54 :
   virtual public StepperERK<Scalar>
 {
   public:
-  StepperERK_SSPERK54()
+  StepperERKNew_SSPERK54()
   {
     this->setStepperType("SSPERK54");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_SSPERK54(
+  StepperERKNew_SSPERK54(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
@@ -1239,7 +1239,7 @@ class StepperERK_SSPERK54 :
   {
     this->setStepperType("SSPERK54");
     this->setupTableau();
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -1247,7 +1247,7 @@ class StepperERK_SSPERK54 :
   {
     std::ostringstream Description;
     Description << this->getStepperType() << "\n"
-                << "Strong Stability Preserving Explicit RK (stage=5, order=4)\n"
+                << "Strong Stability Preserving Explicit RKNew (stage=5, order=4)\n"
                 << std::endl;
     return Description.str();
   }
@@ -1336,20 +1336,20 @@ protected:
  *  \f]
  */
 template<class Scalar>
-class StepperERK_General :
+class StepperERKNew_General :
   virtual public StepperERK<Scalar>
 {
 public:
-  StepperERK_General()
+  StepperERKNew_General()
   {
     this->setStepperType("General ERK");
     this->setupTableau();
     this->setupDefault();
   }
 
-  StepperERK_General(
+  StepperERKNew_General(
     const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-    const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+    const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
     bool useFSAL,
     std::string ICConsistency,
     bool ICConsistencyCheck,
@@ -1367,9 +1367,9 @@ public:
 
     TEUCHOS_TEST_FOR_EXCEPTION(
       this->tableau_->isImplicit() == true, std::logic_error,
-      "Error - General ERK received an implicit Butcher Tableau!\n");
+      "Error - General ERKNew received an implicit Butcher Tableau!\n");
 
-    this->setup(appModel, obs, useFSAL, ICConsistency,
+    this->setup(appModel, stepperRKAppAction, useFSAL, ICConsistency,
                 ICConsistencyCheck, useEmbedded);
   }
 
@@ -1400,7 +1400,7 @@ public:
   {
     if (this->tableau_ == Teuchos::null) {
       // Set tableau to the default if null, otherwise keep current tableau.
-      auto stepper = Teuchos::rcp(new StepperERK_4Stage4thOrder<Scalar>());
+      auto stepper = Teuchos::rcp(new StepperERKNew_4Stage4thOrder<Scalar>());
       auto t = stepper->getTableau();
       this->tableau_ = Teuchos::rcp(new RKButcherTableau<Scalar>(
                                  this->getStepperType(),

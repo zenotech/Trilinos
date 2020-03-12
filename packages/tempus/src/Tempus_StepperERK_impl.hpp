@@ -6,9 +6,10 @@
 // ****************************************************************************
 // @HEADER
 
-#ifndef Tempus_StepperExplicitRK_impl_hpp
-#define Tempus_StepperExplicitRK_impl_hpp
+#ifndef Tempus_StepperERK_impl_hpp
+#define Tempus_StepperERK_impl_hpp
 
+#include "Tempus_StepperRKModifierDefault.hpp"
 #include "Tempus_RKButcherTableau.hpp"
 #include "Teuchos_VerboseObjectParameterListHelpers.hpp"
 #include "Thyra_VectorStdOps.hpp"
@@ -18,22 +19,21 @@ namespace Tempus {
 
 
 template<class Scalar>
-void StepperExplicitRK<Scalar>::setupDefault()
+void StepperERK<Scalar>::setupDefault()
 {
   this->setUseFSAL(            this->getUseFSALDefault());
   this->setICConsistency(      this->getICConsistencyDefault());
   this->setICConsistencyCheck( this->getICConsistencyCheckDefault());
   this->setUseEmbedded(        this->getUseEmbeddedDefault());
 
-  this->stepperObserver_ =
-    Teuchos::rcp(new StepperRKObserverComposite<Scalar>());
+  this->setRKAppAction(Teuchos::null);
 }
 
 
 template<class Scalar>
-void StepperExplicitRK<Scalar>::setup(
+void StepperERK<Scalar>::setup(
   const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& appModel,
-  const Teuchos::RCP<StepperRKObserverComposite<Scalar> >& obs,
+  const Teuchos::RCP<StepperRKAppAction<Scalar> >& stepperRKAppAction,
   bool useFSAL,
   std::string ICConsistency,
   bool ICConsistencyCheck,
@@ -44,9 +44,7 @@ void StepperExplicitRK<Scalar>::setup(
   this->setICConsistencyCheck( ICConsistencyCheck);
   this->setUseEmbedded(        useEmbedded);
 
-  this->stepperObserver_ =
-    Teuchos::rcp(new StepperRKObserverComposite<Scalar>());
-  this->setObserver(obs);
+  this->setRKAppAction(stepperRKAppAction);
 
   if (appModel != Teuchos::null) {
     this->setModel(appModel);
@@ -56,7 +54,7 @@ void StepperExplicitRK<Scalar>::setup(
 
 
 template<class Scalar>
-Scalar StepperExplicitRK<Scalar>::getInitTimeStep(
+Scalar StepperERK<Scalar>::getInitTimeStep(
   const Teuchos::RCP<SolutionHistory<Scalar> >& sh) const
 {
 
@@ -139,7 +137,7 @@ Scalar StepperExplicitRK<Scalar>::getInitTimeStep(
 
 
 template<class Scalar>
-void StepperExplicitRK<Scalar>::getValidParametersBasicERK(
+void StepperERK<Scalar>::getValidParametersBasicERK(
   Teuchos::RCP<Teuchos::ParameterList> pl) const
 {
   getValidParametersBasic(pl, this->getStepperType());
@@ -152,51 +150,34 @@ void StepperExplicitRK<Scalar>::getValidParametersBasicERK(
 
 
 template<class Scalar>
-void StepperExplicitRK<Scalar>::setObserver(
-  Teuchos::RCP<StepperObserver<Scalar> > obs)
+void StepperERK<Scalar>::setRKAppAction(
+  Teuchos::RCP<StepperRKAppAction<Scalar> > appAction)
 {
-
-  if (this->stepperObserver_ == Teuchos::null)
-     this->stepperObserver_  =
-        Teuchos::rcp(new StepperRKObserverComposite<Scalar>());
-
-  if (( obs == Teuchos::null ) and (this->stepperObserver_->getSize() >0 ) )
-    return;
-
-  if (( obs == Teuchos::null ) and (this->stepperObserver_->getSize() == 0) )
-     obs = Teuchos::rcp(new StepperRKObserver<Scalar>());
-
-  // Check that this casts to prevent a runtime error if it doesn't
-  if (Teuchos::rcp_dynamic_cast<StepperRKObserver<Scalar> > (obs) != Teuchos::null) {
-    this->stepperObserver_->addObserver(
-         Teuchos::rcp_dynamic_cast<StepperRKObserver<Scalar> > (obs, true) );
+  if (appAction == Teuchos::null) {
+    // Create default appAction
+    stepperRKAppAction_ = Teuchos::rcp(new StepperRKModifierDefault<Scalar>());
   } else {
-    Teuchos::RCP<Teuchos::FancyOStream> out = this->getOStream();
-    Teuchos::OSTab ostab(out,0,"setObserver");
-    *out << "Tempus::StepperExplicit_RK::setObserver: Warning: An observer has been provided that";
-    *out << " does not support Tempus::StepperRKObserver. This observer WILL NOT be added.";
-    *out << " In the future, this will result in a runtime error!" << std::endl;
+    stepperRKAppAction_ = appAction;
   }
-
 }
 
 
 template<class Scalar>
-void StepperExplicitRK<Scalar>::initialize()
+void StepperERK<Scalar>::initialize()
 {
   TEUCHOS_TEST_FOR_EXCEPTION( tableau_ == Teuchos::null, std::logic_error,
     "Error - Need to set the tableau, before calling "
-    "StepperExplicitRK::initialize()\n");
+    "StepperERK::initialize()\n");
 
   TEUCHOS_TEST_FOR_EXCEPTION( this->appModel_==Teuchos::null, std::logic_error,
     "Error - Need to set the model, setModel(), before calling "
-    "StepperExplicitRK::initialize()\n");
+    "StepperERK::initialize()\n");
 
   this->setObserver();
 
-  TEUCHOS_TEST_FOR_EXCEPTION( this->stepperObserver_->getSize() < 1
-    , std::logic_error,
-    "Error - Composite Observer is empty!\n");
+  //TEUCHOS_TEST_FOR_EXCEPTION( this->stepperObserver_->getSize() < 1
+  //  , std::logic_error,
+  //  "Error - Composite Observer is empty!\n");
 
   // Initialize the stage vectors
   int numStages = tableau_->numStages();
@@ -217,7 +198,7 @@ void StepperExplicitRK<Scalar>::initialize()
 
 
 template<class Scalar>
-void StepperExplicitRK<Scalar>::setInitialConditions(
+void StepperERK<Scalar>::setInitialConditions(
   const Teuchos::RCP<SolutionHistory<Scalar> >& solutionHistory)
 {
   using Teuchos::RCP;
@@ -233,22 +214,25 @@ void StepperExplicitRK<Scalar>::setInitialConditions(
 
 
 template<class Scalar>
-void StepperExplicitRK<Scalar>::takeStep(
+void StepperERK<Scalar>::takeStep(
   const Teuchos::RCP<SolutionHistory<Scalar> >& solutionHistory)
 {
   using Teuchos::RCP;
 
-  TEMPUS_FUNC_TIME_MONITOR("Tempus::StepperExplicitRK::takeStep()");
+  TEMPUS_FUNC_TIME_MONITOR("Tempus::StepperERK::takeStep()");
   {
     TEUCHOS_TEST_FOR_EXCEPTION(solutionHistory->getNumStates() < 2,
       std::logic_error,
-      "Error - StepperExplicitRK<Scalar>::takeStep(...)\n"
-      "Need at least two SolutionStates for ExplicitRK.\n"
+      "Error - StepperERK<Scalar>::takeStep(...)\n"
+      "Need at least two SolutionStates for ERK.\n"
       "  Number of States = " << solutionHistory->getNumStates() << "\n"
       "Try setting in \"Solution History\" \"Storage Type\" = \"Undo\"\n"
       "  or \"Storage Type\" = \"Static\" and \"Storage Limit\" = \"2\"\n");
 
-    this->stepperObserver_->observeBeginTakeStep(solutionHistory, *this);
+    RCP<StepperERK<Scalar> > thisStepper = Teuchos::rcpFromRef(*this);
+    stepperRKAppAction_->execute(solutionHistory, thisStepper,
+      StepperRKAppAction<Scalar>::ACTION_LOCATION::BEGIN_STEP);
+
     RCP<SolutionState<Scalar> > currentState=solutionHistory->getCurrentState();
     RCP<SolutionState<Scalar> > workingState=solutionHistory->getWorkingState();
     const Scalar dt = workingState->getTimeStep();
@@ -261,14 +245,12 @@ void StepperExplicitRK<Scalar>::takeStep(
 
     // Compute stage solutions
     for (int i=0; i < numStages; ++i) {
-        this->stepperObserver_->observeBeginStage(solutionHistory, *this);
-
-        // ???: is it a good idea to leave this (no-op) here?
-        this->stepperObserver_
-            ->observeBeforeImplicitExplicitly(solutionHistory, *this);
-
-        // ???: is it a good idea to leave this (no-op) here?
-        this->stepperObserver_->observeBeforeSolve(solutionHistory, *this);
+      stepperRKAppAction_->execute(solutionHistory, thisStepper,
+        StepperRKAppAction<Scalar>::ACTION_LOCATION::BEGIN_STAGE);
+      stepperRKAppAction_->execute(solutionHistory, thisStepper,
+       StepperRKAppAction<Scalar>::ACTION_LOCATION::BEFORE_IMPLICIT_EXPLICITLY);
+      stepperRKAppAction_->execute(solutionHistory, thisStepper,
+        StepperRKAppAction<Scalar>::ACTION_LOCATION::BEFORE_SOLVE);
 
       if ( i == 0 && this->getUseFSAL() &&
            workingState->getNConsecutiveFailures() == 0 ) {
@@ -287,17 +269,19 @@ void StepperExplicitRK<Scalar>::takeStep(
         }
         const Scalar ts = time + c(i)*dt;
 
-        // ???: is it a good idea to leave this (no-op) here?
-        this->stepperObserver_->observeAfterSolve(solutionHistory, *this);
+        stepperRKAppAction_->execute(solutionHistory, thisStepper,
+          StepperRKAppAction<Scalar>::ACTION_LOCATION::AFTER_SOLVE);
+        stepperRKAppAction_->execute(solutionHistory, thisStepper,
+          StepperRKAppAction<Scalar>::ACTION_LOCATION::BEFORE_EXPLICIT_EVAL);
 
-        this->stepperObserver_->observeBeforeExplicit(solutionHistory, *this);
         auto p = Teuchos::rcp(new ExplicitODEParameters<Scalar>(dt));
 
         // Evaluate xDot = f(x,t).
         this->evaluateExplicitODE(stageXDot_[i], stageX_, ts, p);
       }
 
-      this->stepperObserver_->observeEndStage(solutionHistory, *this);
+      stepperRKAppAction_->execute(solutionHistory, thisStepper,
+        StepperRKAppAction<Scalar>::ACTION_LOCATION::END_STAGE);
     }
 
     // Sum for solution: x_n = x_n-1 + Sum{ b(i) * dt*f(i) }
@@ -352,7 +336,8 @@ void StepperExplicitRK<Scalar>::takeStep(
 
     workingState->setOrder(this->getOrder());
     workingState->computeNorms(currentState);
-    this->stepperObserver_->observeEndTakeStep(solutionHistory, *this);
+    stepperRKAppAction_->execute(solutionHistory, thisStepper,
+      StepperRKAppAction<Scalar>::ACTION_LOCATION::END_STEP);
   }
   return;
 }
@@ -365,7 +350,7 @@ void StepperExplicitRK<Scalar>::takeStep(
  *  that the input StepperState can be used by this Stepper.
  */
 template<class Scalar>
-Teuchos::RCP<Tempus::StepperState<Scalar> > StepperExplicitRK<Scalar>::
+Teuchos::RCP<Tempus::StepperState<Scalar> > StepperERK<Scalar>::
 getDefaultStepperState()
 {
   Teuchos::RCP<Tempus::StepperState<Scalar> > stepperState =
@@ -375,7 +360,7 @@ getDefaultStepperState()
 
 
 template<class Scalar>
-void StepperExplicitRK<Scalar>::describe(
+void StepperERK<Scalar>::describe(
    Teuchos::FancyOStream               &out,
    const Teuchos::EVerbosityLevel      /* verbLevel */) const
 {
@@ -386,7 +371,7 @@ void StepperExplicitRK<Scalar>::describe(
 
 template<class Scalar>
 Teuchos::RCP<const Teuchos::ParameterList>
-StepperExplicitRK<Scalar>::getValidParameters() const
+StepperERK<Scalar>::getValidParameters() const
 {
   Teuchos::RCP<Teuchos::ParameterList> pl = Teuchos::parameterList();
   this->getValidParametersBasicERK(pl);
@@ -395,4 +380,4 @@ StepperExplicitRK<Scalar>::getValidParameters() const
 
 
 } // namespace Tempus
-#endif // Tempus_StepperExplicitRK_impl_hpp
+#endif // Tempus_StepperERK_impl_hpp

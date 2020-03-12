@@ -33,6 +33,8 @@ StepperBE<Scalar>::StepperBE()
   this->setZeroInitialGuess(   false);
 
   this->setBEAppAction(Teuchos::null);
+  this->setDefaultSolver();
+  this->setPredictor("None");
 }
 
 
