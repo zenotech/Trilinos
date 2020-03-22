@@ -370,7 +370,7 @@ T atomic_fetch_mod(volatile T * const dest, const T val) {
 }
 
 #if !defined( KOKKOS_ENABLE_SERIAL_ATOMICS )
-#if !defined( __CUDA__ARCH__ )
+#if !defined( __CUDA_ARCH__ )
 template < typename T >
 KOKKOS_INLINE_FUNCTION
 T atomic_fetch_and(volatile T * const dest, const T val) {
