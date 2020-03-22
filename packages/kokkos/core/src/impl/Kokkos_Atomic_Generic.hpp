@@ -370,7 +370,7 @@ T atomic_fetch_mod(volatile T * const dest, const T val) {
 }
 
 #if !defined( KOKKOS_ENABLE_SERIAL_ATOMICS )
-
+#if !defined( __CADA__ARCH__ )
 template < typename T >
 KOKKOS_INLINE_FUNCTION
 T atomic_fetch_and(volatile T * const dest, const T val) {
@@ -382,7 +382,7 @@ KOKKOS_INLINE_FUNCTION
 T atomic_fetch_or(volatile T * const dest, const T val) {
   return Impl::atomic_fetch_oper(Impl::OrOper<T,const T>(),dest,val);
 }
-
+#endif
 #endif
 
 template < typename T >
