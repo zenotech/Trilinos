@@ -148,7 +148,7 @@ struct Zoltan_Comm_Obj {	/* data for mapping between decompositions */
 /* Decided for zoltan_gid_64 branch to always used posted receives because
  * Alltoall requires that offsets be 32-bit integers.  October 2010
  */
-#define MPI_RECV_LIMIT 0
+#define MPI_RECV_LIMIT -1 
 
 /* #define MPI_RECV_LIMIT 2000 */
 #endif

@@ -234,7 +234,6 @@ IF(${PACKAGE_NAME}_ENABLE_EXPLICIT_INSTANTIATION)
     MueLu_ETI_SC_LO_GO_NO_SRC
     0)
   LIST(APPEND MUELU_ETI_CPP_SOURCES ${MueLu_ETI_SC_LO_GO_NO_SRC})
-
   MUELU_PROCESS_ETI_TEMPLATE(
     "Utils/ExplicitInstantiation"
     "${MUELU_LO_GO_NO_ETI_CLASSES}"
@@ -325,7 +324,6 @@ IF(${PACKAGE_NAME}_ENABLE_EXPLICIT_INSTANTIATION)
     "Utils/ExplicitInstantiation/CLASS_FILE_NAME.cpp"
     MueLu_ETI_SC_LO_GO_NO_SRC)
   LIST(APPEND MUELU_ETI_CPP_SOURCES ${MueLu_ETI_SC_LO_GO_NO_SRC})
-
   MUELU_PROCESS_ETI_TEMPLATE(
     "${MUELU_LO_GO_NO_ETI_CLASSES}"
     Utils/ExplicitInstantiation/MueLu_ETI_LO_GO_NO.tmpl
@@ -446,4 +444,3 @@ TRIBITS_ADD_LIBRARY(
   HEADERS ${HEADERS}
   SOURCES ${SOURCES}
   )
-# touch CMakeLists.txt because a new file was created in Utils/ExplicitInstantiation of Utils/ForwardDeclaration

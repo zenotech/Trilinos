@@ -65,7 +65,7 @@ namespace MueLu {
 
   void MueLu_AMGX_finalize_plugins()
   {    
-   AMGX_print_summary();
+   // AMGX_print_summary();
    AMGX_SAFE_CALL(AMGX_finalize_plugins());
   }
 } // namespace

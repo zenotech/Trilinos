@@ -57,14 +57,14 @@
 //#include "TpetraCore_config.h"
 //#endif
 
-#ifdef HAVE_MUELU_AMGX
-#include "MueLu_AMGXOperator.hpp"
-#endif
-
 #include <BelosOperatorT.hpp>
 
 #include "MueLu_ConfigDefs.hpp"
 #include "MueLu_Hierarchy.hpp"
+
+#ifdef HAVE_MUELU_AMGX
+#include "MueLu_AMGXOperator.hpp"
+#endif
 
 namespace Belos {
   using Teuchos::RCP;
