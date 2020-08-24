@@ -347,6 +347,7 @@ void Epetra_FECrsMatrix::Print(std::ostream& os) const
   for (int iproc=0; iproc < NumProc; iproc++) {
     if (MyPID==iproc) {
       if(RowMap().GlobalIndicesInt()) {
+#ifndef EPETRA_NO_32BIT_GLOBAL_INDICES
         const int nnr = nonlocalRows_int_.size();
         for (int i=0; i<nnr; ++i) {
           const int Row = nonlocalRows_int_[i];
@@ -363,7 +364,9 @@ void Epetra_FECrsMatrix::Print(std::ostream& os) const
             os << std::endl;
           }
         }
+#endif
       } else {
+#ifndef EPETRA_NO_64BIT_GLOBAL_INDICES
         const int nnr = nonlocalRows_LL_.size();
         for (int i=0; i<nnr; ++i) {
           const int Row = nonlocalRows_LL_[i];
@@ -380,6 +383,7 @@ void Epetra_FECrsMatrix::Print(std::ostream& os) const
             os << std::endl;
           }
         }
+#endif
       }
     }
     // Do a few global ops to give I/O a chance to complete
