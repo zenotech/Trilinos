@@ -150,7 +150,7 @@ public:
 
   /** setVertexWeights is called by a process to supply the
       weight of each vertex (row) in the graph or hypergraph.
-      If the object to be partitioned is instead an Epetra_MultiVector 
+      If the object to be partitioned is instead an Epetra_MultiVector
       representing real
       coordinates, then the weights represent the weight assigned to each coordinate.
 
@@ -174,7 +174,7 @@ public:
   /** setHypergraphEdgeWeights is called by processes in an application to
       supply weights for the hyperedges, which are represented by the columns
       of the matrix.  (A hyperedge can in general link more than one vertex.)
-     
+
       Matrices that represent hypergraphs are not in general square.
       There may be more or fewer hyperedges (columns) than vertices (rows).
 
@@ -193,7 +193,7 @@ public:
       there is no concept of a process owning a hyperedge.)  Zoltan
       combines these weights according to the setting of the
       PHG_EDGE_WEIGHT_OPERATION parameter.
-     
+
        \param numHGedges  the length of the hgGIDs and heEwgts arrays
        \param hgGIDs      the global ID for each hyperedge this process will supply a weight for
        \param hgEwgts   the hyperedge weight corresponding to each hyperedge listed in hgGIDs
@@ -265,7 +265,7 @@ private:
   /** \copydoc Isorropia::CostDescriber::getVertexWeights
    */
   void getVertexWeights(int numVertices,
-                      int* global_ids, float* weights) const; 
+                      long long* global_ids, float* weights) const;
   /** \copydoc Isorropia::CostDescriber::haveGraphEdgeWeights
    */
   bool haveGraphEdgeWeights() const;
@@ -285,7 +285,7 @@ private:
   void getGraphEdgeWeights(int vertex_global_id,
                                    int num_neighbors,
                                    int* neighbor_global_ids,
-                                   float* weights) const; 
+                                   float* weights) const;
   /** \copydoc Isorropia::CostDescriber::haveHypergraphEdgeWeights
    */
   bool haveHypergraphEdgeWeights() const;
@@ -300,7 +300,7 @@ private:
 
    /** Return the CostDescribers hypergraph edge weights as a map from hyperedge (column)
        global ID to weight.
-  
+
        \param wgtMap will be set to a map from hyperedge global ID to hyperedge weight
    */
    int getHypergraphEdgeWeights(std::map<int, float> &wgtMap) const;
@@ -319,7 +319,7 @@ private:
 
   /** getGraphEdgeWeights is called to obtain
       the graph edge weights for a given vertex (row).
- 
+
       \param vertex_global_id the global ID of the vertex the caller wants edge weights for
       \param wgtMap a map from the global ID of each vertex neighbor to the weight of the edge formed by the vertex and this neighbor
       \return  the count of the neighbors of vertex_global_id
@@ -386,7 +386,7 @@ private:
       \param vertexGID the global ID of the vertex (must be one owned by calling process)
       \param len of preallocated nborGID and weights arrays
       \param nborGID on return contains the global ID of each vertex neighboring vertexGID,
-                         allocated by caller      
+                         allocated by caller
       \param weights on return contains the weight for each edge formed by the vertices in nborGID
 
       \return the number of neighbors in nborGID is returned

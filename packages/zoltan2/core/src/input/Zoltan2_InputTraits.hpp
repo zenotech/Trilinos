@@ -301,7 +301,7 @@ struct InputTraits<Epetra_CrsMatrix>
 {
   typedef double scalar_t;
   typedef int lno_t;
-  typedef int gno_t;
+  typedef long long gno_t;
   typedef size_t offset_t;
   typedef Zoltan2::default_part_t  part_t;
   typedef Zoltan2::default_node_t node_t;
@@ -395,7 +395,7 @@ struct InputTraits<Epetra_CrsGraph>
 {
   typedef double scalar_t;
   typedef int   lno_t;
-  typedef int   gno_t;
+  typedef long long gno_t;
   typedef size_t offset_t;
   typedef Zoltan2::default_part_t  part_t;
   typedef Zoltan2::default_node_t node_t;
@@ -446,7 +446,7 @@ struct InputTraits<Epetra_Vector>
 {
   typedef double scalar_t;
   typedef int   lno_t;
-  typedef int   gno_t;
+  typedef long long gno_t;
   typedef size_t offset_t;
   typedef Zoltan2::default_part_t  part_t;
   typedef Zoltan2::default_node_t node_t;
@@ -494,7 +494,7 @@ struct InputTraits<Epetra_MultiVector>
 {
   typedef double scalar_t;
   typedef int   lno_t;
-  typedef int   gno_t;
+  typedef long long gno_t;
   typedef size_t offset_t;
   typedef Zoltan2::default_part_t  part_t;
   typedef Zoltan2::default_node_t node_t;

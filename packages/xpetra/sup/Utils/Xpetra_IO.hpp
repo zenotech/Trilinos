@@ -530,11 +530,11 @@ namespace Xpetra {
           const Epetra_Map& epetraRangeMap  = (rangeMap .is_null() ? epetraRowMap : Xpetra::IO<Scalar,LocalOrdinal,GlobalOrdinal,Node>::Map2EpetraMap(*rangeMap));
           int rv;
           if (colMap.is_null()) {
-            rv = EpetraExt::MatrixMarketFileToCrsMatrix(filename.c_str(), epetraRowMap, epetraRangeMap, epetraDomainMap, eA);
+            rv = EpetraExt::MatrixMarketFileToCrsMatrix64(filename.c_str(), epetraRowMap, epetraRangeMap, epetraDomainMap, eA);
 
           } else {
             const Epetra_Map& epetraColMap  = Map2EpetraMap(*colMap);
-            rv = EpetraExt::MatrixMarketFileToCrsMatrix(filename.c_str(), epetraRowMap, epetraColMap, epetraRangeMap, epetraDomainMap, eA);
+            rv = EpetraExt::MatrixMarketFileToCrsMatrix64(filename.c_str(), epetraRowMap, epetraColMap, epetraRangeMap, epetraDomainMap, eA);
           }
 
           if (rv != 0)

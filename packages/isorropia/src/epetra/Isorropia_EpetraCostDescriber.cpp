@@ -116,8 +116,8 @@ void CostDescriber::_transformWeights(const Epetra_Import &importer)
 
   // same map as a concrete type
 
-  Epetra_Map new_map(target_map.NumGlobalElements(), target_map.NumMyElements(), 
-                     target_map.MyGlobalElements(), target_map.IndexBase(), target_map.Comm());
+  Epetra_Map new_map(target_map.NumGlobalElements64(), target_map.NumMyElements(),
+                     target_map.MyGlobalElements64(), target_map.IndexBase(), target_map.Comm());
 
   if (numGlobalVertexWeights_ > 0){
     Teuchos::RCP<Epetra_Vector> redistWeights = Teuchos::rcp(new Epetra_Vector(target_map));
@@ -134,30 +134,30 @@ void CostDescriber::_transformWeights(const Epetra_Import &importer)
     for (int i=0; i < myOldRows; i++){
       nnz[i] = graph_edge_weights_->NumMyEntries(i);
     }
-  
+
     Epetra_Vector oldRowSizes(Copy, graph_edge_weights_->RowMap(), nnz);
-  
+
     if (myOldRows)
       delete [] nnz;
 
     Epetra_Vector newRowSizes(target_map);
-  
+
     newRowSizes.Import(oldRowSizes, importer, Insert);
-  
-    int *rowSize=0; 
+
+    int *rowSize=0;
     if(myNewRows){
       rowSize = new int [myNewRows];
       for (int i=0; i< myNewRows; i++){
         rowSize[i] = static_cast<int>(newRowSizes[i]);
       }
     }
-  
-    Teuchos::RCP<Epetra_CrsMatrix> new_graph_edge_weights = 
+
+    Teuchos::RCP<Epetra_CrsMatrix> new_graph_edge_weights =
       Teuchos::rcp(new Epetra_CrsMatrix(Copy, new_map, rowSize, true));
-  
+
     if (myNewRows)
       delete [] rowSize;
-  
+
     new_graph_edge_weights->Import(*graph_edge_weights_, importer, Insert);
 
     new_graph_edge_weights->FillComplete();
@@ -176,7 +176,7 @@ int CostDescriber::compareBeforeAndAfterHypergraph(
             std::vector<double> &balance, std::vector<double> &cutn, std::vector<double> &cutl) const
 {
 
-  CostDescriber costs(*this);       
+  CostDescriber costs(*this);
 
   double goalWeight = 1.0 / in_m.Comm().NumProc();
 
@@ -239,7 +239,7 @@ int CostDescriber::_compareBeforeAndAfterGraph(
             std::vector<double> &balance, std::vector<int> &numCuts, std::vector<double> &cutWgt,
             std::vector<double> &cutn, std::vector<double> &cutl) const
 {
-  CostDescriber costs(*this);       
+  CostDescriber costs(*this);
 
   double goalWeight = 1.0 / in_m->Comm().NumProc();
 
@@ -290,7 +290,7 @@ int CostDescriber::_compareBeforeAndAfterGraph(
 int CostDescriber::compareBeforeAndAfterImbalance(const Epetra_MultiVector &mv, const Epetra_Import &importer,
                   std::vector<double> &min, std::vector<double> &max, std::vector<double> &avg) const
 {
-  CostDescriber costs(*this);       
+  CostDescriber costs(*this);
   double goalWeight = 1.0 / mv.Comm().NumProc();
   double a, b, c;
 
@@ -362,7 +362,7 @@ CostDescriber::setGraphEdgeWeights(Teuchos::RCP<const Epetra_CrsMatrix> gewts)
     const Epetra_Map &rowmap = gewts->RowMap();
 
     Epetra_Vector diag(rowmap);
-    
+
     gewts->ExtractDiagonalCopy(diag);
 
     int nvals = gewts->NumMyRows();
@@ -457,7 +457,7 @@ int CostDescriber::getVertexWeights(std::map<int, float> &wgtMap) const
 }
 
 void CostDescriber::getVertexWeights(int numVertices,
-                                     int* global_ids,
+                                     long long* global_ids,
                                      float* weights) const
 {
   if (getNumVertices() == 0){
@@ -492,7 +492,7 @@ int CostDescriber::getNumGraphEdges(int vertex_global_id) const
   int n = 0;
   if (graph_edge_weights_.get() != 0) {
     int lrid = graph_edge_weights_->LRID(vertex_global_id);
-    if (lrid >= 0){   
+    if (lrid >= 0){
       n = graph_edge_weights_->NumMyEntries(lrid);
 
       if (graph_self_edges_.size() > 0){
@@ -654,7 +654,7 @@ int CostDescriber::getHypergraphEdgeWeights(std::map<int, float> &wgtMap) const
 }
 
 void CostDescriber::getCosts(std::map<int, float> &vertexWeights,
-                           std::map<int, std::map<int, float > > &graphEdgeWeights, 
+                           std::map<int, std::map<int, float > > &graphEdgeWeights,
                            std::map<int, float> &hypergraphEdgeWeights) const
 {
   if (haveVertexWeights()){
@@ -731,10 +731,10 @@ void CostDescriber::show_cd(std::ostream &os) const
   int nv = getNumVertices();
   int nhge = getNumHypergraphEdgeWeights();
 
-  int *gids = NULL;
+  long long *gids = NULL;
   if (nv){
     os << "Vertices and weights" << std::endl << "  ";
-    gids = new int [nv];
+    gids = new long long [nv];
     float *w = new float [nv];
 
     getVertexWeights(nv, gids, w);
@@ -760,7 +760,7 @@ void CostDescriber::show_cd(std::ostream &os) const
 
       for(curr = wgts.begin(); curr != wgts.end(); curr++){
         os << curr->first << " (" << curr->second << ") ";
-      } 
+      }
       os << std::endl;
     }
   }
@@ -786,7 +786,7 @@ void CostDescriber::show_cd(std::ostream &os) const
   else{
     os << "No hypergraph edge weights" << std::endl;
   }
-  
+
   if (gids) delete [] gids;
 
   nv = numGlobalVertexWeights_;

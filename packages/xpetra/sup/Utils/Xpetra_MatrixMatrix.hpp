@@ -315,7 +315,7 @@ Note: this class is not in the Xpetra_UseShortNames.hpp
             int gid = globalElementList[i];
             int numEntries;
             double* values;
-            int* inds;
+            long long* inds;
             Ctemp.ExtractGlobalRowView(gid, numEntries, values, inds);
             epC.InsertGlobalValues(gid, numEntries, values, inds);
           }

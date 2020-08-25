@@ -499,14 +499,14 @@ void ZoltanLibClass::computeCost()
   int numMyVWeights = 0;
   int numMyGWeights = 0;
   int numMyHGWeights = 0;
-  int globalNumCols = 0;
+  long long globalNumCols = 0;
   int myNZ = 0;
   int globalNZ = 0;
   int mySelfEdges = 0;
   int globalSelfEdges = 0;
 
   int myRows = input_map_->NumMyElements();
-  int globalNumRows = input_map_->NumGlobalElements();
+  long long globalNumRows = input_map_->NumGlobalElements64();
 
   if (input_graph_.get() == 0) //matrix
   {
@@ -514,7 +514,7 @@ void ZoltanLibClass::computeCost()
     mySelfEdges = input_matrix_->NumMyDiagonals();
     globalNZ = input_matrix_->NumGlobalNonzeros();
     globalSelfEdges = input_matrix_->NumGlobalDiagonals();
-    globalNumCols = input_matrix_->NumGlobalCols();
+    globalNumCols = input_matrix_->NumGlobalCols64();
   }
   else //graph
   {
@@ -522,7 +522,7 @@ void ZoltanLibClass::computeCost()
     mySelfEdges = input_graph_->NumMyDiagonals();
     globalNZ = input_graph_->NumGlobalNonzeros();
     globalSelfEdges = input_graph_->NumGlobalDiagonals();
-    globalNumCols = input_graph_->NumGlobalCols();
+    globalNumCols = input_graph_->NumGlobalCols64();
   }
 
   if (costs_.get() != 0)

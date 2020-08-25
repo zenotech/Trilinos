@@ -249,8 +249,8 @@ struct XpetraTraits<Epetra_CrsMatrix>
   {
     // source map
     const Epetra_Map &smap = from.RowMap();
-    gno_t numGlobalRows = smap.NumGlobalElements();
-    int base = smap.MinAllGID();
+    gno_t numGlobalRows = smap.NumGlobalElements64();
+    long long base = smap.MinAllGID64();
 
     // target map
     const Epetra_Comm &comm = from.Comm();
@@ -511,9 +511,9 @@ struct XpetraTraits<Epetra_CrsGraph>
   {
     // source map
     const Epetra_BlockMap &smap = from.RowMap();
-    gno_t numGlobalRows = smap.NumGlobalElements();
+    gno_t numGlobalRows = smap.NumGlobalElements64();
     lno_t oldNumElts = smap.NumMyElements();
-    int base = smap.MinAllGID();
+    long long base = smap.MinAllGID64();
 
     // target map
     const Epetra_Comm &comm = from.Comm();
@@ -727,8 +727,8 @@ struct XpetraTraits<Epetra_Vector>
   {
     // source map
     const Epetra_BlockMap &smap = from.Map();
-    gno_t numGlobalElts = smap.NumGlobalElements();
-    int base = smap.MinAllGID();
+    gno_t numGlobalElts = smap.NumGlobalElements64();
+    long long base = smap.MinAllGID64();
 
     // target map
     const Epetra_Comm &comm = from.Comm();
@@ -887,7 +887,7 @@ struct XpetraTraits<Tpetra::MultiVector<scalar_t, lno_t, gno_t, node_t> >
 };
 
 //////////////////////////////////////////////////////////////////////////////
-#if defined(HAVE_ZOLTAN2_EPETRA) && defined(HAVE_XPETRA_EPETRA)
+#if defined(HAVE_ZOLTAN2_EPETRA) && defined(HAVE_XPETRA_EPETRA) && 0
 // Epetra_MultiVector
 template < >
 struct XpetraTraits<Epetra_MultiVector>
@@ -927,8 +927,8 @@ struct XpetraTraits<Epetra_MultiVector>
   {
     // source map
     const Epetra_BlockMap &smap = from.Map();
-    gno_t numGlobalElts = smap.NumGlobalElements();
-    int base = smap.MinAllGID();
+    gno_t numGlobalElts = smap.NumGlobalElements64();
+    long long base = smap.MinAllGID64();
 
     // target map
     const Epetra_Comm &comm = from.Comm();

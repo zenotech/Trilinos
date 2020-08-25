@@ -169,7 +169,7 @@ namespace Amesos2 {
     Epetra_RowMatrix,
     DerivedMat>::getGlobalNNZ_impl() const
   {
-    return Teuchos::as<global_size_t>(this->mat_->NumGlobalNonzeros());
+    return Teuchos::as<global_size_t>(this->mat_->NumGlobalNonzeros64());
   }
 
   template <class DerivedMat>
@@ -189,7 +189,7 @@ namespace Amesos2 {
     Epetra_RowMatrix,
     DerivedMat>::getGlobalNumRows_impl() const
   {
-    return Teuchos::as<global_size_t>(this->mat_->NumGlobalRows());
+    return Teuchos::as<global_size_t>(this->mat_->NumGlobalRows64());
   }
 
   template <class DerivedMat>
@@ -200,7 +200,7 @@ namespace Amesos2 {
     Epetra_RowMatrix,
     DerivedMat>::getGlobalNumCols_impl() const
   {
-    return Teuchos::as<global_size_t>(this->mat_->NumGlobalCols());
+    return Teuchos::as<global_size_t>(this->mat_->NumGlobalCols64());
   }
 
   template <class DerivedMat>
