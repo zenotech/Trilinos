@@ -229,6 +229,12 @@ Zoltan_Matrix2d_Distribute (ZZ* zz, Zoltan_matrix inmat, /* Cannot be const as w
   MPI_Datatype zoltan_gno_mpi_type;
 
   ZOLTAN_TRACE_ENTER(zz, yo);
+	
+  // Check max tag size	
+  int flag;
+  int* tag_ub_ptr;
+  MPI_Comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, &tag_ub_ptr, &flag);
+  if (flag && *tag_ub_ptr < msg_tag) msg_tag = *tag_ub_ptr;	
 
   zoltan_gno_mpi_type = Zoltan_mpi_gno_type();
 
