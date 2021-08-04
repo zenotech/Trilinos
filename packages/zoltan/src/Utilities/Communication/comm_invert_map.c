@@ -155,7 +155,7 @@ MPI_Comm  comm)			/* communicator */
 
     /* Note: these mallocs should never fail as prior frees are larger. */
 
-    if (MPI_RECV_LIMIT == 0 || max_nrecvs <= MPI_RECV_LIMIT){
+    if (MPI_RECV_LIMIT == 0 /*|| max_nrecvs <= MPI_RECV_LIMIT*/){
 
       req = (MPI_Request *)ZOLTAN_MALLOC(sizeof(MPI_Request) * nrecvs);
       if (!req && nrecvs){
