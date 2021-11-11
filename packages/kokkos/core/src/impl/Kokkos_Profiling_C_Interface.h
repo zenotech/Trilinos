@@ -63,6 +63,7 @@ struct Kokkos_Profiling_KokkosPDeviceInfo {
 };
 
 struct Kokkos_Profiling_SpaceHandle {
+  Kokkos_Profiling_SpaceHandle(char const* n) {}
   char name[64];
 };
 
