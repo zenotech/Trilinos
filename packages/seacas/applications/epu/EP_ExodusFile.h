@@ -1,8 +1,8 @@
 /*
- * Copyright(C) 1999-2020 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2021 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 #ifndef SEACAS_ExodusFile_H
@@ -46,6 +46,7 @@ namespace Excn {
     static int                      cpuWordSize_;
     static std::string              outputFilename_;
     static bool                     keepOpen_;
+    static bool                     verifyValidFile_;
     static int                      maximumNameLength_;
     static int                      mode64bit_;
   };

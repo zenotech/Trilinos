@@ -83,7 +83,7 @@ namespace MueLu {
     : maxCoarseSize_(GetDefaultMaxCoarseSize()), implicitTranspose_(GetDefaultImplicitTranspose()),
       fuseProlongationAndUpdate_(GetDefaultFuseProlongationAndUpdate()),
       doPRrebalance_(GetDefaultPRrebalance()), isPreconditioner_(true), Cycle_(GetDefaultCycle()), WCycleStartLevel_(0),
-      scalingFactor_(Teuchos::ScalarTraits<double>::one()), lib_(Xpetra::UseTpetra), isDumpingEnabled_(false), dumpLevel_(-1), rate_(-1),
+      scalingFactor_(Teuchos::ScalarTraits<double>::one()), lib_(Xpetra::UseTpetra), isDumpingEnabled_(false), dumpLevel_(-2), rate_(-1),
       sizeOfAllocatedLevelMultiVectors_(0)
   {
     AddLevel(rcp(new Level));
@@ -102,7 +102,7 @@ namespace MueLu {
     : maxCoarseSize_(GetDefaultMaxCoarseSize()), implicitTranspose_(GetDefaultImplicitTranspose()),
       fuseProlongationAndUpdate_(GetDefaultFuseProlongationAndUpdate()),
       doPRrebalance_(GetDefaultPRrebalance()), isPreconditioner_(true), Cycle_(GetDefaultCycle()), WCycleStartLevel_(0),
-      scalingFactor_(Teuchos::ScalarTraits<double>::one()), isDumpingEnabled_(false), dumpLevel_(-1), rate_(-1),
+      scalingFactor_(Teuchos::ScalarTraits<double>::one()), isDumpingEnabled_(false), dumpLevel_(-2), rate_(-1),
       sizeOfAllocatedLevelMultiVectors_(0)
   {
     lib_ = A->getDomainMap()->lib();
@@ -357,8 +357,8 @@ namespace MueLu {
     // Attach FactoryManager to the coarse level
     SetFactoryManager SFMCoarse(Levels_[coarseLevelID], coarseLevelManager);
 
-    if (isDumpingEnabled_ && dumpLevel_ == 0 && coarseLevelID == 1)
-      DumpCurrentGraph();
+    if (isDumpingEnabled_ && (dumpLevel_ == 0 || dumpLevel_ == -1) && coarseLevelID == 1)
+      DumpCurrentGraph(0);
 
     RCP<TopSmootherFactory> coarseFact   = rcp(new TopSmootherFactory(coarseLevelManager, "CoarseSolver"));
     RCP<TopSmootherFactory> smootherFact = rcp(new TopSmootherFactory(coarseLevelManager, "Smoother"));
@@ -506,8 +506,8 @@ namespace MueLu {
     }
 
     // I think this is the proper place for graph so that it shows every dependence
-    if (isDumpingEnabled_ && dumpLevel_ > 0 && coarseLevelID == dumpLevel_)
-      DumpCurrentGraph();
+    if (isDumpingEnabled_ && ( (dumpLevel_ > 0 && coarseLevelID == dumpLevel_) || dumpLevel_ == -1 ) )
+      DumpCurrentGraph(coarseLevelID);
 
     if (!isFinestLevel) {
       // Release the hierarchy data
@@ -553,8 +553,8 @@ namespace MueLu {
     levelManagers_.resize(levelID);
 
     int sizeOfVecs = sizeOfAllocatedLevelMultiVectors_;
-    DeleteLevelMultiVectors();
-    AllocateLevelMultiVectors(sizeOfVecs);
+
+    AllocateLevelMultiVectors(sizeOfVecs, true);
 
     // since the # of levels, etc. may have changed, force re-determination of description during next call to description()
     ResetDescription();
@@ -1301,6 +1301,8 @@ namespace MueLu {
         oss << "\n--------------------------------------------------------------------------------\n";
         oss << "---                            Multigrid Summary "  << std::setw(28) << std::left << label << "---\n";
         oss << "--------------------------------------------------------------------------------" << std::endl;
+        if (verbLevel & Parameters1)
+          oss << "Scalar              = " << Teuchos::ScalarTraits<Scalar>::name() << std::endl;
         oss << "Number of levels    = " << numLevels << std::endl;
         oss << "Operator complexity = " << std::setprecision(2) << std::setiosflags(std::ios::fixed)
             << GetOperatorComplexity() << std::endl;
@@ -1393,56 +1395,47 @@ namespace MueLu {
   }
 
   template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-  void Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::DumpCurrentGraph() const {
+  void Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::DumpCurrentGraph(int currLevel) const {
     if (GetProcRankVerbose() != 0)
       return;
 #if defined(HAVE_MUELU_BOOST) && defined(HAVE_MUELU_BOOST_FOR_REAL) && defined(BOOST_VERSION) && (BOOST_VERSION >= 104400)
+    
     BoostGraph      graph;
-
+    
     BoostProperties dp;
     dp.property("label", boost::get(boost::vertex_name,  graph));
     dp.property("id",    boost::get(boost::vertex_index, graph));
     dp.property("label", boost::get(boost::edge_name,    graph));
     dp.property("color", boost::get(boost::edge_color,   graph));
-
+    
     // create local maps
     std::map<const FactoryBase*, BoostVertex>                                     vindices;
     typedef std::map<std::pair<BoostVertex,BoostVertex>, std::string> emap; emap  edges;
-
+    
     static int call_id=0;
-
+    
     RCP<Operator> A = Levels_[0]->template Get<RCP<Operator> >("A");
     int rank = A->getDomainMap()->getComm()->getRank();
-
+    
     //    printf("[%d] CMS: ----------------------\n",rank);
-    for (int i = dumpLevel_; i <= dumpLevel_+1 && i < GetNumLevels(); i++) {
+    for (int i = currLevel; i <= currLevel+1 && i < GetNumLevels(); i++) {
       edges.clear();
       Levels_[i]->UpdateGraph(vindices, edges, dp, graph);
-
+      
       for (emap::const_iterator eit = edges.begin(); eit != edges.end(); eit++) {
         std::pair<BoostEdge, bool> boost_edge = boost::add_edge(eit->first.first, eit->first.second, graph);
         // printf("[%d] CMS:   Hierarchy, adding edge (%d->%d) %d\n",rank,(int)eit->first.first,(int)eit->first.second,(int)boost_edge.second);
         // Because xdot.py views 'Graph' as a keyword
         if(eit->second==std::string("Graph")) boost::put("label", dp, boost_edge.first, std::string("Graph_"));
         else boost::put("label", dp, boost_edge.first, eit->second);
-        if (i == dumpLevel_)
+        if (i == currLevel)
           boost::put("color", dp, boost_edge.first, std::string("red"));
         else
           boost::put("color", dp, boost_edge.first, std::string("blue"));
       }
     }
-
-#if 0
-    std::ostringstream legend;
-    legend << "< <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\"> \
-               <TR><TD COLSPAN=\"2\">Legend</TD></TR> \
-               <TR><TD><FONT color=\"red\">Level " << dumpLevel_ << "</FONT></TD><TD><FONT color=\"blue\">Level " << dumpLevel_+1 << "</FONT></TD></TR> \
-               </TABLE> >";
-    BoostVertex boost_vertex = boost::add_vertex(graph);
-    boost::put("label", dp, boost_vertex, legend.str());
-#endif
-
-    std::ofstream out(dumpFile_.c_str() +std::to_string(call_id)+std::string("_")+ std::to_string(rank) + std::string(".dot"));
+    
+    std::ofstream out(dumpFile_.c_str()+std::string("_")+std::to_string(currLevel)+std::string("_")+std::to_string(call_id)+std::string("_")+ std::to_string(rank) + std::string(".dot"));
     boost::write_graphviz_dp(out, graph, dp, std::string("id"));
     out.close();
     call_id++;
@@ -1526,9 +1519,9 @@ namespace MueLu {
   }
 
   template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-  void Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::AllocateLevelMultiVectors(int numvecs) {
+  void Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::AllocateLevelMultiVectors(int numvecs, bool forceMapCheck) {
     int N = Levels_.size();
-    if( (sizeOfAllocatedLevelMultiVectors_ == numvecs && residual_.size() == N) || numvecs<=0 ) return;
+    if( ( (sizeOfAllocatedLevelMultiVectors_ == numvecs && residual_.size() == N) || numvecs<=0 ) && !forceMapCheck) return;
 
     // If, somehow, we changed the number of levels, delete everything first
     if(residual_.size() != N) {
@@ -1553,31 +1546,49 @@ namespace MueLu {
           Adm = A_as_blocked->getFullDomainMap();
         }
 
-        // This is zero'd by default since it is filled via an operator apply
-        residual_[i] = MultiVectorFactory::Build(Arm, numvecs, true);
-        correction_[i] = MultiVectorFactory::Build(Adm, numvecs, false);
+        if (residual_[i].is_null() || !residual_[i]->getMap()->isSameAs(*Arm))
+          // This is zero'd by default since it is filled via an operator apply
+          residual_[i] = MultiVectorFactory::Build(Arm, numvecs, true);
+        if (correction_[i].is_null() || !correction_[i]->getMap()->isSameAs(*Adm))
+          correction_[i] = MultiVectorFactory::Build(Adm, numvecs, false);
       }
 
       if(i+1<N) {
         // This is zero'd by default since it is filled via an operator apply
         if(implicitTranspose_) {
           RCP<Operator> P = Levels_[i+1]->template Get< RCP<Operator> >("P");
-          if(!P.is_null()) coarseRhs_[i] = MultiVectorFactory::Build(P->getDomainMap(),numvecs,true);
+          if(!P.is_null()) {
+            RCP<const Map> map = P->getDomainMap();
+            if (coarseRhs_[i].is_null() || !coarseRhs_[i]->getMap()->isSameAs(*map))
+              coarseRhs_[i] = MultiVectorFactory::Build(map, numvecs, true);
+          }
         } else {
           RCP<Operator> R = Levels_[i+1]->template Get< RCP<Operator> >("R");
-          if(!R.is_null()) coarseRhs_[i] = MultiVectorFactory::Build(R->getRangeMap(),numvecs,true);
+          if (!R.is_null()) {
+            RCP<const Map> map = R->getRangeMap();
+            if (coarseRhs_[i].is_null() || !coarseRhs_[i]->getMap()->isSameAs(*map))
+              coarseRhs_[i] = MultiVectorFactory::Build(map, numvecs, true);
+          }
         }
 
 
         RCP<const Import> importer;
         if(Levels_[i+1]->IsAvailable("Importer"))
           importer = Levels_[i+1]->template Get< RCP<const Import> >("Importer");
-        if (doPRrebalance_ || importer.is_null())
-          coarseX_[i] = MultiVectorFactory::Build(coarseRhs_[i]->getMap(),numvecs,true);
-        else {
-          coarseImport_[i] = MultiVectorFactory::Build(importer->getTargetMap(), numvecs,false);
-          coarseExport_[i] = MultiVectorFactory::Build(importer->getSourceMap(), numvecs,false);
-          coarseX_[i] = MultiVectorFactory::Build(importer->getTargetMap(),numvecs,false);
+        if (doPRrebalance_ || importer.is_null()) {
+          RCP<const Map> map = coarseRhs_[i]->getMap();
+          if (coarseX_[i].is_null() || !coarseX_[i]->getMap()->isSameAs(*map))
+            coarseX_[i] = MultiVectorFactory::Build(map, numvecs, true);
+        } else {
+          RCP<const Map> map;
+          map = importer->getTargetMap();
+          if (coarseImport_[i].is_null() || !coarseImport_[i]->getMap()->isSameAs(*map)) {
+            coarseImport_[i] = MultiVectorFactory::Build(map, numvecs,false);
+            coarseX_[i] = MultiVectorFactory::Build(map,numvecs,false);
+          }
+          map = importer->getSourceMap();
+          if (coarseExport_[i].is_null() || !coarseExport_[i]->getMap()->isSameAs(*map))
+            coarseExport_[i] = MultiVectorFactory::Build(map, numvecs,false);
         }
       }
     }

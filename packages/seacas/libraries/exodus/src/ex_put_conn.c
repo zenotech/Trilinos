@@ -2,7 +2,7 @@
  * Copyright(C) 1999-2020 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 
@@ -44,13 +44,16 @@ int ex_int_write_conn(int exoid, ex_entity_id blk_id, const char *type, int var_
 int ex_put_conn(int exoid, ex_entity_type blk_type, ex_entity_id blk_id, const void_int *node_conn,
                 const void_int *elem_edge_conn, const void_int *elem_face_conn)
 {
-  int  connid = -1, blk_id_ndx, status;
+  int  connid = -1;
+  int  status;
   char errmsg[MAX_ERR_LENGTH];
 
   EX_FUNC_ENTER();
-  ex__check_valid_file_id(exoid, __func__);
+  if (ex__check_valid_file_id(exoid, __func__) == EX_FATAL) {
+    EX_FUNC_LEAVE(EX_FATAL);
+  }
 
-  blk_id_ndx = ex__id_lkup(exoid, blk_type, blk_id);
+  int blk_id_ndx = ex__id_lkup(exoid, blk_type, blk_id);
   if (blk_id_ndx <= 0) {
     ex_get_err(NULL, NULL, &status);
 

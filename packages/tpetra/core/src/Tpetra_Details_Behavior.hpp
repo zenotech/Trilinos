@@ -184,6 +184,9 @@ public:
   /// For a discussion, see Trilinos GitHub issues #1571 and #1088.
   static bool assumeMpiIsCudaAware ();
 
+  /// \brief Whether the CUDA_LAUNCH_BLOCKING environment variable has been set.
+  static bool cudaLaunchBlocking ();
+
   /// \brief MPI process count above which
   ///   Tpetra::CrsMatrix::transferAndFillComplete will attempt to do
   ///   advanced neighbor discovery.
@@ -259,6 +262,18 @@ public:
   /// You mau control this at run time via the <tt>TPETRA_USE_KOKKOS_PROFILING</tt>
   /// environment variable.
   static bool profilingRegionUseKokkosProfiling();
+
+  /// \brief Skip copyAndPermute if possible
+  ///
+  /// This is disabled by default.  You may control this at run time via the
+  /// <tt>TPETRA_SKIP_COPY_AND_PERMUTE</tt> environment variable.
+  static bool skipCopyAndPermuteIfPossible();
+
+  /// \brief Overlap communication and computation.
+  ///
+  /// This is disabled by default.  You may control this at run time via the
+  /// <tt>TPETRA_OVERLAP</tt> environment variable.
+  static bool overlapCommunicationAndComputation();
 
 
 };

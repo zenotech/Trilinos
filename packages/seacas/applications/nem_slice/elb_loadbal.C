@@ -1,8 +1,8 @@
 /*
- * Copyright(C) 1999-2020 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2021 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 
@@ -46,8 +46,8 @@
 
 int ilog2i(size_t n)
 {
-  size_t       i  = 0;
-  unsigned int n1 = n;
+  size_t i  = 0;
+  size_t n1 = n;
   while ((n1 >>= 1) != 0U) {
     ++i;
   }
@@ -507,7 +507,7 @@ int generate_loadbal(Machine_Description *machine, Problem_Description *problem,
       Gen_Error(0, "fatal: insufficient memory");
       goto cleanup;
     }
-    start_proc = 0; /* counter to keep track of proccessors for each group */
+    start_proc = 0; /* counter to keep track of processors for each group */
   }
 
   /*
@@ -616,15 +616,23 @@ int generate_loadbal(Machine_Description *machine, Problem_Description *problem,
         }
       }
       else {
-        tmp_nv    = problem->num_vertices;
-        tmp_start = &graph->start[0];
-        tmp_adj   = &graph->adj[0];
-        tmp_vwgts = &weight->vertices[0];
-        tmp_ewgts = &weight->edges[0];
-        tmp_x     = x_ptr;
-        tmp_y     = y_ptr;
-        tmp_z     = z_ptr;
-        tmp_v2p   = lb->vertex2proc;
+        tmp_nv = problem->num_vertices;
+        if (!graph->start.empty()) {
+          tmp_start = &graph->start[0];
+        }
+        if (!graph->adj.empty()) {
+          tmp_adj = &graph->adj[0];
+        }
+        if (!weight->vertices.empty()) {
+          tmp_vwgts = &weight->vertices[0];
+        }
+        if (!weight->edges.empty()) {
+          tmp_ewgts = &weight->edges[0];
+        }
+        tmp_x   = x_ptr;
+        tmp_y   = y_ptr;
+        tmp_z   = z_ptr;
+        tmp_v2p = lb->vertex2proc;
 
         for (int cnt = 0; cnt < machine->num_dims; cnt++) {
           tmpdim[cnt] = machine->dim[cnt];
@@ -1044,14 +1052,8 @@ namespace {
                           Mesh_Description<INT> *mesh, LB_Description<INT> *lb,
                           Graph_Description<INT> *graph, int check_type)
   {
-    std::vector<INT> pt_list;
-    size_t           nelem;
-    size_t           nhold;
-    size_t           count;
     size_t           num_found = 0;
-
     std::vector<int> list_ptr;
-    int              end;
 
     /*
      * look for discontinuities in the graph
@@ -1126,6 +1128,7 @@ namespace {
             for (size_t ecnt = 0; ecnt < mesh->num_elems; ecnt++) {
               int proc = lb->vertex2proc[ecnt];
               assert(proc < machine->num_procs);
+              size_t end = 0;
               if (proc == pcnt) {
                 if (ecnt < (mesh->num_elems - 1)) {
                   end = graph->start[ecnt + 1];
@@ -1135,7 +1138,7 @@ namespace {
                   ;
                 }
                 size_t distance = 1;
-                for (int i = graph->start[ecnt]; i < end; i++) {
+                for (size_t i = graph->start[ecnt]; i < end; i++) {
                   int proc2 = lb->vertex2proc[graph->adj[i] - 1];
                   assert(proc2 < machine->num_procs);
                   if (proc2 == proc) {
@@ -1156,6 +1159,7 @@ namespace {
               for (size_t ecnt = 0; ecnt < mesh->num_elems; ecnt++) {
                 int proc = lb->vertex2proc[ecnt];
                 assert(proc < machine->num_procs);
+                size_t end = 0;
                 if (proc == pcnt) {
                   global_index[ki++] = ecnt;
                   columns[kf++]      = local_number[ecnt];
@@ -1165,7 +1169,7 @@ namespace {
                   else {
                     end = graph->nadj;
                   }
-                  for (int i = graph->start[ecnt]; i < end; i++) {
+                  for (size_t i = graph->start[ecnt]; i < end; i++) {
                     int proc2 = lb->vertex2proc[graph->adj[i] - 1];
                     assert(proc2 < machine->num_procs);
                     if (proc2 == proc) {
@@ -1214,7 +1218,7 @@ namespace {
 
     if (problem->global_mech == 1 || problem->local_mech == 1) {
 
-      pt_list.resize(graph->max_nsur);
+      std::vector<INT> pt_list(graph->max_nsur);
       std::vector<INT> hold_elem(graph->max_nsur);
       std::vector<int> problems(mesh->num_nodes);
       std::vector<int> proc_cnt(machine->num_procs);
@@ -1263,8 +1267,8 @@ namespace {
 
             for (int ncnt = 0; ncnt < side_cnt; ncnt++) {
 
-              size_t node = side_nodes[ncnt];
-              nhold       = graph->sur_elem[node].size();
+              size_t node  = side_nodes[ncnt];
+              size_t nhold = graph->sur_elem[node].size();
 
               /*
                * look for the following cases
@@ -1298,7 +1302,7 @@ namespace {
 
                     int nsides2 = get_elem_info(NSIDES, etype2);
 
-                    count = 0;
+                    size_t count = 0;
                     for (int cnt = 0; cnt < nsides2; cnt++) {
 
                       ss_to_node_list(etype2, mesh->connect[el2], (cnt + 1), side_nodes2);
@@ -1313,9 +1317,9 @@ namespace {
                         hold_elem[i] = graph->sur_elem[side_nodes2[0]][pt_list[i]];
                       }
 
-                      nelem = find_inter(hold_elem.data(), graph->sur_elem[side_nodes2[2]].data(),
-                                         nhold2, graph->sur_elem[side_nodes2[2]].size(),
-                                         pt_list.data());
+                      size_t nelem = find_inter(
+                          hold_elem.data(), graph->sur_elem[side_nodes2[2]].data(), nhold2,
+                          graph->sur_elem[side_nodes2[2]].size(), pt_list.data());
 
                       if (nelem >= 1) {
                         count++;

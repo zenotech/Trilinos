@@ -1,7 +1,7 @@
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2021 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
-// 
+//
 // See packages/seacas/LICENSE for details
 #include <cctype>
 #include <cfloat>
@@ -106,8 +106,8 @@ namespace {
 #endif
   }
 
-  typedef std::set<std::pair<Ioss::EntityType, int64_t>> EntityIdSet;
-  EntityIdSet                                            id_set;
+  using EntityIdSet = std::set<std::pair<Ioss::EntityType, int64_t>>;
+  EntityIdSet id_set;
 
   void set_id(Ioss::GroupingEntity *old_ge, Ioss::GroupingEntity *new_ge)
   {
@@ -287,10 +287,16 @@ double ejoin(SystemInterface &interFace, std::vector<Ioss::Region *> &part_mesh,
     properties.add(Ioss::Property("FILE_TYPE", "netcdf4"));
   }
 
-  if (interFace.compression_level() > 0) {
+  if (interFace.compression_level() > 0 || interFace.szip()) {
     properties.add(Ioss::Property("FILE_TYPE", "netcdf4"));
     properties.add(Ioss::Property("COMPRESSION_LEVEL", interFace.compression_level()));
     properties.add(Ioss::Property("COMPRESSION_SHUFFLE", true));
+    if (interFace.szip()) {
+      properties.add(Ioss::Property("COMPRESSION_METHOD", "szip"));
+    }
+    else if (interFace.zlib()) {
+      properties.add(Ioss::Property("COMPRESSION_METHOD", "zlib"));
+    }
   }
 
   properties.add(Ioss::Property("FLUSH_INTERVAL", 0));
@@ -358,7 +364,7 @@ double ejoin(SystemInterface &interFace, std::vector<Ioss::Region *> &part_mesh,
   node_count    = global_node_map.size();
   size_t merged = local_node_map.size() - global_node_map.size();
   if (merged > 0) {
-    fmt::print("*** {:n} Nodes were merged/omitted.\n", merged);
+    fmt::print("*** {:L} Nodes were merged/omitted.\n", merged);
   }
 
 // Verify nodemap...
@@ -534,7 +540,7 @@ double ejoin(SystemInterface &interFace, std::vector<Ioss::Region *> &part_mesh,
   }
   output_region.output_summary(std::cout);
   fmt::print("******* END *******\n");
-  fmt::print(stderr, "\nTotal Execution time     = {:.5} seconds.\n", end - begin);
+  fmt::print(stderr, "\nTotal Execution Time     = {:.5} seconds.\n", end - begin);
   if (steps > 0) {
     fmt::print(stderr, "\tMesh = {:.5} seconds; Timesteps = {:.5} seconds / step.\n\n",
                (ts_begin - begin), (end - ts_begin) / (double)(steps));
@@ -545,10 +551,7 @@ double ejoin(SystemInterface &interFace, std::vector<Ioss::Region *> &part_mesh,
 namespace {
   bool entity_is_omitted(Ioss::GroupingEntity *block)
   {
-    bool omitted = false;
-    if (block->property_exists("omitted")) {
-      omitted = (block->get_property("omitted").get_int() == 1);
-    }
+    bool omitted = block->get_optional_property("omitted", 0) == 1;
     return omitted;
   }
 
@@ -557,8 +560,7 @@ namespace {
     static int         used_blocks = 0;
     const std::string &prefix      = region.name();
 
-    const Ioss::ElementBlockContainer &ebs            = region.get_element_blocks();
-    size_t                             total_elements = 0;
+    const Ioss::ElementBlockContainer &ebs = region.get_element_blocks();
     for (auto eb : ebs) {
       if (!entity_is_omitted(eb)) {
         std::string name = eb->name();
@@ -572,9 +574,8 @@ namespace {
         if (debug) {
           fmt::print(stderr, "{}, ", name);
         }
-        std::string type     = eb->get_property("topology_type").get_string();
+        std::string type     = eb->topology()->name();
         size_t      num_elem = eb->entity_count();
-        total_elements += num_elem;
 
         if (num_elem > 0) {
           auto ebn = new Ioss::ElementBlock(output_region.get_database(), name, type, num_elem);
@@ -599,8 +600,7 @@ namespace {
   {
     const std::string &prefix = region.name();
 
-    const Ioss::SideSetContainer &fss         = region.get_sidesets();
-    size_t                        total_sides = 0;
+    const Ioss::SideSetContainer &fss = region.get_sidesets();
     for (auto &fs : fss) {
       if (!entity_is_omitted(fs)) {
         std::string name = fs->name();
@@ -623,10 +623,9 @@ namespace {
           if (debug) {
             fmt::print(stderr, "{}, ", fbname);
           }
-          std::string fbtype   = fb->get_property("topology_type").get_string();
-          std::string partype  = fb->get_property("parent_topology_type").get_string();
+          std::string fbtype   = fb->topology()->name();
+          std::string partype  = fb->parent_element_topology()->name();
           size_t      num_side = fb->entity_count();
-          total_sides += num_side;
 
           auto block =
               new Ioss::SideBlock(output_region.get_database(), fbname, fbtype, partype, num_side);
@@ -999,7 +998,7 @@ namespace {
   {
     for (const auto &pm : part_mesh) {
       Ioss::NameList fields;
-      pm->field_describe(Ioss::Field::TRANSIENT, &fields);
+      pm->field_describe(Ioss::Field::REDUCTION, &fields);
       for (const auto &field : fields) {
         std::vector<double> data;
         pm->get_field_data(field, data);
@@ -1286,7 +1285,7 @@ namespace {
     }
     for (const auto &pm : part_mesh) {
       Ioss::NameList fields;
-      pm->field_describe(Ioss::Field::TRANSIENT, &fields);
+      pm->field_describe(Ioss::Field::REDUCTION, &fields);
       for (const auto &field_name : fields) {
         if (valid_variable(field_name, 0, variable_list)) {
           Ioss::Field field = pm->get_field(field_name);

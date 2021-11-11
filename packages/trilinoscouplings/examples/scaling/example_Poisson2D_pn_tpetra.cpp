@@ -82,6 +82,7 @@
 /**************************************************************/
 /*                          Includes                          */
 /**************************************************************/
+#include <stdlib.h>
 
 // TrilinosCouplings includes
 #include "TrilinosCouplings_config.h"
@@ -410,9 +411,11 @@ void evaluateExactSolutionGrad(ArrayOut &       exactSolutionGradValues,
 template<class FC1, class FC2>
 void CopyFieldContainer2D(const FC1 & c1, FC2 & c2) {
   Kokkos::resize(c2,c1.dimension(0),c1.dimension(1));
+  auto c2_h = Kokkos::create_mirror_view(c2);
   for(size_t i=0; i<(size_t)c1.dimension(0); i++)
     for(size_t j=0; j<(size_t)c1.dimension(1); j++)
-      c2(i,j) = c1(i,j);
+      c2_h(i,j) = c1(i,j);
+  Kokkos::deep_copy(c2, c2_h);
 }
 
 
@@ -461,12 +464,20 @@ int main(int argc, char *argv[]) {
   clp.setOption ("coordsFilename", &coordsFilename, "If nonempty, dump the "
 		  "generated coordinates to that file in MatrixMarket format.");
   
+  // Random number seed
+  int randomSeed=24601;
+  clp.setOption ("seed", &randomSeed, "Random Seed.");
+  
+  
   switch (clp.parse(argc, argv)) {
     case Teuchos::CommandLineProcessor::PARSE_HELP_PRINTED:        return EXIT_SUCCESS;
     case Teuchos::CommandLineProcessor::PARSE_ERROR:
     case Teuchos::CommandLineProcessor::PARSE_UNRECOGNIZED_OPTION: return EXIT_FAILURE;
     case Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL:          break;
   }
+  
+  // Initialize RNG
+  srand(randomSeed);
 
   if (MyPID == 0){
     std::cout \
@@ -1434,6 +1445,26 @@ int main(int argc, char *argv[]) {
     amgList = inputSolverList.sublist("MueLu");
   else
     amgList = inputSolverList;
+
+
+#ifdef HAVE_TRILINOSCOUPLINGS_AVATAR
+  // If we have Avatar, then let's use it
+  if (inputSolverList.isSublist("Avatar-MueLu")) {
+    // NOTE: User will need to make sure these are named consistently with the tree files specified
+    ParameterList problemFeatures = problemStatistics;
+    ParameterList avatarParams    = inputSolverList.sublist("Avatar-MueLu");
+    std::cout<<"*** Avatar Parameters ***\n"<<avatarParams<<std::endl;
+    Teuchos::RCP<const Teuchos::Comm<int> > mycomm = StiffMatrix.getRowMap()->getComm();
+
+    MueLu::AvatarInterface avatar(mycomm,avatarParams);
+    std::cout<<"*** Avatar Setup ***"<<std::endl;
+    avatar.Setup();
+    avatar.SetMueLuParameters(problemFeatures,amgList, true);
+    std::cout<<"*** Updated MueLu Parameters ***\n"<<amgList<<std::endl;
+    avatar.Cleanup();
+  }
+#endif
+
   std::string lev0List = "level 0";
   if (amgList.isSublist(lev0List)) {
     std::cout << "found \"" << lev0List << "\" sublist" << std::endl;
@@ -2808,14 +2839,14 @@ void CreateLinearSystem(int numWorksets,
   }
 
   vector_type laplDiagOwned(rowMap, true);
-  Teuchos::ArrayView<const local_ordinal_type> indices;
-  Teuchos::ArrayView<const scalar_type> values;
+  typename crs_matrix_type::local_inds_host_view_type indices;
+  typename crs_matrix_type::values_host_view_type values;
   size_t numOwnedRows = rowMap->getNodeNumElements();
   for (size_t row=0; row<numOwnedRows; row++) {
     StiffMatrix.getLocalRowView(row, indices, values);
     size_t numIndices = indices.size();
     for (size_t j=0; j<numIndices; j++) {
-      size_t col = indices[j];
+      size_t col = indices(j);
       if (row == col) continue;
       laplDiagOwned.sumIntoLocalValue(row, 1/myDistance2(*coordsOwnedPlusShared, row, col));
     }
@@ -2919,14 +2950,14 @@ void Apply_Dirichlet_BCs(std::vector<int> &BCNodes, crs_matrix_type & A, multive
     xdata[lrid]=bdata[lrid] = solndata[lrid];
 
     size_t numEntriesInRow = A.getNumEntriesInLocalRow(lrid);
-    Array<local_ordinal_type> cols(numEntriesInRow);
-    Array<scalar_type> vals(numEntriesInRow);
-    A.getLocalRowCopy(lrid, cols(), vals(), numEntriesInRow);
+    typename crs_matrix_type::nonconst_local_inds_host_view_type cols("cols", numEntriesInRow);
+    typename crs_matrix_type::nonconst_values_host_view_type vals("vals", numEntriesInRow);
+    A.getLocalRowCopy(lrid, cols, vals, numEntriesInRow);
     
-    for(int j=0; j<vals.size(); j++)
-      vals[j] = (cols[j] == lrid) ? 1.0 : 0.0;
+    for(size_t j=0; j<vals.extent(0); j++)
+      vals(j) = (cols(j) == lrid) ? 1.0 : 0.0;
 
-    A.replaceLocalValues(lrid, cols(), vals());
+    A.replaceLocalValues(lrid, cols, vals);
   }
 
   A.fillComplete();

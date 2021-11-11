@@ -1,7 +1,7 @@
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2021 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
-// 
+//
 // See packages/seacas/LICENSE for details
 
 #include <Ioss_CompositeVariableType.h>
@@ -165,16 +165,14 @@ namespace Ioss {
 
   const VariableType *VariableType::factory(const std::vector<Suffix> &suffices)
   {
-    size_t size = suffices.size();
-    // Maximum suffix size is currently 5.
-    assert(size < 100000);
-    const VariableType *ivt = nullptr;
+    size_t              size = suffices.size();
+    const VariableType *ivt  = nullptr;
     if (size <= 1) {
       return nullptr; // All storage types must have at least 2 components.
     }
 
     bool match = false;
-    for (auto vtype : registry()) {
+    for (const auto &vtype : registry()) {
       ivt = vtype.second;
       if (ivt->suffix_count() == static_cast<int>(size)) {
         if (ivt->match(suffices)) {
@@ -193,7 +191,7 @@ namespace Ioss {
       size_t width = Ioss::Utils::number_width(size);
       for (size_t i = 0; i < size; i++) {
         std::string digits = fmt::format("{:0{}}", i + 1, width);
-        if (!Ioss::Utils::str_equal(&suffices[i].m_data[0], digits)) {
+        if (!Ioss::Utils::str_equal(suffices[i].m_data, digits)) {
           match = false;
           break;
         }
@@ -219,8 +217,10 @@ namespace Ioss {
     if (static_cast<int>(suffices.size()) == suffix_count()) {
       for (int i = 0; i < suffix_count(); i++) {
         if (suffices[i] != label(i + 1)) {
-          result = false;
-          break;
+          if (!Ioss::Utils::str_equal(suffices[i].m_data, label(i + 1))) {
+            result = false;
+            break;
+          }
         }
       }
     }
@@ -297,10 +297,10 @@ namespace Ioss {
 
   std::string VariableType::numeric_label(int which, int ncomp, const std::string &name)
   {
-    if (ncomp >= 100000) {
+    if (ncomp >= 100'000) {
       std::ostringstream errmsg;
       fmt::print(errmsg,
-                 "ERROR: Variable '{}' has {:n} components which is larger than the current maximum"
+                 "ERROR: Variable '{}' has {:L} components which is larger than the current maximum"
                  " of 100,000. Please contact developer.\n",
                  name, ncomp);
       IOSS_ERROR(errmsg);

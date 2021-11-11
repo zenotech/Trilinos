@@ -1,7 +1,7 @@
 // Copyright(C) 1999-2020 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
-// 
+//
 // See packages/seacas/LICENSE for details
 
 #include <Ionit_Initializer.h>
@@ -173,10 +173,10 @@ namespace {
     output_sidesets(region, output_region);
     output_region.end_mode(Ioss::STATE_MODEL);
 
-    if (region.property_exists("state_count") && region.get_property("state_count").get_int() > 0) {
+    int step_count = region.get_optional_property("state_count", 0);
+    if (step_count > 0) {
       if (rank == 0) {
-        fmt::print(stderr, "\n Number of time steps on database     = {:12n}\n\n",
-                   region.get_property("state_count").get_int());
+        fmt::print(stderr, "\n Number of time steps on database     = {:12L}\n\n", step_count);
       }
 
       output_region.begin_mode(Ioss::STATE_DEFINE_TRANSIENT);
@@ -194,8 +194,6 @@ namespace {
       output_region.begin_mode(Ioss::STATE_TRANSIENT);
       // Get the timesteps from the input database.  Step through them
       // and transfer fields to output database...
-
-      int step_count = region.get_property("state_count").get_int();
 
       for (int istep = 1; istep <= step_count; istep++) {
         double time = region.get_state_time(istep);
@@ -456,8 +454,8 @@ namespace {
       nb->put_field_data("owning_processor", owning_processor);
     }
 
-    fmt::print("P[{}] Number of coordinates per node = {:12n}\n", rank, degree);
-    fmt::print("P[{}] Number of nodes                = {:12n}\n", rank, num_nodes);
+    fmt::print("P[{}] Number of coordinates per node = {:12L}\n", rank, degree);
+    fmt::print("P[{}] Number of nodes                = {:12L}\n", rank, num_nodes);
   }
 
   void transfer_elementblocks(Ioss::Region &region, Ioss::Region &output_region)
@@ -476,7 +474,7 @@ namespace {
       total_entities += count;
     }
     fmt::print(
-        "P[{}] Number of Element Blocks       = {:12n}, Number of elements (cells) = {:12n}\n",
+        "P[{}] Number of Element Blocks       = {:12L}, Number of elements (cells) = {:12L}\n",
         rank, blocks.size(), total_entities);
   }
 
@@ -492,8 +490,8 @@ namespace {
       const Ioss::SideBlockContainer &fbs  = ss->get_side_blocks();
       for (auto fb : fbs) {
         const std::string &fbname   = fb->name();
-        std::string        fbtype   = fb->get_property("topology_type").get_string();
-        std::string        partype  = fb->get_property("parent_topology_type").get_string();
+        std::string        fbtype   = fb->topology()->name();
+        std::string        partype  = fb->parent_element_topology()->name();
         size_t             num_side = fb->entity_count();
         total_sides += num_side;
 
@@ -507,7 +505,7 @@ namespace {
       output_region.add(surf);
     }
     fmt::print(
-        "P[{}] Number of SideSets             = {:12n}, Number of cell faces       = {:12n}\n",
+        "P[{}] Number of SideSets             = {:12L}, Number of cell faces       = {:12L}\n",
         rank, ssets.size(), total_sides);
   }
 

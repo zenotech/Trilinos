@@ -19,7 +19,6 @@
 #include "ElementGraphTester.hpp"       // for ElemElemGraphTester
 #include "mpi.h"                        // for MPI_COMM_WORLD, MPI_Comm, etc
 #include "stk_mesh/base/Bucket.hpp"     // for Bucket
-#include "stk_mesh/base/BulkDataInlinedMethods.hpp"
 #include "stk_mesh/base/Entity.hpp"     // for Entity
 #include "stk_mesh/base/Types.hpp"      // for PartVector, EntityId, etc
 #include "stk_unit_test_utils/unittestMeshUtils.hpp"
@@ -647,7 +646,7 @@ void change_entity_owner_then_death_hex_test_2_procs(bool aura_on)
         stk::mesh::impl::ParallelSelectedInfo remoteActiveSelector;
         stk::mesh::impl::populate_selected_value_for_remote_elements(bulkData, elem_graph, bulkData.mesh_meta_data().universal_part(), remoteActiveSelector);
 
-        process_killed_elements(bulkData, elem_graph, killedElements, active, remoteActiveSelector, boundary_mesh_parts, &boundary_mesh_parts);
+        process_killed_elements(bulkData, killedElements, active, remoteActiveSelector, boundary_mesh_parts, &boundary_mesh_parts);
 
         if (proc == 1)
         {

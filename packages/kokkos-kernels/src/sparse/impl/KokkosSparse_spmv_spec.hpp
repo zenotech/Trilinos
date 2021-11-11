@@ -257,8 +257,6 @@ struct SPMV < AT, AO, AD, AM, AS,
   {
     typedef Kokkos::Details::ArithTraits<coefficient_type> KAT;
 
-    typedef Kokkos::Details::ArithTraits<coefficient_type> KAT;
-
     if (alpha == KAT::zero ()) {
       if (beta != KAT::one ()) {
         KokkosBlas::scal (y, beta, y);
@@ -347,7 +345,6 @@ struct SPMV_MV<AT, AO, AD, AM, AS,
     typedef SPMV<AT, AO, AD, AM, AS,
       typename XVector::value_type*, XL, XD, XM,
       typename YVector::value_type*, YL, YD, YM> impl_type;
-    //Create a default Controls object (the impl_type::spmv below is for rank-1, which requires it)
     KokkosKernels::Experimental::Controls defaultControls;
     for (typename AMatrix::non_const_size_type j = 0; j < x.extent(1); ++j) {
       auto x_j = Kokkos::subview (x, Kokkos::ALL (), j);
@@ -440,4 +437,4 @@ struct SPMV_MV<AT, AO, AD, AM, AS,
 #include<generated_specializations_hpp/KokkosSparse_spmv_eti_spec_decl.hpp>
 #include<generated_specializations_hpp/KokkosSparse_spmv_mv_eti_spec_decl.hpp>
 
-#endif // KOKKOS_BLAS1_MV_IMPL_DOT_HPP_
+#endif // KOKKOSSPARSE_IMPL_SPMV_SPEC_HPP_

@@ -2,11 +2,10 @@
  * Copyright(C) 1999-2020 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 /*
- * $Id: excpus.c,v 1.26 2008/03/14 13:22:35 gdsjaar Exp $
  */
 
 /*
@@ -33,6 +32,7 @@ void excpus_(FTNREAL *cpusec)
 #include <sys/time.h>
 
 #if defined(__NO_CYGWIN_OPTION__)
+#define NOMINMAX
 #include <windows.h>
 #else
 #include <sys/resource.h>

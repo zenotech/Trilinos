@@ -2,13 +2,15 @@
  * Copyright(C) 1999-2020 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 /* devid.h - these functions are used to map SVDI device code numbers
  *           to device code character strings and vice versa
- * Debbie Campbell
  */
+#ifndef DEVID_H
+#define DEVID_H
+
 struct device_ids
 {
   char *devid_char;
@@ -54,4 +56,5 @@ static char *get_devid_char(float number)
   return (0);
 }
 #endif
-/* end devid.h */
+
+#endif

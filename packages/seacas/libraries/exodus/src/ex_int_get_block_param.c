@@ -1,8 +1,8 @@
 /*
- * Copyright(C) 1999-2020 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2021 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 
@@ -23,19 +23,19 @@ static int el_node_count_error(int exoid, struct ex__elem_blk_parm elem_blk_parm
 int ex__get_block_param(int exoid, ex_entity_id id, int ndim,
                         struct ex__elem_blk_parm *elem_blk_parm)
 {
-  size_t m;
-  char   errmsg[MAX_ERR_LENGTH];
-
   EX_FUNC_ENTER();
 
   ex_block block;
   block.id   = id;
   block.type = EX_ELEM_BLOCK;
 
-  ex__check_valid_file_id(exoid, __func__);
+  if (ex__check_valid_file_id(exoid, __func__) == EX_FATAL) {
+    EX_FUNC_LEAVE(EX_FATAL);
+  }
 
   /* read in an element block parameter */
   if ((ex_get_block_param(exoid, &block)) != EX_NOERR) {
+    char errmsg[MAX_ERR_LENGTH];
     snprintf(errmsg, MAX_ERR_LENGTH,
              "ERROR: failed to get element block %" PRId64 " parameters in file id %d", block.id,
              exoid);
@@ -48,6 +48,7 @@ int ex__get_block_param(int exoid, ex_entity_id id, int ndim,
   elem_blk_parm->num_attr           = block.num_attribute;
   elem_blk_parm->elem_blk_id        = block.id;
 
+  size_t m;
   for (m = 0; m < strlen(block.topology); m++) {
     elem_blk_parm->elem_type[m] = toupper(block.topology[m]);
   }
@@ -66,13 +67,7 @@ int ex__get_block_param(int exoid, ex_entity_id id, int ndim,
   else if (strncmp(elem_blk_parm->elem_type, "QUAD", 3) == 0) {
     elem_blk_parm->elem_type_val = EX_EL_QUAD;
     elem_blk_parm->num_sides     = 4;
-    if (elem_blk_parm->num_nodes_per_elem == 4) {
-      elem_blk_parm->num_nodes_per_side[0] = 2;
-      elem_blk_parm->num_nodes_per_side[1] = 2;
-      elem_blk_parm->num_nodes_per_side[2] = 2;
-      elem_blk_parm->num_nodes_per_side[3] = 2;
-    }
-    else if (elem_blk_parm->num_nodes_per_elem == 5) {
+    if (elem_blk_parm->num_nodes_per_elem == 4 || elem_blk_parm->num_nodes_per_elem == 5) {
       elem_blk_parm->num_nodes_per_side[0] = 2;
       elem_blk_parm->num_nodes_per_side[1] = 2;
       elem_blk_parm->num_nodes_per_side[2] = 2;
@@ -160,15 +155,8 @@ int ex__get_block_param(int exoid, ex_entity_id id, int ndim,
     elem_blk_parm->elem_type_val = EX_EL_HEX;
     elem_blk_parm->num_sides     = 6;
     /* determine side set node stride */
-    if (elem_blk_parm->num_nodes_per_elem == 8) { /* 8-node bricks */
-      elem_blk_parm->num_nodes_per_side[0] = 4;
-      elem_blk_parm->num_nodes_per_side[1] = 4;
-      elem_blk_parm->num_nodes_per_side[2] = 4;
-      elem_blk_parm->num_nodes_per_side[3] = 4;
-      elem_blk_parm->num_nodes_per_side[4] = 4;
-      elem_blk_parm->num_nodes_per_side[5] = 4;
-    }
-    else if (elem_blk_parm->num_nodes_per_elem == 9) { /* 9-node bricks */
+    if (elem_blk_parm->num_nodes_per_elem == 8 ||
+        elem_blk_parm->num_nodes_per_elem == 9) { /* 8/9-node bricks */
       elem_blk_parm->num_nodes_per_side[0] = 4;
       elem_blk_parm->num_nodes_per_side[1] = 4;
       elem_blk_parm->num_nodes_per_side[2] = 4;

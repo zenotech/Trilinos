@@ -95,7 +95,7 @@ void calculate_nodal_volume_given_elem_nodes_stkmesh(const stk::mesh::Entity* el
   }
 }
 
-typedef Kokkos::TeamPolicy<stk::mesh::HostExecSpace, stk::mesh::ScheduleType> HostTeamPolicyType;
+typedef Kokkos::TeamPolicy<stk::ngp::HostExecSpace, stk::ngp::ScheduleType> HostTeamPolicyType;
 typedef HostTeamPolicyType::member_type HostTeamHandleType;
 
 #ifndef KOKKOS_ENABLE_CUDA
@@ -108,7 +108,7 @@ void calculate_nodal_volume_stkmesh(stk::mesh::BulkData& mesh, stk::mesh::Field<
   unsigned numBuckets = elemBuckets.size();
   for(int n=0; n<numRepeat; ++n)
   {
-    Kokkos::parallel_for(Kokkos::TeamPolicy< stk::mesh::HostExecSpace >(numBuckets, Kokkos::AUTO),
+    Kokkos::parallel_for(Kokkos::TeamPolicy< stk::ngp::HostExecSpace >(numBuckets, Kokkos::AUTO),
                          [&] (const HostTeamHandleType& team)
     {
       const int elementBucketIndex = team.league_rank();
@@ -215,7 +215,7 @@ void calculate_nodal_volume_entity_loop(stk::mesh::BulkData& mesh,
   const stk::mesh::FieldBase& coords = *mesh.mesh_meta_data().coordinate_field();
   stk::mesh::NgpField<double>& ngpCoords = stk::mesh::get_updated_ngp_field<double>(coords);
   stk::mesh::NgpField<double>& ngpNodalVolume = stk::mesh::get_updated_ngp_field<double>(nodalVolumeField);
-  stk::mesh::NgpMesh & ngpMesh = mesh.get_updated_ngp_mesh();
+  stk::mesh::NgpMesh & ngpMesh = stk::mesh::get_updated_ngp_mesh(mesh);
   double middle = stk::wall_time();
 
   for(int n=0; n<numRepeat; ++n)
@@ -236,7 +236,7 @@ void repeat_for_each_entity_loop_for_algorithm(stk::mesh::BulkData& mesh,
 {
   stk::mesh::NgpField<double>& staticNodalVolume = stk::mesh::get_updated_ngp_field<double>(nodalVolumeField);
   stk::mesh::NgpField<double>& staticElemVolume = stk::mesh::get_updated_ngp_field<double>(elemVolumePerNodeField);
-  stk::mesh::NgpMesh & ngpMesh = mesh.get_updated_ngp_mesh();
+  stk::mesh::NgpMesh & ngpMesh = stk::mesh::get_updated_ngp_mesh(mesh);
 
   for(int n=0; n<numRepeat; ++n)
     algorithm(ngpMesh, staticElemVolume, staticNodalVolume);
@@ -259,7 +259,7 @@ void assemble_nodal_volume_from_elem_volume_bucket_field_access(stk::mesh::NgpMe
                                                                 const stk::mesh::NgpField<double> &elemVolumePerNode,
                                                                 stk::mesh::NgpField<double> &staticNodalVolume)
 {
-  typedef Kokkos::TeamPolicy<stk::mesh::NgpMesh::MeshExecSpace, stk::mesh::ScheduleType>::member_type TeamHandleType;
+  typedef Kokkos::TeamPolicy<stk::mesh::NgpMesh::MeshExecSpace, stk::ngp::ScheduleType>::member_type TeamHandleType;
   unsigned numBuckets = ngpMesh.num_buckets(stk::topology::ELEM_RANK);
   Kokkos::parallel_for(Kokkos::TeamPolicy<stk::mesh::NgpMesh::MeshExecSpace>(numBuckets, Kokkos::AUTO),
                        KOKKOS_LAMBDA (const TeamHandleType& team)

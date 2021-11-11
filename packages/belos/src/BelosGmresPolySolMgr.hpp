@@ -111,7 +111,9 @@ class GmresPolySolMgrPolynomialFailure : public BelosError {public:
 ///   - "Polynomial Tolerance" (\c MagnitudeType): The level that
 ///     residual norms must reach to decide convergence. Default:
 ///     1e-8.
-///   - "Maximum Degree" (\c int): Requested maximum degree for the polynomial. Default: 25
+///   - "Maximum Degree" (\c int): Requested maximum degree for the polynomial. 
+///      The preconditioned problem Ap(A) will have this degree, while the polynomial
+///       p(A) will have degree deg-1.  Default: 25
 ///   - "Random RHS" (\c bool): to generate the polynomial using a random vector. Default: true
 ///   - "Add Roots" (\c bool): to add roots to the polynomial as needed for stability. Default: true
 ///   - "Damp Poly" (\c bool): to damp polynomial. Default: false
@@ -320,7 +322,13 @@ private:
   static constexpr bool addRoots_default_ = true;
   static constexpr bool dampPoly_default_ = false;
   static constexpr bool randomRHS_default_ = true; 
-  static constexpr std::ostream * outputStream_default_ = &std::cout;
+// https://stackoverflow.com/questions/24398102/constexpr-and-initialization-of-a-static-const-void-pointer-with-reinterpret-cas
+#if defined(_WIN32) && defined(__clang__)
+    static constexpr std::ostream * outputStream_default_ =
+       __builtin_constant_p(reinterpret_cast<const std::ostream*>(&std::cout));
+#else
+    static constexpr std::ostream * outputStream_default_ = &std::cout;
+#endif
 
   // Current solver values.
   MagnitudeType polyTol_;

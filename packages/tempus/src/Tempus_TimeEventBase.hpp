@@ -13,6 +13,7 @@
 #include "Teuchos_Time.hpp"
 #include "Teuchos_VerboseObject.hpp"
 
+#include "Tempus_config.hpp"
 
 namespace Tempus {
 
@@ -88,6 +89,7 @@ public:
     {
       Teuchos::RCP<Teuchos::FancyOStream> out =
         Teuchos::VerboseObjectBase::getDefaultOStream();
+      out->setOutputToRootOnly(0);
       *out << "TimeEventBase name = " << getName() << std::endl;
     }
   //@}

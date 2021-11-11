@@ -1,8 +1,8 @@
 /*
- * Copyright(C) 1999-2020 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2021 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 /*****************************************************************************
@@ -88,8 +88,8 @@ static int ex_write_object_params(int exoid, const char *type, const char *dimen
   int  dim[2];
   int  varid;
   int  status;
-  int  int_type;
   char errmsg[MAX_ERR_LENGTH];
+  int  sixty_four_kb = 64 * 1024;
 
   /* Can have nonzero model->num_elem_blk even if model->num_elem == 0 */
   if (count > 0) {
@@ -108,20 +108,27 @@ static int ex_write_object_params(int exoid, const char *type, const char *dimen
       ex_err_fn(exoid, __func__, errmsg, status);
       return (status); /* exit define mode and return */
     }
-    ex__set_compact_storage(exoid, varid);
+    if (4 * count < sixty_four_kb) {
+      ex__set_compact_storage(exoid, varid);
+    }
 
     /* type id array */
-    int_type = NC_INT;
+    int int_type = NC_INT;
+    int int_size = 4;
     if (ex_int64_status(exoid) & EX_IDS_INT64_DB) {
       int_type = NC_INT64;
+      int_size = 8;
     }
+
     if ((status = nc_def_var(exoid, id_array_dim_name, int_type, 1, dim, &varid)) != NC_NOERR) {
       snprintf(errmsg, MAX_ERR_LENGTH, "ERROR: failed to define %s id array in file id %d", type,
                exoid);
       ex_err_fn(exoid, __func__, errmsg, status);
       return (status); /* exit define mode and return */
     }
-    ex__set_compact_storage(exoid, varid);
+    if (int_size * count < sixty_four_kb) {
+      ex__set_compact_storage(exoid, varid);
+    }
 
     /*   store property name as attribute of property array variable */
     if ((status = nc_put_att_text(exoid, varid, ATT_PROP_NAME, 3, "ID")) != NC_NOERR) {
@@ -180,23 +187,22 @@ static int ex_write_map_params(int exoid, const char *map_name, const char *map_
 static void invalidate_id_status(int exoid, const char *var_stat, const char *var_id, int count,
                                  int *ids)
 {
-  int i;
-  int id_var, stat_var;
-
   if (count > 0) {
     if (var_id != 0) {
-      for (i = 0; i < count; i++) {
+      for (int i = 0; i < count; i++) {
         ids[i] = EX_INVALID_ID;
       }
+      int id_var;
       (void)nc_inq_varid(exoid, var_id, &id_var);
       (void)nc_put_var_int(exoid, id_var, ids);
     }
 
     if (var_stat != 0) {
-      for (i = 0; i < count; i++) {
+      for (int i = 0; i < count; i++) {
         ids[i] = 0;
       }
 
+      int stat_var;
       (void)nc_inq_varid(exoid, var_stat, &stat_var);
       (void)nc_put_var_int(exoid, stat_var, ids);
     }
@@ -213,8 +219,8 @@ static void invalidate_id_status(int exoid, const char *var_stat, const char *va
 
 int ex_put_init_ext(int exoid, const ex_init_params *model)
 {
-  int numdimdim, numnoddim, elblkdim, edblkdim, fablkdim, esetdim, fsetdim, elsetdim,
-      nsetdim, ssetdim, dim_str_name, dim[2], temp;
+  int numdimdim, numnoddim, elblkdim, edblkdim, fablkdim, esetdim, fsetdim, elsetdim, nsetdim,
+      ssetdim, dim_str_name, dim[2], temp;
   int nmapdim, edmapdim, famapdim, emapdim, timedim;
   int status;
   int title_len;
@@ -222,10 +228,12 @@ int ex_put_init_ext(int exoid, const ex_init_params *model)
   /* used for header size calculations which are turned off for now */
   int header_size, fixed_var_size, iows;
 #endif
-  char                  errmsg[MAX_ERR_LENGTH];
+  char errmsg[MAX_ERR_LENGTH];
 
   EX_FUNC_ENTER();
-  ex__check_valid_file_id(exoid, __func__);
+  if (ex__check_valid_file_id(exoid, __func__) == EX_FATAL) {
+    EX_FUNC_LEAVE(EX_FATAL);
+  }
   int rootid = exoid & EX_FILE_ID_MASK;
 
   if (rootid == exoid && nc_inq_dimid(exoid, DIM_NUM_DIM, &temp) == NC_NOERR) {
@@ -280,7 +288,7 @@ int ex_put_init_ext(int exoid, const ex_init_params *model)
     struct ex__file_item *file = ex__find_file_item(exoid);
     file->time_varid           = temp;
   }
-  ex__compress_variable(exoid, temp, 2);
+  ex__compress_variable(exoid, temp, -2); /* Don't compress, but do set collective io */
 
   if (model->num_dim > 0) {
     if ((status = nc_def_dim(exoid, DIM_NUM_DIM, model->num_dim, &numdimdim)) != NC_NOERR) {

@@ -68,11 +68,11 @@ TEUCHOS_UNIT_TEST(IMEX_RK_Partition, Default_Construction)
   auto solver = rcp(new Thyra::NOXNonlinearSolver());
   solver->setParameterList(Tempus::defaultSolverParameters());
 
-  bool useFSAL              = stepper->getUseFSALDefault();
-  std::string ICConsistency = stepper->getICConsistencyDefault();
-  bool ICConsistencyCheck   = stepper->getICConsistencyCheckDefault();
+  bool useFSAL              = stepper->getUseFSAL();
+  std::string ICConsistency = stepper->getICConsistency();
+  bool ICConsistencyCheck   = stepper->getICConsistencyCheck();
   bool zeroInitialGuess     = stepper->getZeroInitialGuess();
-  std::string stepperType   = "IMEX RK SSP2";
+  std::string stepperType   = "Partitioned IMEX RK SSP2";
   auto stepperERK = Teuchos::rcp(new Tempus::StepperERK_Trapezoidal<double>());
   auto explicitTableau      = stepperERK->getTableau();
   auto stepperSDIRK = Teuchos::rcp(new Tempus::StepperSDIRK_2Stage3rdOrder<double>());
@@ -81,10 +81,6 @@ TEUCHOS_UNIT_TEST(IMEX_RK_Partition, Default_Construction)
 
 
   // Test the set functions.
-#ifndef TEMPUS_HIDE_DEPRECATED_CODE
-  auto obs    = rcp(new Tempus::StepperRKObserverComposite<double>());
-  stepper->setObserver(obs);                           stepper->initialize();  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
-#endif
   stepper->setAppAction(modifier);                     stepper->initialize();  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
   stepper->setAppAction(modifierX);                    stepper->initialize();  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
   stepper->setAppAction(observer);                     stepper->initialize();  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
@@ -94,7 +90,7 @@ TEUCHOS_UNIT_TEST(IMEX_RK_Partition, Default_Construction)
   stepper->setICConsistencyCheck(ICConsistencyCheck);  stepper->initialize();  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
   stepper->setZeroInitialGuess(zeroInitialGuess);      stepper->initialize();  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
 
-  stepper->setStepperType(stepperType);                stepper->initialize();  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
+  stepper->setStepperName(stepperType);                stepper->initialize();  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
   stepper->setExplicitTableau(explicitTableau);        stepper->initialize();  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
   stepper->setImplicitTableau(implicitTableau);        stepper->initialize();  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
   stepper->setOrder(order);                            stepper->initialize();  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
@@ -104,13 +100,6 @@ TEUCHOS_UNIT_TEST(IMEX_RK_Partition, Default_Construction)
   TEUCHOS_TEST_FOR_EXCEPT(implicitTableau != stepper->getImplicitTableau());
 
   // Full argument list construction.
-#ifndef TEMPUS_HIDE_DEPRECATED_CODE
-  stepper = rcp(new Tempus::StepperIMEX_RK_Partition<double>(
-    model, obs, solver, useFSAL,
-    ICConsistency, ICConsistencyCheck, zeroInitialGuess,
-    stepperType, explicitTableau, implicitTableau, order));
-  TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
-#endif
   stepper = rcp(new Tempus::StepperIMEX_RK_Partition<double>(
     model, solver, useFSAL, ICConsistency, ICConsistencyCheck,
     zeroInitialGuess, modifier, stepperType, explicitTableau,
@@ -118,7 +107,7 @@ TEUCHOS_UNIT_TEST(IMEX_RK_Partition, Default_Construction)
   TEUCHOS_TEST_FOR_EXCEPT(!stepper->isInitialized());
 
   // Test stepper properties.
-  std::cout << "ordero = " << stepper->getOrder() << std::endl;
+  //std::cout << "order = " << stepper->getOrder() << std::endl;
   TEUCHOS_ASSERT(stepper->getOrder() == 2);
 }
 

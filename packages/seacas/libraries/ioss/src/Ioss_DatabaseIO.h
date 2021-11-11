@@ -1,7 +1,7 @@
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2021 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
-// 
+//
 // See packages/seacas/LICENSE for details
 
 #ifndef IOSS_Ioss_DatabaseIO_h
@@ -59,6 +59,10 @@ namespace Ioss {
   {
   public:
     friend class SerializeIO;
+
+    DatabaseIO()                   = delete;
+    DatabaseIO(const DatabaseIO &) = delete;
+    DatabaseIO &operator=(const DatabaseIO &) = delete;
 
     /** \brief Check to see if database state is OK.
      *
@@ -411,8 +415,10 @@ namespace Ioss {
 
     char get_field_separator() const { return fieldSeparator; }
     bool get_field_recognition() const { return enableFieldRecognition; }
+    bool get_field_strip_trailing_() const { return fieldStripTrailing_; }
     void set_field_separator(char separator);
     void set_field_recognition(bool yes_no) { enableFieldRecognition = yes_no; }
+    void set_field_strip_trailing_(bool yes_no) { fieldStripTrailing_ = yes_no; }
 
     void set_lower_case_variable_names(bool true_false) const
     {
@@ -441,6 +447,7 @@ namespace Ioss {
       return compute_block_membership__(efblock, block_membership);
     }
 
+    AxisAlignedBoundingBox get_bounding_box(const Ioss::NodeBlock *nb) const;
     AxisAlignedBoundingBox get_bounding_box(const Ioss::ElementBlock *eb) const;
     AxisAlignedBoundingBox get_bounding_box(const Ioss::StructuredBlock *sb) const;
 
@@ -623,7 +630,7 @@ namespace Ioss {
     mutable int overlayCount{0};
 
     /*! Scale the time read/written from/to the file by the specified
-      scaleFactor.  If the datbase times are 0.1, 0.2, 0.3 and the
+      scaleFactor.  If the database times are 0.1, 0.2, 0.3 and the
       scaleFactor is 20, then the application will think that the
       times read are 20, 40, 60.
 
@@ -789,10 +796,6 @@ namespace Ioss {
     virtual int64_t put_field_internal(const StructuredBlock * /*sb*/, const Field & /*field*/,
                                        void * /*data*/, size_t /*data_size*/) const = 0;
 
-    DatabaseIO()                   = delete;
-    DatabaseIO(const DatabaseIO &) = delete;
-    DatabaseIO &operator=(const DatabaseIO &) = delete;
-
     mutable std::map<std::string, AxisAlignedBoundingBox> elementBlockBoundingBoxes;
 
     Ioss::ParallelUtils util_; // Encapsulate parallel and other utility functions.
@@ -805,6 +808,7 @@ namespace Ioss {
     Region *region_{nullptr};
     char    fieldSeparator{'_'};
     bool    enableFieldRecognition{true};
+    bool    fieldStripTrailing_{false};
     bool    isInput;
     bool    isParallelConsistent{
         true}; // True if application will make field data get/put calls parallel
@@ -824,7 +828,7 @@ namespace Ioss {
 
     bool m_timeStateInOut{false};
     bool m_enableTracing{false};
-    std::chrono::time_point<std::chrono::high_resolution_clock>
+    std::chrono::time_point<std::chrono::steady_clock>
         m_stateStart; // Used for optional output step timing.
   };
 } // namespace Ioss

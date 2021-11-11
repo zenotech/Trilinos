@@ -53,6 +53,14 @@
 #ifndef FLEXINT_H
 #define FLEXINT_H
 
+#if defined(_MSC_VER)
+#ifdef _WIN64
+#define ssize_t __int64
+#else
+#define ssize_t long
+#endif
+#endif
+
 /* C99 systems have <inttypes.h>. Non-C99 systems may or may not. */
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
@@ -975,7 +983,7 @@ static yyconst flex_int16_t yy_rule_linenum[102] = {
  * Copyright(C) 1999-2020 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 
@@ -1015,11 +1023,11 @@ int           loop_lvl = 0;
 std::fstream *tmp_file;
 const char *  temp_f;
 
-#if defined           __NVCC__
+#if defined __NVCC__
 #pragma diag_suppress code_is_unreachable
 #endif
 
-#define MAX_IF_NESTING 64
+#define MAX_IF_NESTING 1024
 
 int    if_state[MAX_IF_NESTING]    = {0};     // INITIAL
 int    if_case_run[MAX_IF_NESTING] = {false}; /* Has any if or elseif condition executed */
@@ -1032,7 +1040,7 @@ bool   switch_skip_to_endcase      = false;
 double switch_condition            = 0.0; // Value specified in "switch(condition)"
 
 // For substitution history
-size_t      curr_index = 0;
+ssize_t     curr_index = 0;
 std::string history_string;
 size_t      hist_start = 0;
 
@@ -2101,7 +2109,7 @@ YY_DECL
       {
         // Check if we need to save the substitution history first.
         if (aprepro.ap_options.keep_history && (aprepro.ap_file_list.top().name != "_string_")) {
-          if (curr_index > (size_t)yyleng)
+          if (curr_index > (ssize_t)yyleng)
             hist_start = curr_index - yyleng;
           else
             hist_start = 0;
@@ -3152,7 +3160,18 @@ namespace SEAMS {
     aprepro.outputStream.push(out);
   }
 
-  Scanner::~Scanner() {}
+  Scanner::~Scanner() {
+    while (aprepro.ap_file_list.size() > 1) {
+      auto kk = aprepro.ap_file_list.top();
+      if (kk.name != "STDIN") {
+	yyFlexLexer::yy_load_buffer_state();
+	delete yyin;
+	yyin = nullptr;
+      }
+      aprepro.ap_file_list.pop();
+      yyFlexLexer::yypop_buffer_state();
+    };
+  }
 
   void Scanner::add_include_file(const std::string &filename, bool must_exist)
   {
@@ -3203,13 +3222,13 @@ namespace SEAMS {
     }
 
     if (aprepro.ap_options.interactive && yyin == &std::cin && isatty(0) != 0 && isatty(1) != 0) {
-      char *line = getline_int(nullptr);
+      char *line = ap_getline_int(nullptr);
 
       if (strlen(line) == 0) {
         return 0;
       }
 
-      gl_histadd(line);
+      ap_gl_histadd(line);
 
       if (strlen(line) > (size_t)max_size - 2) {
         yyerror("input line is too long");

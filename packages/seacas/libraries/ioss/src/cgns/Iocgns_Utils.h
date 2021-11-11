@@ -1,7 +1,7 @@
 // Copyright(C) 1999-2020 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
-// 
+//
 // See packages/seacas/LICENSE for details
 
 #ifndef IOSS_IOCGNS_UTILS_H
@@ -50,8 +50,8 @@ namespace Iocgns {
 
   struct ZoneBC
   {
-    ZoneBC(const std::string &bc_name, std::array<cgsize_t, 2> &point_range)
-        : name(bc_name), range_beg(point_range[0]), range_end(point_range[1])
+    ZoneBC(std::string bc_name, std::array<cgsize_t, 2> &point_range)
+        : name(std::move(bc_name)), range_beg(point_range[0]), range_end(point_range[1])
     {
     }
 
@@ -65,9 +65,6 @@ namespace Iocgns {
   public:
     Utils()  = default;
     ~Utils() = default;
-
-    static const size_t CG_CELL_CENTER_FIELD_ID = 1ul << 33;
-    static const size_t CG_VERTEX_FIELD_ID      = 1ul << 34;
 
     static std::pair<std::string, int> decompose_name(const std::string &name, bool is_parallel);
     static std::string                 decompose_sb_name(const std::string &name);
@@ -289,9 +286,7 @@ namespace Iocgns {
     static int  get_step_times(int cgns_file_ptr, std::vector<double> &timesteps,
                                Ioss::Region *region, double timeScaleFactor, int myProcessor);
     static void add_transient_variables(int cgns_file_ptr, const std::vector<double> &timesteps,
-                                        Ioss::Region *region, bool enable_field_recognition,
-                                        char suffix_separator, int myProcessor,
-                                        bool is_parallel_io);
+                                        Ioss::Region *region, int myProcessor, bool is_parallel_io);
 
     static void   set_line_decomposition(int cgns_file_ptr, const std::string &line_decomposition,
                                          std::vector<Iocgns::StructuredZoneData *> &zones, int rank,
@@ -302,7 +297,7 @@ namespace Iocgns {
                             double load_balance, int proc_rank, int proc_count, bool verbose);
     static void   assign_zones_to_procs(std::vector<Iocgns::StructuredZoneData *> &zones,
                                         std::vector<size_t> &work_vector, bool verbose);
-    static void   show_config();
+    static std::string show_config();
 
     template <typename INT>
     static void generate_block_faces(Ioss::ElementTopology *topo, size_t num_elem,

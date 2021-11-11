@@ -1,7 +1,7 @@
 // Copyright(C) 1999-2020 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
-// 
+//
 // See packages/seacas/LICENSE for details
 
 #include <algorithm>
@@ -65,7 +65,7 @@ namespace {
     fmt::print("\t+{2:-^{0}}+{2:-^{1}}+\n", max_name, max_face, "");
     for (auto eb : ebs) {
       const std::string &name = eb->name();
-      fmt::print("\t|{2:^{0}}|{3:{1}n}  |\n", max_name, max_face - 2, name,
+      fmt::print("\t|{2:^{0}}|{3:{1}L}  |\n", max_name, max_face - 2, name,
                  boundary_faces[name].size());
     }
     fmt::print("\t+{2:-^{0}}+{2:-^{1}}+\n", max_name, max_face, "");
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
   double end = Ioss::Utils::timer();
 
   if (my_rank == 0) {
-    fmt::print("\n\tTotal Execution time = {:.4} seconds\n", end - begin);
+    fmt::print("\n\tTotal Execution Time = {:.4} seconds\n", end - begin);
     fmt::print("\n{} execution successful.\n\n", codename);
   }
   return EXIT_SUCCESS;

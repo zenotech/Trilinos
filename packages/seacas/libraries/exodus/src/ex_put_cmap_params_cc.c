@@ -2,7 +2,7 @@
  * Copyright(C) 1999-2020 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 /*****************************************************************************/
@@ -35,9 +35,10 @@
 #include <exodusII.h>     // for ex_err, etc
 #include <exodusII_int.h> // for EX_FATAL, ex__leavedef, etc
 
-int ex_put_cmap_params_cc(int exoid, void_int *node_cmap_ids, void_int *node_cmap_node_cnts,
-                          void_int *node_proc_ptrs, void_int *elem_cmap_ids,
-                          void_int *elem_cmap_elem_cnts, void_int *elem_proc_ptrs)
+int ex_put_cmap_params_cc(int exoid, const void_int *node_cmap_ids,
+                          const void_int *node_cmap_node_cnts, const void_int *node_proc_ptrs,
+                          const void_int *elem_cmap_ids, const void_int *elem_cmap_elem_cnts,
+                          const void_int *elem_proc_ptrs)
 {
   size_t num_n_comm_maps, num_e_comm_maps, num_procs_in_file;
   int    status, icm, n_varid[2], e_varid[2], iproc;
@@ -59,7 +60,9 @@ int ex_put_cmap_params_cc(int exoid, void_int *node_cmap_ids, void_int *node_cma
   /*-----------------------------Execution begins-----------------------------*/
 
   EX_FUNC_ENTER();
-  ex__check_valid_file_id(exoid, __func__);
+  if (ex__check_valid_file_id(exoid, __func__) == EX_FATAL) {
+    EX_FUNC_LEAVE(EX_FATAL);
+  }
 
   /* See if using NC_FORMAT_NETCDF4 format... */
   nc_inq_format(exoid, &format);
@@ -150,6 +153,7 @@ file ID %d",
       snprintf(errmsg, MAX_ERR_LENGTH, "ERROR: failed to get variable \"%s\" from file ID %d",
                VAR_N_COMM_INFO_IDX, exoid);
       ex_err_fn(exoid, __func__, errmsg, status);
+      free(n_var_idx);
       EX_FUNC_LEAVE(EX_FATAL);
     }
   } /* "if (num_n_comm_maps > 0)" */
@@ -204,6 +208,7 @@ file ID %d",
       snprintf(errmsg, MAX_ERR_LENGTH, "ERROR: failed to get variable \"%s\" from file ID %d",
                VAR_E_COMM_INFO_IDX, exoid);
       ex_err_fn(exoid, __func__, errmsg, status);
+      free(e_var_idx);
       EX_FUNC_LEAVE(EX_FATAL);
     }
   } /* "if (num_e_comm_maps >0)" */

@@ -2,7 +2,7 @@
  * Copyright(C) 1999-2020 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 /* ifdefx.h - ifdef file for cgi shell routines
@@ -19,6 +19,9 @@
  *
  * This include file is used by MDCGI.C and all CGISxxx.C files.
  */
+
+#ifndef IFDEFX_H
+#define IFDEFX_H
 
 #if defined(ADDC_)
 #endif
@@ -79,4 +82,4 @@
 #define cgifsq_ CGIFSQ
 #endif
 
-/* end ifdefx.h */
+#endif

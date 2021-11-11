@@ -2,13 +2,9 @@
  * Copyright(C) 1999-2020 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
-
-#define _FILE_OFFSET_BITS 64
-#define _LARGEFILE_SOURCE
-#define _LARGE_FILES 1
 
 #ifdef PARALLEL_AWARE_EXODUS
 #include <mpi.h>
@@ -28,6 +24,7 @@
 #include <unistd.h>
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #include <windows.h>
 #define sleep(a) Sleep(a * 1000)
 #endif
@@ -133,10 +130,6 @@ int main(int argc, char **argv)
    */
 
   ex_opts(EX_VERBOSE | EX_ABORT);
-
-#if defined(__LIBCATAMOUNT__)
-  setlinebuf(stderr);
-#endif
 
 #ifdef PARALLEL_AWARE_EXODUS
   MPI_Init(&argc, &argv);

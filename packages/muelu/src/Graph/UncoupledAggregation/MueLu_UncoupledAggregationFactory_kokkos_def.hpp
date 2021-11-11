@@ -191,7 +191,7 @@ namespace MueLu {
     const LO numRows = graph->GetNodeNumVertices();
 
     // construct aggStat information
-    Kokkos::View<unsigned*, typename LWGraph_kokkos::memory_space> aggStat(Kokkos::ViewAllocateWithoutInitializing("aggregation status"),
+    Kokkos::View<unsigned*, typename LWGraph_kokkos::device_type> aggStat(Kokkos::ViewAllocateWithoutInitializing("aggregation status"),
                                                                            numRows);
     Kokkos::deep_copy(aggStat, READY);
 
@@ -217,7 +217,7 @@ namespace MueLu {
     LO nDofsPerNode = Get<LO>(currentLevel, "DofsPerNode");
     GO indexBase = graph->GetDomainMap()->getIndexBase();
     if (OnePtMap != Teuchos::null) {
-      typename Kokkos::View<unsigned*,typename LWGraph_kokkos::memory_space>::HostMirror aggStatHost
+      typename Kokkos::View<unsigned*,typename LWGraph_kokkos::device_type>::HostMirror aggStatHost
         = Kokkos::create_mirror_view(aggStat);
       Kokkos::deep_copy(aggStatHost, aggStat);
 
@@ -240,7 +240,7 @@ namespace MueLu {
       MueLu_sumAll(comm, as<GO>(numRows), numGlobalRows);
 
     {
-      SubFactoryMonitor sfm(*this, "Algo \"Graph Coloring\"", currentLevel);
+      SubFactoryMonitor sfm(*this, "Algo Graph Coloring", currentLevel);
 
       // LBV on Sept 06 2019: the note below is a little worrisome,
       // can we guarantee that MueLu is never used on a non-symmetric
@@ -319,7 +319,7 @@ namespace MueLu {
     GO numGlobalAggregatedPrev = 0, numGlobalAggsPrev = 0;
     for (size_t a = 0; a < algos_.size(); a++) {
       std::string phase = algos_[a]->description();
-      SubFactoryMonitor sfm(*this, "Algo \"" + phase + "\"", currentLevel);
+      SubFactoryMonitor sfm(*this, "Algo " + phase, currentLevel);
 
       int oldRank = algos_[a]->SetProcRankVerbose(this->GetProcRankVerbose());
       algos_[a]->BuildAggregates(pL, *graph, *aggregates, aggStat, numNonAggregatedNodes);
@@ -355,7 +355,8 @@ namespace MueLu {
 
     Set(currentLevel, "Aggregates", aggregates);
 
-    GetOStream(Statistics1) << aggregates->description() << std::endl;
+    if (IsPrint(Statistics1))
+      GetOStream(Statistics1) << aggregates->description() << std::endl;
   }
 
 } //namespace MueLu

@@ -1,7 +1,7 @@
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2021 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
-// 
+//
 // See packages/seacas/LICENSE for details
 
 #ifndef IOSS_Ioss_Utils_h
@@ -10,6 +10,7 @@
 #include <Ioss_CodeTypes.h>
 #include <Ioss_Field.h>
 #include <Ioss_Property.h>
+#include <Ioss_Sort.h>
 #include <algorithm> // for sort, lower_bound, copy, etc
 #include <cassert>
 #include <cmath>
@@ -21,12 +22,12 @@
 #include <string>    // for string
 #include <vector>    // for vector
 namespace Ioss {
+  class DatabaseIO;
   class Field;
   class GroupingEntity;
   class Region;
   class SideBlock;
   class PropertyManager;
-  struct MeshCopyOptions;
 } // namespace Ioss
 
 #define IOSS_ERROR(errmsg) throw std::runtime_error((errmsg).str())
@@ -116,13 +117,16 @@ namespace Ioss {
       }
     }
 
+    /** \brief guess file type from extension */
+    static std::string get_type_from_file(const std::string &filename);
+
     template <typename T> static void uniquify(std::vector<T> &vec, bool skip_first = false)
     {
       auto it = vec.begin();
       if (skip_first) {
         it++;
       }
-      std::sort(it, vec.end());
+      Ioss::sort(it, vec.end());
       vec.resize(unique(vec, skip_first));
       vec.shrink_to_fit();
     }
@@ -203,7 +207,7 @@ namespace Ioss {
      * (1,234,567,890 would return 13)
      * Typically used with the `fmt::print()` functions as:
      * ```
-     * fmt::print("{:{}n}", number, number_width(number,true))
+     * fmt::print("{:{}L}", number, number_width(number,true))
      * fmt::print("{:{}d}", number, number_width(number,false))
      * ```
      */
@@ -409,8 +413,7 @@ namespace Ioss {
                                       const std::string &working_directory);
 
     static void get_fields(int64_t entity_count, char **names, size_t num_names,
-                           Ioss::Field::RoleType fld_role, bool enable_field_recognition,
-                           char suffix_separator, int *local_truth,
+                           Ioss::Field::RoleType fld_role, const DatabaseIO *db, int *local_truth,
                            std::vector<Ioss::Field> &fields);
 
     static int field_warning(const Ioss::GroupingEntity *ge, const Ioss::Field &field,
@@ -488,11 +491,6 @@ namespace Ioss {
      *  \param[in,out] region The region on which the nominal mesh is to be defined.
      */
     static void generate_history_mesh(Ioss::Region *region);
-
-    //! Copy the mesh in `region` to `output_region`.  Behavior can be controlled
-    //! via options in `options`
-    static void copy_database(Ioss::Region &region, Ioss::Region &output_region,
-                              Ioss::MeshCopyOptions &options);
 
     static void info_fields(const Ioss::GroupingEntity *ige, Ioss::Field::RoleType role,
                             const std::string &header, const std::string &suffix = "\n\t");

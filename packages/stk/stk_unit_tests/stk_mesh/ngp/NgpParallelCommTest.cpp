@@ -1,9 +1,10 @@
+#include <array>
 #include "stk_ngp_test/ngp_test.hpp"
 #include "stk_util/util/SortAndUnique.hpp"
 #include "Kokkos_Core.hpp"
 #include <Kokkos_StaticCrsGraph.hpp>
 #include "stk_mesh/base/NgpParallelComm.hpp"
-#include "stk_mesh/base/NgpSpaces.hpp"
+#include "stk_util/ngp/NgpSpaces.hpp"
 
 namespace  {
 
@@ -15,8 +16,8 @@ protected:
   }
 };
 
-using NeighborCrsViewType = Kokkos::StaticCrsGraph<int, stk::mesh::MemSpace>;
-using ValueViewType = Kokkos::View<double*, stk::mesh::MemSpace>;
+using NeighborCrsViewType = Kokkos::StaticCrsGraph<int, stk::ngp::MemSpace>;
+using ValueViewType = Kokkos::View<double*, stk::ngp::MemSpace>;
 
 class ParallelDataExchangeSymPackUnpackHandler
 {

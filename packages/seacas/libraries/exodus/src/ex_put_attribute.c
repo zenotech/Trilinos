@@ -2,7 +2,7 @@
  * Copyright(C) 1999-2020 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 
@@ -36,7 +36,9 @@ static int ex__get_varid(int exoid, ex_entity_type obj_type, ex_entity_id id)
   int status = 0;
   int varid  = 0;
 
-  ex__check_valid_file_id(exoid, __func__);
+  if (ex__check_valid_file_id(exoid, __func__) == EX_FATAL) {
+    EX_FUNC_LEAVE(EX_FATAL);
+  }
 
   if (obj_type == EX_GLOBAL) {
     return NC_GLOBAL;
@@ -109,7 +111,7 @@ static int ex__get_varid(int exoid, ex_entity_type obj_type, ex_entity_id id)
 
 /* define and output a double attribute */
 int ex_put_double_attribute(int exoid, ex_entity_type obj_type, ex_entity_id id,
-                            const char *atr_name, int num_values, double *values)
+                            const char *atr_name, int num_values, const double *values)
 {
   int  status;
   char errmsg[MAX_ERR_LENGTH];
@@ -153,7 +155,7 @@ error_ret:
 
 /* define and output an integer attribute */
 int ex_put_integer_attribute(int exoid, ex_entity_type obj_type, ex_entity_id id,
-                             const char *atr_name, int num_values, void_int *values)
+                             const char *atr_name, int num_values, const void_int *values)
 {
   int  status;
   char errmsg[MAX_ERR_LENGTH];
@@ -271,7 +273,7 @@ int ex_put_attribute(int exoid, ex_attribute attribute)
 }
 
 /*! Define and output the specified attributes. */
-int ex_put_attributes(int exoid, size_t attr_count, ex_attribute *attr)
+int ex_put_attributes(int exoid, size_t attr_count, const ex_attribute *attr)
 {
   for (size_t i = 0; i < attr_count; i++) {
     int status = ex_put_attribute(exoid, attr[i]);

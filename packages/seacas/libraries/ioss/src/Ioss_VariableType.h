@@ -1,7 +1,7 @@
 // Copyright(C) 1999-2020 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
-// 
+//
 // See packages/seacas/LICENSE for details
 
 #ifndef IOSS_Ioss_VariableType_h
@@ -39,20 +39,13 @@ namespace Ioss {
     std::vector<Ioss::VariableType *> m_deleteThese;
   };
 
-#define MAX_SUFFIX 8
   struct Suffix
   {
-    explicit Suffix(const char new_data[MAX_SUFFIX]) { Ioss::Utils::copy_string(m_data, new_data); }
-    explicit Suffix(const std::string &new_data) { Ioss::Utils::copy_string(m_data, new_data); }
-    bool operator==(const std::string &str) const
-    {
-      return std::strncmp(m_data, str.c_str(), MAX_SUFFIX) == 0;
-    }
-    bool operator!=(const std::string &str) const
-    {
-      return std::strncmp(m_data, str.c_str(), MAX_SUFFIX) != 0;
-    }
-    char m_data[MAX_SUFFIX + 1]{};
+    explicit Suffix(const char *new_data) : m_data(new_data) {}
+    explicit Suffix(const std::string &new_data) : m_data(new_data) {}
+    bool        operator==(const std::string &str) const { return Utils::str_equal(m_data, str); }
+    bool        operator!=(const std::string &str) const { return !Utils::str_equal(m_data, str); }
+    std::string m_data{};
   };
 
   /** \brief A generic variable type
@@ -67,7 +60,10 @@ namespace Ioss {
     static bool get_field_type_mapping(const std::string &field, std::string *type);
     static bool add_field_type_mapping(const std::string &raw_field, const std::string &raw_type);
 
+    VariableType(const VariableType &) = delete;
+    VariableType &operator=(const VariableType &) = delete;
     virtual ~VariableType();
+
     int component_count() const;
 
     // Override this function if the derived class has no suffices
@@ -91,9 +87,6 @@ namespace Ioss {
   private:
     const std::string name_;
     int               componentCount;
-
-    VariableType(const VariableType &) = delete;
-    VariableType &operator=(const VariableType &) = delete;
 
     static bool build_variable_type(const std::string &raw_type);
   };

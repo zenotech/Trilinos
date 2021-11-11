@@ -2,13 +2,14 @@
  * Copyright(C) 1999-2020 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 /* cgidef.h   CGI enumerated type definitions for C programs
- * 8 Sep 1989, last date modified
- * Pat McGee, jpm@lanl.gov
  */
+
+#ifndef CGIDEF_H
+#define CGIDEF_H
 
 /* escape enumerations */
 #define XEMFNM -28372 /* metafile name */
@@ -195,4 +196,4 @@
 #define CVALL 1
 #define CVSOME 2
 
-/* end cgidef.h */
+#endif

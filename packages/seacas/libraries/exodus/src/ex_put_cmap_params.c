@@ -2,7 +2,7 @@
  * Copyright(C) 1999-2020 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 /*****************************************************************************/
@@ -35,8 +35,9 @@
 #include <exodusII.h>     // for ex_err, etc
 #include <exodusII_int.h> // for EX_FATAL, ex__leavedef, etc
 
-int ex_put_cmap_params(int exoid, void_int *node_cmap_ids, void_int *node_cmap_node_cnts,
-                       void_int *elem_cmap_ids, void_int *elem_cmap_elem_cnts, int64_t processor)
+int ex_put_cmap_params(int exoid, const void_int *node_cmap_ids,
+                       const void_int *node_cmap_node_cnts, const void_int *elem_cmap_ids,
+                       const void_int *elem_cmap_elem_cnts, int64_t processor)
 {
   size_t  num_n_comm_maps, num_e_comm_maps;
   size_t  ncnt_cmap, ecnt_cmap;
@@ -57,7 +58,9 @@ int ex_put_cmap_params(int exoid, void_int *node_cmap_ids, void_int *node_cmap_n
   EX_UNUSED(processor);
 
   EX_FUNC_ENTER();
-  ex__check_valid_file_id(exoid, __func__);
+  if (ex__check_valid_file_id(exoid, __func__) == EX_FATAL) {
+    EX_FUNC_LEAVE(EX_FATAL);
+  }
 
   nc_inq_format(exoid, &format);
   if ((ex_int64_status(exoid) & EX_BULK_INT64_DB) || (format == NC_FORMAT_NETCDF4)) {

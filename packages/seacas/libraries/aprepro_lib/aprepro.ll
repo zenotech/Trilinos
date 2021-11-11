@@ -1,10 +1,10 @@
 /* -*- Mode: c++ -*- */
 
 /*
- * Copyright(C) 1999-2020 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2021 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 
@@ -51,7 +51,7 @@ const char  *temp_f;
 #pragma diag_suppress code_is_unreachable
 #endif
 
-#define MAX_IF_NESTING 64
+#define MAX_IF_NESTING 1024
 
  int if_state[MAX_IF_NESTING] = {0}; // INITIAL
  int if_case_run[MAX_IF_NESTING] = {false}; /* Has any if or elseif condition executed */
@@ -570,7 +570,7 @@ integer {D}+({E})?
            symrec *s;
                              s = aprepro.getsym(yytext);
                              if (s == nullptr)
-                               s = aprepro.putsym (yytext, SEAMS::Aprepro::SYMBOL_TYPE::UNDEFINED_VARIABLE, 0);
+                               s = aprepro.putsym (yytext, SEAMS::Aprepro::SYMBOL_TYPE::UNDEFINED_VARIABLE, false);
                              yylval->tptr = s;
                              return((token::yytokentype)s->type);
                            }
@@ -691,7 +691,18 @@ integer {D}+({E})?
     aprepro.outputStream.push(out);
   }
 
-  Scanner::~Scanner() {}
+  Scanner::~Scanner() {
+    while (aprepro.ap_file_list.size() > 1) {
+      auto kk = aprepro.ap_file_list.top();
+      if (kk.name != "STDIN") {
+	yyFlexLexer::yy_load_buffer_state();
+	delete yyin;
+	yyin = nullptr;
+      }
+      aprepro.ap_file_list.pop();
+      yyFlexLexer::yypop_buffer_state();
+    };
+  }
 
   void Scanner::add_include_file(const std::string &filename, bool must_exist)
   {
@@ -742,13 +753,13 @@ integer {D}+({E})?
     }
 
     if (aprepro.ap_options.interactive && yyin == &std::cin && isatty(0) != 0 && isatty(1) != 0) {
-      char *line = getline_int(nullptr);
+      char *line = ap_getline_int(nullptr);
 
       if (strlen(line) == 0) {
         return 0;
       }
 
-      gl_histadd(line);
+      ap_gl_histadd(line);
 
       if (strlen(line) > (size_t)max_size - 2) {
         yyerror("input line is too long");

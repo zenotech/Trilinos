@@ -289,6 +289,10 @@ namespace { // (anonymous)
 #endif // TPETRA_ASSUME_CUDA_AWARE_MPI
   }
 
+  constexpr bool cudaLaunchBlockingDefault () {
+    return false;
+  }
+
   constexpr bool hierarchicalUnpackDefault () {
     return true;
   }
@@ -351,6 +355,19 @@ bool Behavior::assumeMpiIsCudaAware ()
                                                    defaultValue);
 }
 
+bool Behavior::cudaLaunchBlocking ()
+{
+  constexpr char envVarName[] = "CUDA_LAUNCH_BLOCKING";
+  constexpr bool defaultValue = cudaLaunchBlockingDefault ();
+
+  static bool value_ = defaultValue;
+  static bool initialized_ = false;
+  return idempotentlyGetEnvironmentVariableAsBool (value_,
+                                                   initialized_,
+                                                   envVarName,
+                                                   defaultValue);
+}
+
 int Behavior::TAFC_OptimizationCoreCount ()
 {
     // only call getenv once, save the value.
@@ -401,7 +418,7 @@ bool Behavior::useMergePathMultiVector()
   size_t Behavior::multivectorKernelLocationThreshold ()
 {
   constexpr char envVarName[] = "TPETRA_VECTOR_DEVICE_THRESHOLD";
-  constexpr size_t defaultValue (10000);
+  constexpr size_t defaultValue (22000);
 
   static size_t value_ = defaultValue;
   static bool initialized_ = false;
@@ -531,6 +548,29 @@ bool Behavior::hierarchicalUnpack ()
                                                    envVarName,
                                                    defaultValue);
 }
+
+bool Behavior::skipCopyAndPermuteIfPossible ()
+{
+  constexpr char envVarName[] = "TPETRA_SKIP_COPY_AND_PERMUTE";
+  constexpr bool defaultValue(false);
+
+  static bool value_ = defaultValue;
+  static bool initialized_ = false;
+  return idempotentlyGetEnvironmentVariableAsBool
+    (value_, initialized_, envVarName, defaultValue);
+}
+
+bool Behavior::overlapCommunicationAndComputation ()
+{
+  constexpr char envVarName[] = "TPETRA_OVERLAP";
+  constexpr bool defaultValue(false);
+
+  static bool value_ = defaultValue;
+  static bool initialized_ = false;
+  return idempotentlyGetEnvironmentVariableAsBool
+    (value_, initialized_, envVarName, defaultValue);
+}
+
 
 } // namespace Details
 } // namespace Tpetra

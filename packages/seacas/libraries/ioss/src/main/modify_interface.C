@@ -1,38 +1,21 @@
 /*
- * Copyright(C) 1999-2020 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2021 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 
 #include "Ioss_CodeTypes.h"
-#include "Ioss_FileInfo.h"
-#include "Ioss_GetLongOpt.h" // for GetLongOption, etc
+#include "Ioss_GetLongOpt.h"
+#include "Ioss_Utils.h"
 #include "fmt/ostream.h"
 #include "modify_interface.h"
+
 #include <cstddef>  // for nullptr
 #include <cstdlib>  // for exit, EXIT_SUCCESS, getenv
 #include <iostream> // for operator<<, basic_ostream, etc
 #include <string>   // for char_traits, string
-
-namespace {
-  std::string get_type_from_file(const std::string &filename)
-  {
-    Ioss::FileInfo file(filename);
-    auto           extension = file.extension();
-    if (extension == "e" || extension == "g" || extension == "gen" || extension == "exo") {
-      return "exodus";
-    }
-    else if (extension == "cgns") {
-      return "cgns";
-    }
-    else {
-      // "exodus" is default...
-      return "exodus";
-    }
-  }
-} // namespace
 
 Modify::Interface::Interface() { enroll_options(); }
 
@@ -44,15 +27,6 @@ void Modify::Interface::enroll_options()
 
   options_.enroll("help", Ioss::GetLongOption::NoValue, "Print this summary and exit", nullptr);
 
-  options_.enroll("version", Ioss::GetLongOption::NoValue, "Print version and exit", nullptr);
-
-  options_.enroll("allow_modifications", Ioss::GetLongOption::NoValue,
-                  "By default, io_modify will only allow creation of new assemblies.\n"
-                  "\t\tIf this option is specified, then can modify assemblies that already exist "
-                  "in database.\n"
-                  "\t\tThis will cause the database to be rewritten. Without this option, it is "
-                  "updated in place.",
-                  nullptr);
   options_.enroll("db_type", Ioss::GetLongOption::MandatoryValue,
                   "Database Type: generated"
 #if defined(SEACAS_HAVE_PAMGEN)
@@ -69,7 +43,18 @@ void Modify::Interface::enroll_options()
 #endif
                   ".",
                   "unknown");
-  options_.enroll("in_type", Ioss::GetLongOption::MandatoryValue, "(alias for db_type)", nullptr);
+  options_.enroll("in_type", Ioss::GetLongOption::MandatoryValue, "(alias for db_type)", nullptr,
+                  nullptr, true);
+
+  options_.enroll("allow_modifications", Ioss::GetLongOption::NoValue,
+                  "By default, io_modify will only allow creation of new assemblies.\n"
+                  "\t\tIf this option is specified, then can modify assemblies that already exist "
+                  "in database.\n"
+                  "\t\tThis will cause the database to be rewritten. Without this option, it is "
+                  "updated in place.",
+                  nullptr, nullptr, true);
+  options_.enroll("version", Ioss::GetLongOption::NoValue, "Print version and exit", nullptr);
+
   options_.enroll("copyright", Ioss::GetLongOption::NoValue, "Show copyright and license data.",
                   nullptr);
 }
@@ -105,20 +90,12 @@ bool Modify::Interface::parse_options(int argc, char **argv)
     exit(0);
   }
 
-  if (options_.retrieve("allow_modifications") != nullptr) {
-    allowModification_ = true;
-  }
-
-  {
-    const char *temp = options_.retrieve("db_type");
-    if (temp != nullptr) {
-      filetype_ = temp;
-    }
-  }
+  allowModification_ = options_.retrieve("allow_modifications") != nullptr;
+  filetype_          = options_.get_option_value("db_type", filetype_);
 
   if (options_.retrieve("copyright") != nullptr) {
     fmt::print(stderr, "\n"
-                       "Copyright(C) 2020 National Technology & Engineering Solutions\n"
+                       "Copyright(C) 2020-2021 National Technology & Engineering Solutions\n"
                        "of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with\n"
                        "NTESS, the U.S. Government retains certain rights in this software.\n\n"
                        "Redistribution and use in source and binary forms, with or without\n"
@@ -157,7 +134,7 @@ bool Modify::Interface::parse_options(int argc, char **argv)
   }
 
   if (filetype_ == "unknown") {
-    filetype_ = get_type_from_file(filename_);
+    filetype_ = Ioss::Utils::get_type_from_file(filename_);
   }
 
   return true;

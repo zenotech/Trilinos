@@ -1,8 +1,8 @@
 /*
- * Copyright(C) 1999-2020 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2021 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 
@@ -123,7 +123,7 @@ namespace {
     size_t v_size  = sizeof(std::vector<INT>);
     size_t vv_size = sizeof(std::vector<std::vector<INT>>);
     size_t total   = vv_size + mesh->num_nodes * v_size + sur_elem_total_size * sizeof(INT);
-    fmt::print(stderr, "\ttotal size of reverse connectivity array: {:n} entries ({:n} bytes).\n",
+    fmt::print(stderr, "\ttotal size of reverse connectivity array: {:L} entries ({:L} bytes).\n",
                sur_elem_total_size, total);
     vec_free(last_element);
 
@@ -283,15 +283,14 @@ namespace {
       }
 
       /* Cycle through the elements */
-      E_Type etype_last = NULL_EL;
-      E_Type etype      = NULL_EL;
 
       int element_3d = 0;
       int nnodes     = mesh->num_dims;
       int nsides     = 0;
 
       for (size_t ecnt = 0; ecnt < mesh->num_elems; ecnt++) {
-        etype = mesh->elem_type[ecnt];
+        E_Type etype      = mesh->elem_type[ecnt];
+        E_Type etype_last = NULL_EL;
         if (etype != etype_last) {
           etype_last = etype;
           element_3d = is_3d_element(mesh->elem_type[ecnt]);

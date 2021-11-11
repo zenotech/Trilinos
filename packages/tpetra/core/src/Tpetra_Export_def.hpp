@@ -92,6 +92,8 @@ namespace Tpetra {
     TEUCHOS_ASSERT( ! this->TransferData_->exportLIDs_.need_sync_device () );
     TEUCHOS_ASSERT( ! this->TransferData_->exportLIDs_.need_sync_host () );
 
+    this->detectRemoteExportLIDsContiguous();
+
     if (this->verbose ()) {
       std::ostringstream os;
       const int myRank = source->getComm ()->getRank ();
@@ -242,8 +244,6 @@ namespace Tpetra {
     const LO numSrcLids = static_cast<LO> (numSrcGids);
     LO numPermutes = 0;
     LO numExports = 0;
-
-    Kokkos::fence(); // target.getLocalElement will be UVM access
 
     for (LO srcLid = numSameGids; srcLid < numSrcLids; ++srcLid) {
       const GO curSrcGid = rawSrcGids[srcLid];
@@ -516,8 +516,6 @@ namespace Tpetra {
       typename decltype (this->TransferData_->remoteLIDs_)::t_host;
     host_remote_lids_type remoteLIDs
       (view_alloc_no_init ("remoteLIDs"), numRemoteIDs);
-
-    Kokkos::fence(); // tgtMap.getLocalElement will be UVM access
 
     for (LO j = 0; j < LO (numRemoteIDs); ++j) {
       remoteLIDs[j] = tgtMap.getLocalElement (remoteGIDs[j]);

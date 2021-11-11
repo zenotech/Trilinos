@@ -13,6 +13,7 @@
 #include "Teuchos_Time.hpp"
 
 // Tempus
+#include "Tempus_config.hpp"
 #include "Tempus_TimeEventBase.hpp"
 
 
@@ -187,6 +188,7 @@ public:
   {
     Teuchos::RCP<Teuchos::FancyOStream> out =
       Teuchos::VerboseObjectBase::getDefaultOStream();
+    out->setOutputToRootOnly(0);
     *out << "TimeEventComposite:" << "\n"
         << "name                 = " << this->getName() << "\n"
         << "Number of TimeEvents = " << timeEvents_.size() << std::endl;

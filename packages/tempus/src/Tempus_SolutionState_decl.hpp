@@ -9,17 +9,17 @@
 #ifndef Tempus_SolutionState_decl_hpp
 #define Tempus_SolutionState_decl_hpp
 
-// Teuchos
 #include "Teuchos_VerboseObject.hpp"
 #include "Teuchos_Describable.hpp"
-// Thrya
+
 #include "Thyra_VectorBase.hpp"
 #include "Thyra_ModelEvaluator.hpp"
-// Tempus
+
 #include "Tempus_config.hpp"
 #include "Tempus_SolutionStateMetaData.hpp"
 #include "Tempus_StepperState.hpp"
 #include "Tempus_PhysicsState.hpp"
+
 
 namespace Tempus {
 
@@ -134,6 +134,8 @@ public:
     virtual Scalar getTimeStep()         const {return metaData_->getDt();}
     virtual Scalar getErrorAbs()         const {return metaData_->getErrorAbs();}
     virtual Scalar getErrorRel()         const {return metaData_->getErrorRel();}
+    virtual Scalar getErrorRelNm1()      const {return metaData_->getErrorRelNm1();}
+    virtual Scalar getErrorRelNm2()      const {return metaData_->getErrorRelNm2();}
     virtual int    getOrder()            const {return metaData_->getOrder();}
     virtual int    getNFailures()        const {return metaData_->getNFailures();}
     virtual int    getNRunningFailures() const {return metaData_->getNRunningFailures();}

@@ -100,7 +100,7 @@ void print_field_data_for_entity(const BulkData& mesh, const MeshIndex& meshInde
         unsigned data_size = field_meta_data.m_bytes_per_entity;
         if (data_size > 0) { // entity has this field?
             void* data = field_meta_data.m_data + field_meta_data.m_bytes_per_entity * b_ord;
-            out << "        For field: " << *field << ", has data: ";
+            out << "        " << *field << ", ";
             field->print_data(out, data, data_size); 
             out << std::endl;
         }
@@ -133,7 +133,7 @@ void print_entity_connectivity(const BulkData& mesh, const MeshIndex& meshIndex,
                 if (b_rank != stk::topology::NODE_RANK) {
                     Permutation const *permutations = bucket->begin_permutations(b_ord, r);
                     if (permutations) {
-                        out << " permutation index " << permutations[c_itr];
+                        out << " permutation " << permutations[c_itr];
                     }
                 }
             }
@@ -145,7 +145,7 @@ void print_entity_connectivity(const BulkData& mesh, const MeshIndex& meshIndex,
 
 void print_bucket_parts(const BulkData& mesh, const Bucket* bucket, std::ostream& out)
 {
-  out << "    Found bucket " << bucket->bucket_id() << " with superset parts: { ";
+  out << "    bucket " << bucket->bucket_id() << " parts: { ";
   const PartVector& supersets = bucket->supersets();
   for(const Part* part : supersets) {
     out << part->name() << " ";
@@ -158,6 +158,33 @@ void print_entity_offset_and_state(const BulkData& mesh, const MeshIndex& meshIn
     Entity entity = (*meshIndex.bucket)[meshIndex.bucket_ordinal];
     out << "      " << print_entity_key(mesh.mesh_meta_data(), mesh.entity_key(entity)) << "(offset: " << entity.local_offset() <<
             "), state = " << mesh.state(entity) << std::endl;
+}
+
+void print_connectivity_of_rank(const BulkData& M, Entity entity,
+                                EntityRank connectedRank,
+                                std::ostream & out)
+{
+    if (M.is_valid(entity)) {
+    out << connectedRank << "-connectivity(";
+    const Entity* connectedEntities = M.begin(entity, connectedRank);
+    unsigned numConnected = M.num_connectivity(entity, connectedRank);
+    for(unsigned i=0; i<numConnected; ++i) {
+        if (M.is_valid(connectedEntities[i])) {
+            out<<"{"<<M.identifier(connectedEntities[i])<<",topo="<<M.bucket(connectedEntities[i]).topology()
+                  <<",owned="<<M.bucket(connectedEntities[i]).owned()<<",shared="<<M.bucket(connectedEntities[i]).shared()
+                  <<",in_aura="<<M.bucket(connectedEntities[i]).in_aura()
+                  <<",custom-recv-ghost="<<M.in_receive_custom_ghost(M.entity_key(connectedEntities[i]))
+                  <<"}";
+        }
+        else {
+            out << "{invalid entity!}";
+        }
+    }
+    out<<"), ";
+    }    
+    else {
+        out << "invalid entity!";
+    }
 }
 
 } // namespace impl

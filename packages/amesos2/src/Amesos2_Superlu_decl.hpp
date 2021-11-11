@@ -296,12 +296,10 @@ private:
   /// Persisting 1D store for X
   mutable host_solve_array_t host_xValues_;
   mutable Teuchos::Array<slu_convert_type> convert_xValues_; // copy to SuperLU native array before calling SuperLU
-  int ldx_;
 
   /// Persisting 1D store for B
   mutable host_solve_array_t host_bValues_;
   mutable Teuchos::Array<slu_convert_type> convert_bValues_; // copy to SuperLU native array before calling SuperLU
-  int ldb_;
 
 #if defined(KOKKOSKERNELS_ENABLE_SUPERNODAL_SPTRSV) && defined(KOKKOSKERNELS_ENABLE_TPL_SUPERLU)
   typedef Kokkos::DefaultExecutionSpace DeviceExecSpaceType;
@@ -319,15 +317,24 @@ private:
   // bValues because a parameter can turn it on or off.
   mutable device_solve_array_t device_xValues_;
   mutable device_solve_array_t device_bValues_;
-  typedef Kokkos::View<int*, DeviceMemSpaceType>              device_int_array;
+  typedef Kokkos::View<int*,            DeviceMemSpaceType>      device_int_array;
+  typedef Kokkos::View<magnitude_type*, DeviceMemSpaceType>      device_mag_array;
   device_int_array device_trsv_perm_r_;
   device_int_array device_trsv_perm_c_;
+  device_mag_array device_trsv_R_;
+  device_mag_array device_trsv_C_;
   mutable device_solve_array_t device_trsv_rhs_;
   mutable device_solve_array_t device_trsv_sol_;
   typedef KokkosKernels::Experimental::KokkosKernelsHandle <size_type, ordinal_type, slu_type,
     DeviceExecSpaceType, DeviceMemSpaceType, DeviceMemSpaceType> kernel_handle_type;
   mutable kernel_handle_type device_khL_;
   mutable kernel_handle_type device_khU_;
+  /* parameters for SpTRSV */
+  bool sptrsv_invert_diag_;
+  bool sptrsv_invert_offdiag_;
+  bool sptrsv_u_in_csr_;
+  bool sptrsv_merge_supernodes_;
+  bool sptrsv_use_spmv_;
 #endif
 
   /* Note: In the above, must use "Amesos2::Superlu" rather than
@@ -364,6 +371,10 @@ private:
   bool use_triangular_solves_;
 
   void triangular_solve_factor();
+
+  /* call metis before SuperLU */
+  bool use_metis_;
+  bool symmetrize_metis_;
 
   public: // for GPU
     void triangular_solve() const; // Only for internal use - public to support kernels

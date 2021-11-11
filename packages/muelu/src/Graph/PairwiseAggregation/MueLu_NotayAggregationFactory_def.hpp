@@ -46,6 +46,8 @@
 #ifndef MUELU_NOTAYAGGREGATIONFACTORY_DEF_HPP_
 #define MUELU_NOTAYAGGREGATIONFACTORY_DEF_HPP_
 
+#ifdef HAVE_MUELU_KOKKOS_REFACTOR
+
 #include <Xpetra_Map.hpp>
 #include <Xpetra_Vector.hpp>
 #include <Xpetra_MultiVectorFactory.hpp>
@@ -66,9 +68,7 @@
 #include "MueLu_Types.hpp"
 #include "MueLu_Utilities.hpp"
 
-#if defined(HAVE_MUELU_KOKKOS_REFACTOR)
 #include "MueLu_Utilities_kokkos.hpp"
-#endif
 
 namespace MueLu {
 
@@ -91,7 +91,6 @@ namespace MueLu {
   RCP<const ParameterList> NotayAggregationFactory<Scalar, LocalOrdinal, GlobalOrdinal, Node>::GetValidParameterList() const {
     RCP<ParameterList> validParamList = rcp(new ParameterList());
 
-    typedef Teuchos::StringToIntegralParameterEntryValidator<int> validatorType;
 
 #define SET_VALID_ENTRY(name) validParamList->setEntry(name, MasterList::getEntry(name))
     SET_VALID_ENTRY("aggregation: pairwise: size");
@@ -162,7 +161,6 @@ namespace MueLu {
 
     RCP<const GraphBase> graph = Get< RCP<GraphBase> >(currentLevel, "Graph");
     RCP<const Matrix> A = Get< RCP<Matrix> >(currentLevel, "A");
-    local_matrix_type localA = A->getLocalMatrix();
 
     // Setup aggregates & aggStat objects
     RCP<Aggregates> aggregates = rcp(new Aggregates(*graph));
@@ -193,9 +191,7 @@ namespace MueLu {
     ordering = O_NATURAL;
     if (orderingStr == "random" ) ordering = O_RANDOM;
     else if(orderingStr == "natural") {}
-#if defined(HAVE_MUELU_KOKKOS_REFACTOR)
     else if(orderingStr == "cuthill-mckee" || orderingStr == "cm") ordering = O_CUTHILL_MCKEE;
-#endif
     else {
       TEUCHOS_TEST_FOR_EXCEPTION(1,Exceptions::RuntimeError,"Invalid ordering type");
     }
@@ -209,14 +205,12 @@ namespace MueLu {
       orderingVector[i] = i;
     if (ordering == O_RANDOM)
       MueLu::NotayUtils::RandomReorder(orderingVector);
-#if defined(HAVE_MUELU_KOKKOS_REFACTOR)
     else if (ordering == O_CUTHILL_MCKEE) {
       RCP<Xpetra::Vector<LO,LO,GO,NO> > rcmVector = MueLu::Utilities_kokkos<SC,LO,GO,NO>::CuthillMcKee(*A);
       auto localVector = rcmVector->getData(0);
       for (LO i = 0; i < numRows; i++)
         orderingVector[i] = localVector[i];
     }
-#endif
 
     // Get the party stated
     LO numNonAggregatedNodes = numRows, numDirichletNodes = 0;
@@ -237,7 +231,7 @@ namespace MueLu {
     // columns corresponding to local rows.
     LO numLocalDirichletNodes = numDirichletNodes;
     Array<LO> localVertex2AggId(aggregates->GetVertex2AggId()->getData(0).view(0, numRows));
-    BuildOnRankLocalMatrix(A->getLocalMatrix(), coarseLocalA);
+    BuildOnRankLocalMatrix(A->getLocalMatrixDevice(), coarseLocalA);
     for(LO aggregationIter = 1; aggregationIter < maxNumIter; ++aggregationIter) {
       // Compute the intermediate prolongator
       BuildIntermediateProlongator(coarseLocalA.numRows(), numLocalDirichletNodes, numLocalAggregates,
@@ -299,15 +293,13 @@ namespace MueLu {
         localOrderingVector[i] = i;
       if (ordering == O_RANDOM)
         MueLu::NotayUtils::RandomReorder(localOrderingVector);
-#if defined(HAVE_MUELU_KOKKOS_REFACTOR)
       else if (ordering == O_CUTHILL_MCKEE) {
         RCP<Xpetra::Vector<LO,LO,GO,NO> > rcmVector = MueLu::Utilities_kokkos<SC,LO,GO,NO>::CuthillMcKee(*A);
         auto localVector = rcmVector->getData(0);
         for (LO i = 0; i < numRows; i++)
           localOrderingVector[i] = localVector[i];
       }
-#endif
-      
+
       // Compute new aggregates
       numLocalAggregates    = 0;
       numNonAggregatedNodes = static_cast<LO>(coarseLocalA.numRows());
@@ -446,7 +438,7 @@ namespace MueLu {
         // Skip aggregated neighbors, off-rank neighbors, hard zeros and self
         LO col = indices[colidx];
         SC val = vals[colidx];
-        if(current_idx == col || aggStat[col] != READY || col > numRows || val == SC_ZERO)
+        if(current_idx == col || col >= numRows || aggStat[col] != READY  || val == SC_ZERO)
           continue;
 
 	MT aij = STS::real(val);
@@ -606,7 +598,7 @@ namespace MueLu {
       const magnitude_type si      = Teuchos::ScalarTraits<value_type>::real(rowSum_h(currentIdx));
       for(auto entryIdx = row_map_h(currentIdx); entryIdx < row_map_h(currentIdx + 1); ++entryIdx) {
         const LO colIdx = static_cast<LO>(entries_h(entryIdx));
-        if(currentIdx == colIdx || localAggStat[colIdx] != READY || values_h(entryIdx) == KAT_zero || colIdx > numRows) {
+        if(currentIdx == colIdx || colIdx >= numRows || localAggStat[colIdx] != READY || values_h(entryIdx) == KAT_zero) {
           continue;
         }
 
@@ -839,9 +831,11 @@ namespace MueLu {
                               intermediateP.nnz());
 
     typename row_pointer_type::HostMirror rowPtrPt_h = Kokkos::create_mirror_view(rowPtrPt);
+    typename col_indices_type::HostMirror entries_h = Kokkos::create_mirror_view(intermediateP.graph.entries);
+    Kokkos::deep_copy(entries_h, intermediateP.graph.entries);
     Kokkos::deep_copy(rowPtrPt_h, 0);
     for(size_type entryIdx = 0; entryIdx < intermediateP.nnz(); ++entryIdx) {
-      rowPtrPt_h(intermediateP.graph.entries(entryIdx) + 1) += 1;
+      rowPtrPt_h(entries_h(entryIdx) + 1) += 1;
     }
     for(LO rowIdx = 0; rowIdx < intermediateP.numCols(); ++rowIdx) {
       rowPtrPt_h(rowIdx + 1) += rowPtrPt_h(rowIdx);
@@ -862,7 +856,7 @@ namespace MueLu {
     col_index_type colIdx = 0;
     for(LO rowIdx = 0; rowIdx < intermediateP.numRows(); ++rowIdx) {
       for(size_type entryIdxP = rowPtrP_h(rowIdx); entryIdxP < rowPtrP_h(rowIdx + 1); ++entryIdxP) {
-        colIdx = intermediateP.graph.entries(entryIdxP);
+        colIdx = entries_h(entryIdxP);
         for(size_type entryIdxPt = rowPtrPt_h(colIdx); entryIdxPt < rowPtrPt_h(colIdx + 1); ++entryIdxPt) {
           if(colIndPt_h(entryIdxPt) == invalidColumnIndex) {
             colIndPt_h(entryIdxPt) = rowIdx;
@@ -875,6 +869,7 @@ namespace MueLu {
 
     Kokkos::deep_copy(colIndPt, colIndPt_h);
     Kokkos::deep_copy(valuesPt, valuesPt_h);
+
 
     local_matrix_type intermediatePt("intermediatePt",
                                      intermediateP.numCols(),
@@ -950,4 +945,5 @@ namespace MueLu {
 
 } //namespace MueLu
 
+#endif //ifdef HAVE_MUELU_KOKKOS_REFACTOR
 #endif /* MUELU_NOTAYAGGREGATIONFACTORY_DEF_HPP_ */

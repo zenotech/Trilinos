@@ -1,11 +1,12 @@
 #include "KokkosBulkDataCentroidCalculation.hpp"
 #include <stk_mesh/base/Ngp.hpp>
 #include <stk_mesh/base/NgpMesh.hpp>
+#include <stk_mesh/base/GetNgpMesh.hpp>
 
 struct GpuGatherBucketScratchData
 {
   GpuGatherBucketScratchData(const stk::mesh::BulkData &bulk)
-    : ngpMesh(bulk.get_updated_ngp_mesh())
+    : ngpMesh(stk::mesh::get_updated_ngp_mesh(bulk))
   {
   }
 
@@ -64,7 +65,7 @@ struct GpuGatherBucketScratchData
     return meshIndex.bucket_id * bucketCapacity + meshIndex.bucket_ord;
   }
 
-  STK_FUNCTION unsigned get_index(stk::mesh::Entity entity) const
+  KOKKOS_FUNCTION unsigned get_index(stk::mesh::Entity entity) const
   {
     const stk::mesh::FastMeshIndex& meshIndex = ngpMesh.device_mesh_index(entity);
     return meshIndex.bucket_id * bucketCapacity + meshIndex.bucket_ord;

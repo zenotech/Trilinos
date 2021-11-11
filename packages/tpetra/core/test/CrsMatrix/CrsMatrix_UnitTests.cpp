@@ -74,8 +74,8 @@ namespace { // (anonymous)
     using Teuchos::outArg; \
     RCP<const Comm<int> > STCOMM = matrix.getComm(); \
     ArrayView<const GO> STMYGIDS = matrix.getRowMap()->getNodeElementList(); \
-    ArrayView<const LO> loview; \
-    ArrayView<const Scalar> sview; \
+    typename MAT::local_inds_host_view_type loview; \
+    typename MAT::values_host_view_type sview; \
     size_t STMAX = 0; \
     for (size_t STR=0; STR < matrix.getNodeNumRows(); ++STR) { \
       const size_t numEntries = matrix.getNumEntriesInLocalRow(STR); \
@@ -340,7 +340,6 @@ namespace { // (anonymous)
     typedef Tpetra::MultiVector<Scalar,LO,GO,Node> MV;
     typedef Tpetra::Vector<Scalar,LO,GO,Node> V;
     typedef typename ST::magnitudeType Mag;
-    typedef Teuchos::ScalarTraits<Mag> MT;
     // get a comm
     RCP<const Comm<int> > comm = getDefaultComm();
     // create a Map
@@ -425,12 +424,21 @@ namespace { // (anonymous)
 // INSTANTIATIONS
 //
 
+// FIXME_SYCL
+#ifdef KOKKOS_ENABLE_SYCL
+#define UNIT_TEST_GROUP( SCALAR, LO, GO, NODE ) \
+      TEUCHOS_UNIT_TEST_TEMPLATE_4_INSTANT( CrsMatrix, TheEyeOfTruth,  LO, GO, SCALAR, NODE ) \
+      TEUCHOS_UNIT_TEST_TEMPLATE_4_INSTANT( CrsMatrix, ZeroMatrix,     LO, GO, SCALAR, NODE ) \
+      TEUCHOS_UNIT_TEST_TEMPLATE_4_INSTANT( CrsMatrix, BadCalls,       LO, GO, SCALAR, NODE ) \
+      TEUCHOS_UNIT_TEST_TEMPLATE_4_INSTANT( CrsMatrix, SimpleEigTest,  LO, GO, SCALAR, NODE )
+#else
 #define UNIT_TEST_GROUP( SCALAR, LO, GO, NODE ) \
       TEUCHOS_UNIT_TEST_TEMPLATE_4_INSTANT( CrsMatrix, TheEyeOfTruth,  LO, GO, SCALAR, NODE ) \
       TEUCHOS_UNIT_TEST_TEMPLATE_4_INSTANT( CrsMatrix, ZeroMatrix,     LO, GO, SCALAR, NODE ) \
       TEUCHOS_UNIT_TEST_TEMPLATE_4_INSTANT( CrsMatrix, ImbalancedRowMatrix, LO, GO, SCALAR, NODE ) \
       TEUCHOS_UNIT_TEST_TEMPLATE_4_INSTANT( CrsMatrix, BadCalls,       LO, GO, SCALAR, NODE ) \
       TEUCHOS_UNIT_TEST_TEMPLATE_4_INSTANT( CrsMatrix, SimpleEigTest,  LO, GO, SCALAR, NODE )
+#endif
 
   TPETRA_ETI_MANGLING_TYPEDEFS()
 

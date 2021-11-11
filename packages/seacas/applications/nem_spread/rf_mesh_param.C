@@ -2,7 +2,7 @@
  * Copyright(C) 1999-2020 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
- * 
+ *
  * See packages/seacas/LICENSE for details
  */
 
@@ -87,12 +87,12 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_mesh_param()
 
   fmt::print("\nExodus file ({})\n", exofile);
   fmt::print("\tTitle of file: '{}'\n", GeomTitle);
-  fmt::print("\tDimensionality of problem = {:14n}\n", globals.Num_Dim);
-  fmt::print("\tNumber of nodes           = {:14n}\n", globals.Num_Node);
-  fmt::print("\tNumber of elements        = {:14n}\n", globals.Num_Elem);
-  fmt::print("\tNumber of element blocks  = {:14n}\n", globals.Num_Elem_Blk);
-  fmt::print("\tNumber of node sets       = {:14n}\n", globals.Num_Node_Set);
-  fmt::print("\tNumber of side sets       = {:14n}\n\n", globals.Num_Side_Set);
+  fmt::print("\tDimensionality of problem = {:14L}\n", globals.Num_Dim);
+  fmt::print("\tNumber of nodes           = {:14L}\n", globals.Num_Node);
+  fmt::print("\tNumber of elements        = {:14L}\n", globals.Num_Elem);
+  fmt::print("\tNumber of element blocks  = {:14L}\n", globals.Num_Elem_Blk);
+  fmt::print("\tNumber of node sets       = {:14L}\n", globals.Num_Node_Set);
+  fmt::print("\tNumber of side sets       = {:14L}\n\n", globals.Num_Side_Set);
 
   /* Close the file */
   error = ex_close(exoid);
