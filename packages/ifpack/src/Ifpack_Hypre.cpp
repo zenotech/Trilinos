@@ -46,6 +46,7 @@
 #include "Ifpack_Utils.h"
 #include "Epetra_MpiComm.h"
 #include "Epetra_IntVector.h"
+#include "Epetra_LongLongVector.h"
 #include "Epetra_Import.h"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_RCP.hpp"
@@ -383,7 +384,7 @@ Ifpack_Hypre::Ifpack_Hypre(Epetra_RowMatrix* A):
     if(A_->OperatorDomainMap().SameAs(A_->RowMatrixRowMap())) {
       Teuchos::RCP<const Epetra_RowMatrix> Aconst = A_;
       GloballyContiguousColMap_ = MakeContiguousColumnMap(Aconst);
-      GloballyContiguousRowMap_ = rcp(new Epetra_Map(A_->RowMatrixRowMap().NumGlobalElements(),
+      GloballyContiguousRowMap_ = rcp(new Epetra_Map(A_->RowMatrixRowMap().NumGlobalElements64(),
                                                      A_->RowMatrixRowMap().NumMyElements(), 0, Comm()));
     }
     else {
@@ -391,8 +392,8 @@ Ifpack_Hypre::Ifpack_Hypre(Epetra_RowMatrix* A):
     }
   }
   // Next create vectors that will be used when ApplyInverse() is called
-  int ilower = GloballyContiguousRowMap_->MinMyGID();
-  int iupper = GloballyContiguousRowMap_->MaxMyGID();
+  int ilower = GloballyContiguousRowMap_->MinMyGID64();
+  int iupper = GloballyContiguousRowMap_->MaxMyGID64();
   // X in AX = Y
   IFPACK_CHK_ERRV(HYPRE_IJVectorCreate(comm, ilower, iupper, &XHypre_));
   IFPACK_CHK_ERRV(HYPRE_IJVectorSetObjectType(XHypre_, HYPRE_PARCSR));
@@ -637,32 +638,32 @@ int Ifpack_Hypre::SetDiscreteGradient(Teuchos::RCP<const Epetra_CrsMatrix> G){
     throw std::runtime_error("Ifpack_Hypre: Edge map mismatch: A and discrete gradient");
 
   // Get the maps for the nodes (assuming the edge map from A is OK);
-  GloballyContiguousNodeRowMap_ = rcp(new Epetra_Map(G->DomainMap().NumGlobalElements(),
+  GloballyContiguousNodeRowMap_ = rcp(new Epetra_Map(G->DomainMap().NumGlobalElements64(),
                                                      G->DomainMap().NumMyElements(), 0, Comm()));
   Teuchos::RCP<const Epetra_RowMatrix> Grow = Teuchos::rcp_dynamic_cast<const Epetra_RowMatrix>(G);
   GloballyContiguousNodeColMap_ = MakeContiguousColumnMap(Grow);
 
   // Start building G
   MPI_Comm comm = GetMpiComm();
-  int ilower = GloballyContiguousRowMap_->MinMyGID();
-  int iupper = GloballyContiguousRowMap_->MaxMyGID();
-  int jlower = GloballyContiguousNodeRowMap_->MinMyGID();
-  int jupper = GloballyContiguousNodeRowMap_->MaxMyGID();
+  HYPRE_BigInt ilower = GloballyContiguousRowMap_->MinMyGID64();
+  HYPRE_BigInt iupper = GloballyContiguousRowMap_->MaxMyGID64();
+  HYPRE_BigInt jlower = GloballyContiguousNodeRowMap_->MinMyGID64();
+  HYPRE_BigInt jupper = GloballyContiguousNodeRowMap_->MaxMyGID64();
   IFPACK_CHK_ERR(HYPRE_IJMatrixCreate(comm, ilower, iupper, jlower, jupper, &HypreG_));
   IFPACK_CHK_ERR(HYPRE_IJMatrixSetObjectType(HypreG_, HYPRE_PARCSR));
   IFPACK_CHK_ERR(HYPRE_IJMatrixInitialize(HypreG_));
 
-  std::vector<int> new_indices(G->MaxNumEntries());
+  std::vector<HYPRE_BigInt> new_indices(G->MaxNumEntries());
   for(int i = 0; i < G->NumMyRows(); i++){
     int numEntries;
     double * values;
     int *indices;
     IFPACK_CHK_ERR(G->ExtractMyRowView(i, numEntries, values, indices));
     for(int j = 0; j < numEntries; j++){
-      new_indices[j] = GloballyContiguousNodeColMap_->GID(indices[j]);
+      new_indices[j] = GloballyContiguousNodeColMap_->GID64(indices[j]);
     }
-    int GlobalRow[1];
-    GlobalRow[0] = GloballyContiguousRowMap_->GID(i);
+    HYPRE_BigInt GlobalRow[1];
+    GlobalRow[0] = GloballyContiguousRowMap_->GID64(i);
     IFPACK_CHK_ERR(HYPRE_IJMatrixSetValues(HypreG_, 1, &numEntries, GlobalRow, new_indices.data(), values));
   }
   IFPACK_CHK_ERR(HYPRE_IJMatrixAssemble(HypreG_));
@@ -698,10 +699,10 @@ int Ifpack_Hypre::SetCoordinates(Teuchos::RCP<Epetra_MultiVector> coords) {
 
   MPI_Comm comm = GetMpiComm();
   int NumEntries = coords->MyLength();
-  int * indices = GloballyContiguousNodeRowMap_->MyGlobalElements();
+  HYPRE_BigInt * indices = (long*)GloballyContiguousNodeRowMap_->MyGlobalElements64();
 
-  int ilower = GloballyContiguousNodeRowMap_->MinMyGID();
-  int iupper = GloballyContiguousNodeRowMap_->MaxMyGID();
+  HYPRE_BigInt ilower = GloballyContiguousNodeRowMap_->MinMyGID64();
+  HYPRE_BigInt iupper = GloballyContiguousNodeRowMap_->MaxMyGID64();
 
   if( NumEntries != iupper-ilower+1) {
     std::cout<<"Ifpack_Hypre::SetCoordinates(): Error on rank "<<Comm().MyPID()<<": MyLength = "<<coords->MyLength()<<" GID range = ["<<ilower<<","<<iupper<<"]"<<std::endl;
@@ -757,8 +758,8 @@ int Ifpack_Hypre::Compute(){
   // set the Hypre structure without copying values, but this is the easiest
   // way to get the structure.
   MPI_Comm comm = GetMpiComm();
-  int ilower = GloballyContiguousRowMap_->MinMyGID();
-  int iupper = GloballyContiguousRowMap_->MaxMyGID();
+  HYPRE_BigInt ilower = GloballyContiguousRowMap_->MinMyGID64();
+  HYPRE_BigInt iupper = GloballyContiguousRowMap_->MaxMyGID64();
   IFPACK_CHK_ERR(HYPRE_IJMatrixCreate(comm, ilower, iupper, ilower, iupper, &HypreA_));
   IFPACK_CHK_ERR(HYPRE_IJMatrixSetObjectType(HypreA_, HYPRE_PARCSR));
   IFPACK_CHK_ERR(HYPRE_IJMatrixInitialize(HypreA_));
@@ -963,8 +964,8 @@ std::ostream& Ifpack_Hypre::Print(std::ostream& os) const{
     os << "================================================================================" << endl;
     os << "Ifpack_Hypre: " << Label() << endl << endl;
     os << "Using " << Comm().NumProc() << " processors." << endl;
-    os << "Global number of rows            = " << A_->NumGlobalRows() << endl;
-    os << "Global number of nonzeros        = " << A_->NumGlobalNonzeros() << endl;
+    os << "Global number of rows            = " << A_->NumGlobalRows64() << endl;
+    os << "Global number of nonzeros        = " << A_->NumGlobalNonzeros64() << endl;
     os << "Condition number estimate = " << Condest() << endl;
     os << endl;
     os << "Phase           # calls   Total Time (s)       Total MFlops     MFlops/s" << endl;
@@ -1176,17 +1177,17 @@ int Ifpack_Hypre::CopyEpetraToHypre(){
   if(Matrix.is_null()) 
     throw std::runtime_error("Ifpack_Hypre: Unsupported matrix configuration: Epetra_CrsMatrix required");
 
-  std::vector<int> new_indices(Matrix->MaxNumEntries());
+  std::vector<HYPRE_BigInt> new_indices(Matrix->MaxNumEntries());
   for(int i = 0; i < Matrix->NumMyRows(); i++){
     int numEntries;
     int *indices;
     double *values;
     IFPACK_CHK_ERR(Matrix->ExtractMyRowView(i, numEntries, values, indices));
     for(int j = 0; j < numEntries; j++){
-      new_indices[j] = GloballyContiguousColMap_->GID(indices[j]);
+      new_indices[j] = GloballyContiguousColMap_->GID64(indices[j]);
     }
-    int GlobalRow[1];
-    GlobalRow[0] = GloballyContiguousRowMap_->GID(i);
+    HYPRE_BigInt GlobalRow[1];
+    GlobalRow[0] = GloballyContiguousRowMap_->GID64(i);
     IFPACK_CHK_ERR(HYPRE_IJMatrixSetValues(HypreA_, 1, &numEntries, GlobalRow, new_indices.data(), values));
   }
   IFPACK_CHK_ERR(HYPRE_IJMatrixAssemble(HypreA_));
@@ -1255,22 +1256,22 @@ Teuchos::RCP<const Epetra_Map> Ifpack_Hypre::MakeContiguousColumnMap(Teuchos::RC
   }
   else {
     // The domain map isn't linear, so we need a new domain map
-    Teuchos::RCP<Epetra_Map> ContiguousDomainMap = rcp(new Epetra_Map(DomainMap.NumGlobalElements(),
+    Teuchos::RCP<Epetra_Map> ContiguousDomainMap = rcp(new Epetra_Map(DomainMap.NumGlobalElements64(),
                                                                       DomainMap.NumMyElements(), 0, Comm()));
     if(importer) {    
       // If there's an importer then we can use it to get a new column map
-      Epetra_IntVector MyGIDsHYPRE(View,DomainMap,ContiguousDomainMap->MyGlobalElements());
+      Epetra_LongLongVector MyGIDsHYPRE(View,DomainMap,ContiguousDomainMap->MyGlobalElements64());
 
       // import the HYPRE GIDs
-      Epetra_IntVector ColGIDsHYPRE(ColumnMap);
+      Epetra_LongLongVector ColGIDsHYPRE(ColumnMap);
       ColGIDsHYPRE.Import(MyGIDsHYPRE, *importer, Insert);
    
       // Make a HYPRE numbering-based column map.
-      return Teuchos::rcp(new Epetra_Map(ColumnMap.NumGlobalElements(),ColGIDsHYPRE.MyLength(), &ColGIDsHYPRE[0], 0, Comm()));
+      return Teuchos::rcp(new Epetra_Map(ColumnMap.NumGlobalElements64(),ColGIDsHYPRE.MyLength(), &ColGIDsHYPRE[0], 0, Comm()));
     }
     else {
       // The problem has matching domain/column maps, and somehow the domain map isn't linear, so just use the new domain map
-      return Teuchos::rcp(new Epetra_Map(ColumnMap.NumGlobalElements(),ColumnMap.NumMyElements(), ContiguousDomainMap->MyGlobalElements(), 0, Comm()));
+      return Teuchos::rcp(new Epetra_Map(ColumnMap.NumGlobalElements64(),ColumnMap.NumMyElements(), ContiguousDomainMap->MyGlobalElements64(), 0, Comm()));
     }
   }  
 }

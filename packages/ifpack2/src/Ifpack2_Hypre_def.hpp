@@ -258,11 +258,15 @@ void Hypre<MatrixType>::setParameters(const Teuchos::ParameterList& list){
       if (it->second.isType<HYPRE_Int>()) {
         IFPACK2_CHK_ERR(AddFunToList(rcp(new FunctionParameter(Hypre_Is_Solver, funct_name , Teuchos::getValue<HYPRE_Int>(it->second)))));
       } else if (!std::is_same<HYPRE_Int,int>::value && it->second.isType<int>()) {
-        IFPACK2_CHK_ERR(AddFunToList(rcp(new FunctionParameter(Hypre_Is_Solver, funct_name , Teuchos::as<global_ordinal_type>(Teuchos::getValue<int>(it->second))))));
-      } else if (it->second.isType<double>()) {
-        IFPACK2_CHK_ERR(AddFunToList(rcp(new FunctionParameter(Hypre_Is_Solver, funct_name , Teuchos::getValue<double>(it->second)))));
+          // IFPACK2_CHK_ERR(AddFunToList(rcp(new FunctionParameter(
+          //     Hypre_Is_Solver, funct_name, Teuchos::as<global_ordinal_type>(Teuchos::getValue<int>(it->second))))));
+          IFPACK2_CHK_ERR(AddFunToList(rcp(new FunctionParameter(
+              Hypre_Is_Solver, funct_name, Teuchos::as<int>(Teuchos::getValue<int>(it->second))))));
+      } else if(it->second.isType<double>()) {
+          IFPACK2_CHK_ERR(AddFunToList(
+              rcp(new FunctionParameter(Hypre_Is_Solver, funct_name, Teuchos::getValue<double>(it->second)))));
       } else {
-        IFPACK2_CHK_ERR(-1);
+          IFPACK2_CHK_ERR(-1);
       }
     }
   }
@@ -274,32 +278,41 @@ void Hypre<MatrixType>::setParameters(const Teuchos::ParameterList& list){
       if (it->second.isType<HYPRE_Int>()) {
         IFPACK2_CHK_ERR(AddFunToList(rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name , Teuchos::getValue<HYPRE_Int>(it->second)))));
       } else if (!std::is_same<HYPRE_Int,int>::value && it->second.isType<int>()) {
-        IFPACK2_CHK_ERR(AddFunToList(rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name ,  Teuchos::as<global_ordinal_type>(Teuchos::getValue<int>(it->second)))))); 
-      } else if (it->second.isType<double>()) {
-        IFPACK2_CHK_ERR(AddFunToList(rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name , Teuchos::getValue<double>(it->second)))));
-      } else if (it->second.isList()) {
-        Teuchos::ParameterList pl = Teuchos::getValue<Teuchos::ParameterList>(it->second);
-        if (FunctionParameter::isFuncIntInt(funct_name)) {
-          HYPRE_Int arg0 = pl.get<int>("arg 0");
-          HYPRE_Int arg1 = pl.get<int>("arg 1");
-          IFPACK2_CHK_ERR(AddFunToList(rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name , arg0, arg1))));
-        } else if (FunctionParameter::isFuncIntIntDoubleDouble(funct_name)) {
-          HYPRE_Int arg0 = pl.get<int>("arg 0");
-          HYPRE_Int arg1 = pl.get<int>("arg 1");
-          double arg2 = pl.get<double>("arg 2");
-          double arg3 = pl.get<double>("arg 3");
-          IFPACK2_CHK_ERR(AddFunToList(rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name , arg0, arg1, arg2, arg3))));
-        } else if (FunctionParameter::isFuncIntIntIntDoubleIntInt(funct_name)) {
-          HYPRE_Int arg0 = pl.get<int>("arg 0");
-          HYPRE_Int arg1 = pl.get<int>("arg 1");
-          HYPRE_Int arg2 = pl.get<int>("arg 2");
-          double arg3 = pl.get<double>("arg 3");
-          HYPRE_Int arg4 = pl.get<int>("arg 4");
-          HYPRE_Int arg5 = pl.get<int>("arg 5");
-          IFPACK2_CHK_ERR(AddFunToList(rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name , arg0, arg1, arg2, arg3, arg4, arg5))));
-        } else {
-          IFPACK2_CHK_ERR(-1);
-        }
+          // IFPACK2_CHK_ERR(AddFunToList(
+          //     rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name,
+          //                               Teuchos::as<global_ordinal_type>(Teuchos::getValue<int>(it->second))))));
+          IFPACK2_CHK_ERR(AddFunToList(
+              rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name,
+                                        Teuchos::as<int>(Teuchos::getValue<int>(it->second))))));
+      } else if(it->second.isType<double>()) {
+          IFPACK2_CHK_ERR(AddFunToList(
+              rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name, Teuchos::getValue<double>(it->second)))));
+      } else if(it->second.isList()) {
+          Teuchos::ParameterList pl = Teuchos::getValue<Teuchos::ParameterList>(it->second);
+          if(FunctionParameter::isFuncIntInt(funct_name)) {
+              HYPRE_Int arg0 = pl.get<int>("arg 0");
+              HYPRE_Int arg1 = pl.get<int>("arg 1");
+              IFPACK2_CHK_ERR(
+                  AddFunToList(rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name, arg0, arg1))));
+          } else if(FunctionParameter::isFuncIntIntDoubleDouble(funct_name)) {
+              HYPRE_Int arg0 = pl.get<int>("arg 0");
+              HYPRE_Int arg1 = pl.get<int>("arg 1");
+              double arg2 = pl.get<double>("arg 2");
+              double arg3 = pl.get<double>("arg 3");
+              IFPACK2_CHK_ERR(AddFunToList(
+                  rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name, arg0, arg1, arg2, arg3))));
+          } else if(FunctionParameter::isFuncIntIntIntDoubleIntInt(funct_name)) {
+              HYPRE_Int arg0 = pl.get<int>("arg 0");
+              HYPRE_Int arg1 = pl.get<int>("arg 1");
+              HYPRE_Int arg2 = pl.get<int>("arg 2");
+              double arg3 = pl.get<double>("arg 3");
+              HYPRE_Int arg4 = pl.get<int>("arg 4");
+              HYPRE_Int arg5 = pl.get<int>("arg 5");
+              IFPACK2_CHK_ERR(AddFunToList(
+                  rcp(new FunctionParameter(Hypre_Is_Preconditioner, funct_name, arg0, arg1, arg2, arg3, arg4, arg5))));
+          } else {
+              IFPACK2_CHK_ERR(-1);
+          }
       }
     }
   }
@@ -321,62 +334,121 @@ int Hypre<MatrixType>::AddFunToList(RCP<FunctionParameter> NewFun){
   return 0;
 } //AddFunToList()
 
+// //==============================================================================
+// template<class MatrixType>
+// int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type), global_ordinal_type parameter){
+//   RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
+//   IFPACK2_CHK_ERR(AddFunToList(temp));
+//   return 0;
+// } //SetParameter() - int function pointer
+
+// //=============================================================================
+// template<class MatrixType>
+// int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type  (*pt2Func)(HYPRE_Solver, double), double parameter){
+//   RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
+//   IFPACK2_CHK_ERR(AddFunToList(temp));
+//   return 0;
+// } //SetParameter() - double function pointer
+
+// //==============================================================================
+// template<class MatrixType>
+// int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, double, global_ordinal_type), double parameter1, global_ordinal_type parameter2){
+//   RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter1, parameter2));
+//   IFPACK2_CHK_ERR(AddFunToList(temp));
+//   return 0;
+// } //SetParameter() - double,int function pointer
+
+// //==============================================================================
+// template<class MatrixType>
+// int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type, global_ordinal_type), global_ordinal_type parameter1, global_ordinal_type parameter2){
+//   RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter1, parameter2));
+//   IFPACK2_CHK_ERR(AddFunToList(temp));
+//   return 0;
+// } //SetParameter() int,int function pointer
+
+// //==============================================================================
+// template<class MatrixType>
+// int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, double*), double* parameter){
+//   RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
+//   IFPACK2_CHK_ERR(AddFunToList(temp));
+//   return 0;
+// } //SetParameter() - double* function pointer
+
+// //==============================================================================
+// template<class MatrixType>
+// int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type*), global_ordinal_type* parameter){
+//   RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
+//   IFPACK2_CHK_ERR(AddFunToList(temp));
+//   return 0;
+// } //SetParameter() - int* function pointer
+
+// //==============================================================================
+// template<class MatrixType>
+// int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser,  global_ordinal_type (*pt2Func)(HYPRE_Solver,
+// global_ordinal_type**), global_ordinal_type** parameter){
+//   RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
+//   IFPACK2_CHK_ERR(AddFunToList(temp));
+//   return 0;
+// } //SetParameter() - int** function pointer
 //==============================================================================
-template<class MatrixType>
-int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type), global_ordinal_type parameter){
-  RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
-  IFPACK2_CHK_ERR(AddFunToList(temp));
-  return 0;
-} //SetParameter() - int function pointer
+template <class MatrixType>
+int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser,
+                                    int (*pt2Func)(HYPRE_Solver, int),
+                                    int parameter) {
+    RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
+    IFPACK2_CHK_ERR(AddFunToList(temp));
+    return 0;
+}  // SetParameter() - int function pointer
 
 //=============================================================================
-template<class MatrixType>
-int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type  (*pt2Func)(HYPRE_Solver, double), double parameter){
-  RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
-  IFPACK2_CHK_ERR(AddFunToList(temp));
-  return 0;
-} //SetParameter() - double function pointer
+template <class MatrixType>
+int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, double), double parameter) {
+    RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
+    IFPACK2_CHK_ERR(AddFunToList(temp));
+    return 0;
+}  // SetParameter() - double function pointer
 
 //==============================================================================
-template<class MatrixType>
-int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, double, global_ordinal_type), double parameter1, global_ordinal_type parameter2){
-  RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter1, parameter2));
-  IFPACK2_CHK_ERR(AddFunToList(temp));
-  return 0;
-} //SetParameter() - double,int function pointer
+template <class MatrixType>
+int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, double, int), double parameter1,
+                                    int parameter2) {
+    RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter1, parameter2));
+    IFPACK2_CHK_ERR(AddFunToList(temp));
+    return 0;
+}  // SetParameter() - double,int function pointer
 
 //==============================================================================
-template<class MatrixType>
-int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type, global_ordinal_type), global_ordinal_type parameter1, global_ordinal_type parameter2){
-  RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter1, parameter2));
-  IFPACK2_CHK_ERR(AddFunToList(temp));
-  return 0;
-} //SetParameter() int,int function pointer
+template <class MatrixType>
+int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, int, int), int parameter1,
+                                    int parameter2) {
+    RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter1, parameter2));
+    IFPACK2_CHK_ERR(AddFunToList(temp));
+    return 0;
+}  // SetParameter() int,int function pointer
 
 //==============================================================================
-template<class MatrixType>
-int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, double*), double* parameter){
-  RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
-  IFPACK2_CHK_ERR(AddFunToList(temp));
-  return 0;
-} //SetParameter() - double* function pointer
+template <class MatrixType>
+int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, double*), double* parameter) {
+    RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
+    IFPACK2_CHK_ERR(AddFunToList(temp));
+    return 0;
+}  // SetParameter() - double* function pointer
 
 //==============================================================================
-template<class MatrixType>
-int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type*), global_ordinal_type* parameter){
-  RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
-  IFPACK2_CHK_ERR(AddFunToList(temp));
-  return 0;
-} //SetParameter() - int* function pointer
+template <class MatrixType>
+int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, int*), int* parameter) {
+    RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
+    IFPACK2_CHK_ERR(AddFunToList(temp));
+    return 0;
+}  // SetParameter() - int* function pointer
 
 //==============================================================================
-template<class MatrixType>
-int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser,  global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type**), global_ordinal_type** parameter){
-  RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
-  IFPACK2_CHK_ERR(AddFunToList(temp));
-  return 0;
-} //SetParameter() - int** function pointer
-
+template <class MatrixType>
+int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, int**), int** parameter) {
+    RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter));
+    IFPACK2_CHK_ERR(AddFunToList(temp));
+    return 0;
+}  // SetParameter() - int** function pointer
 //==============================================================================
 template<class MatrixType>
 int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, Hypre_Solver solver){
@@ -423,7 +495,7 @@ int Hypre<MatrixType>::SetDiscreteGradient(Teuchos::RCP<const crs_matrix_type> G
       new_indices[j] = GloballyContiguousNodeColMap_->getGlobalElement(indices(j));
     }
     GO GlobalRow[1];
-    GO numEntries = (GO) indices.extent(0);
+    LO numEntries = (LO) indices.extent(0);
     GlobalRow[0] = GloballyContiguousRowMap_->getGlobalElement(i);
     IFPACK2_CHK_ERR(HYPRE_IJMatrixSetValues(HypreG_, 1, &numEntries, GlobalRow, new_indices.data(), values.data()));
   }
@@ -899,7 +971,7 @@ int Hypre<MatrixType>::CopyTpetraToHypre(){
       new_indices[j] = GloballyContiguousColMap_->getGlobalElement(indices(j));
     }
     GO GlobalRow[1];
-    GO numEntries = (GO) indices.extent(0);
+    LO numEntries = (LO) indices.extent(0);
     GlobalRow[0] = GloballyContiguousRowMap_->getGlobalElement(i);    
     IFPACK2_CHK_ERR(HYPRE_IJMatrixSetValues(HypreA_, 1, &numEntries, GlobalRow, new_indices.data(), values.data()));
   }

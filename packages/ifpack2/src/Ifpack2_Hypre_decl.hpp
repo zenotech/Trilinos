@@ -182,7 +182,7 @@ public:
   // This will need to be either int or long long depending on how Hypre was built
   //    typedef global_ordinal_type global_ordinal_type;
 
-  typedef global_ordinal_type (*HYPRE_PtrToParSolverFcn)(HYPRE_Solver, HYPRE_ParCSRMatrix, HYPRE_ParVector, HYPRE_ParVector);
+  typedef local_ordinal_type (*HYPRE_PtrToParSolverFcn)(HYPRE_Solver, HYPRE_ParCSRMatrix, HYPRE_ParVector, HYPRE_ParVector);
 
   //@}
   // \name Constructors and destructors
@@ -270,99 +270,103 @@ public:
 
     \return Integer error code, set to 0 if successful.
    */
-    int SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type), global_ordinal_type parameter);
+  int SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, int), int parameter);
 
-    //! Set a parameter that takes a single double.
-    /*!
-    \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is setting for.
-    \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver or preconditioner that was created.
-      An example is if the solver is BoomerAMG, the function to set tolerance would be &HYPRE_BoomerAMGSetTol
-    \param parameter (In) -The double parameter being set.
+  //! Set a parameter that takes a single double.
+  /*!
+  \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is
+  setting for. \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver
+  or preconditioner that was created. An example is if the solver is BoomerAMG, the function to set tolerance would be
+  &HYPRE_BoomerAMGSetTol \param parameter (In) -The double parameter being set.
 
-    \return Integer error code, set to 0 if successful.
-   */
-    int SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, double), double parameter);
+  \return Integer error code, set to 0 if successful.
+ */
+  int SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, double), double parameter);
 
-    //! Set a parameter that takes a double then an int.
-    /*!
-    \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is setting for.
-    \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver or preconditioner that was created.
-      An example is if the solver is BoomerAMG, the function to set relaxation weight for a given level would be &HYPRE_BoomerAMGSetLevelRelaxWt
-    \param parameter1 (In) -The double parameter being set.
-    \param parameter2 (In) - The integer parameter being set.
+  //! Set a parameter that takes a double then an int.
+  /*!
+  \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is
+  setting for. \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver
+  or preconditioner that was created. An example is if the solver is BoomerAMG, the function to set relaxation weight
+  for a given level would be &HYPRE_BoomerAMGSetLevelRelaxWt \param parameter1 (In) -The double parameter being set.
+  \param parameter2 (In) - The integer parameter being set.
 
-    \return Integer error code, set to 0 if successful.
-   */
-    int SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, double, global_ordinal_type), double parameter1, global_ordinal_type parameter2);
+  \return Integer error code, set to 0 if successful.
+ */
+  int SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, double, int), double parameter1, int parameter2);
 
-    //! Set a parameter that takes two int parameters.
-    /*!
-    \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is setting for.
-    \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver or preconditioner that was created.
-      An example is if the solver is BoomerAMG, the function to set relaxation type for a given level would be &HYPRE_BoomerAMGSetCycleRelaxType
-    \param parameter1 (In) -The first integer parameter being set.
-    \param parameter2 (In) - The second integer parameter being set.
+  //! Set a parameter that takes two int parameters.
+  /*!
+  \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is
+  setting for. \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver
+  or preconditioner that was created. An example is if the solver is BoomerAMG, the function to set relaxation type for
+  a given level would be &HYPRE_BoomerAMGSetCycleRelaxType \param parameter1 (In) -The first integer parameter being
+  set. \param parameter2 (In) - The second integer parameter being set.
 
-    \return Integer error code, set to 0 if successful.
-   */
-    int SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type, global_ordinal_type), global_ordinal_type parameter1, global_ordinal_type parameter2);
+  \return Integer error code, set to 0 if successful.
+ */
+  int SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, int, int), int parameter1, int parameter2);
 
-    //! Set a parameter that takes a double*.
-    /*!
-    \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is setting for.
-    \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver or preconditioner that was created.
-      An example is if the solver is BoomerAMG, the function to set relaxation weight would be &HYPRE_BoomerAMGSetRelaxWeight
-    \param parameter (In) -The double* parameter being set.
+  //! Set a parameter that takes a double*.
+  /*!
+  \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is
+  setting for. \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver
+  or preconditioner that was created. An example is if the solver is BoomerAMG, the function to set relaxation weight
+  would be &HYPRE_BoomerAMGSetRelaxWeight \param parameter (In) -The double* parameter being set.
 
-    \return Integer error code, set to 0 if successful.
-   */
-    int SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, double*), double* parameter);
+  \return Integer error code, set to 0 if successful.
+ */
+  int SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, double*), double* parameter);
 
-    //! Set a parameter that takes an int*.
-    /*!
-    \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is setting for.
-    \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver or preconditioner that was created.
-      An example is if the solver is BoomerAMG, the function to set grid relax type would be &HYPRE_BoomerAMGSetGridRelaxType
-    \param parameter (In) -The int* parameter being set.
+  //! Set a parameter that takes an int*.
+  /*!
+  \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is
+  setting for. \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver
+  or preconditioner that was created. An example is if the solver is BoomerAMG, the function to set grid relax type
+  would be &HYPRE_BoomerAMGSetGridRelaxType \param parameter (In) -The int* parameter being set.
 
-    \return Integer error code, set to 0 if successful.
-   */
-    int SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type*), global_ordinal_type* parameter);
+  \return Integer error code, set to 0 if successful.
+ */
+  int SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, int*), int* parameter);
 
-    //! Set a parameter that takes an int**.
-    /*!
-    \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is setting for.
-    \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver or preconditioner that was created.
-      An example is if the solver is BoomerAMG, the function to set the order in which the points are relaxed would be
-      &HYPRE_BoomerAMGSetGridRelaxPoints used primarily for AIR AMG.
-    \param parameter (In) -The int** parameter being set.
+  //! Set a parameter that takes an int**.
+  /*!
+  \param chooser (In) -A Hypre_Chooser enumerated type set to Solver or Preconditioner, whatever the parameter is
+  setting for. \param *pt2Func (In) -The function that sets the parameter. It must set parameters for the type of solver
+  or preconditioner that was created. An example is if the solver is BoomerAMG, the function to set the order in which
+  the points are relaxed would be &HYPRE_BoomerAMGSetGridRelaxPoints used primarily for AIR AMG. \param parameter (In)
+  -The int** parameter being set.
 
-    \return Integer error code, set to 0 if successful.
-   */
-    int SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type**), global_ordinal_type** parameter);
+  \return Integer error code, set to 0 if successful.
+ */
+  int SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, int**), int** parameter);
 
-    //! Sets the solver that is used by the Solve() and ApplyInverse() methods. Until this is called, the default solver is PCG.
-    /*!
-    \param chooser (In) - A Hypre_Chooser enumerated type. If Solver, then we are selecting which solver, if Preconditioner, we are choosing which preconditioner to use.
-    \param Solver (In) -A Hypre_Solver enumerated type to select the solver or preconditioner. Options for solver are:
-    BoomerAMG, AMS, Hybrid, PCG, GMRES, FlexGMRES, LGMRES, and BiCGSTAB. See Hypre Ref Manual for more info on the solvers.
-    Options for Preconditioner are: BoomerAMG, ParaSails, Euclid, and AMS.
+  //! Sets the solver that is used by the Solve() and ApplyInverse() methods. Until this is called, the default solver
+  //! is PCG.
+  /*!
+  \param chooser (In) - A Hypre_Chooser enumerated type. If Solver, then we are selecting which solver, if
+  Preconditioner, we are choosing which preconditioner to use. \param Solver (In) -A Hypre_Solver enumerated type to
+  select the solver or preconditioner. Options for solver are: BoomerAMG, AMS, Hybrid, PCG, GMRES, FlexGMRES, LGMRES,
+  and BiCGSTAB. See Hypre Ref Manual for more info on the solvers. Options for Preconditioner are: BoomerAMG, ParaSails,
+  Euclid, and AMS.
 
-    \return Integer error code, set to 0 if successful.
-  */
+  \return Integer error code, set to 0 if successful.
+*/
 
-    int SetParameter(Hypre_Chooser chooser, Hypre_Solver Solver);
+  int SetParameter(Hypre_Chooser chooser, Hypre_Solver Solver);
 
-    //! Sets the solver to use the selected preconditioner.
-    /*!
-    \param UsePreconditioner (In) -A boolean, true use preconditioner, false do not use the supplied preconditioner with the solver.
-    The solver and preconditioner must have been selected and the solver must be one of the following solvers:
-      Hybrid, PCG, GMRES, FlexGMRES, LGMRES, BiCGSTAB.
+  //! Sets the solver to use the selected preconditioner.
+  /*!
+  \param UsePreconditioner (In) -A boolean, true use preconditioner, false do not use the supplied preconditioner with
+  the solver. The solver and preconditioner must have been selected and the solver must be one of the following solvers:
+    Hybrid, PCG, GMRES, FlexGMRES, LGMRES, BiCGSTAB.
 
-    \return Integer error code, set to 0 if successful.
-  */
+  \return Integer error code, set to 0 if successful.
+*/
 
-    int SetParameter(bool UsePreconditioner){ UsePreconditioner_ = UsePreconditioner; return 0;}
+  int SetParameter(bool UsePreconditioner) {
+      UsePreconditioner_ = UsePreconditioner;
+      return 0;}
 
     //! Choose to solve the problem or apply the preconditioner.
     /*!
@@ -671,14 +675,14 @@ private:
   mutable HYPRE_Solver Preconditioner_;
   //  The following are pointers to functions to use the solver and preconditioner.
   int (Hypre::*SolverCreatePtr_)(MPI_Comm, HYPRE_Solver*);
-  global_ordinal_type (*SolverDestroyPtr_)(HYPRE_Solver);
-  global_ordinal_type (*SolverSetupPtr_)(HYPRE_Solver, HYPRE_ParCSRMatrix, HYPRE_ParVector, HYPRE_ParVector);
-  global_ordinal_type (*SolverSolvePtr_)(HYPRE_Solver, HYPRE_ParCSRMatrix, HYPRE_ParVector, HYPRE_ParVector);
-  global_ordinal_type (*SolverPrecondPtr_)(HYPRE_Solver, HYPRE_PtrToParSolverFcn, HYPRE_PtrToParSolverFcn, HYPRE_Solver);
+  local_ordinal_type (*SolverDestroyPtr_)(HYPRE_Solver);
+  local_ordinal_type (*SolverSetupPtr_)(HYPRE_Solver, HYPRE_ParCSRMatrix, HYPRE_ParVector, HYPRE_ParVector);
+  local_ordinal_type (*SolverSolvePtr_)(HYPRE_Solver, HYPRE_ParCSRMatrix, HYPRE_ParVector, HYPRE_ParVector);
+  local_ordinal_type (*SolverPrecondPtr_)(HYPRE_Solver, HYPRE_PtrToParSolverFcn, HYPRE_PtrToParSolverFcn, HYPRE_Solver);
   int (Hypre::*PrecondCreatePtr_)(MPI_Comm, HYPRE_Solver*);
-  global_ordinal_type (*PrecondDestroyPtr_)(HYPRE_Solver);
-  global_ordinal_type (*PrecondSetupPtr_)(HYPRE_Solver, HYPRE_ParCSRMatrix, HYPRE_ParVector, HYPRE_ParVector);
-  global_ordinal_type (*PrecondSolvePtr_)(HYPRE_Solver, HYPRE_ParCSRMatrix, HYPRE_ParVector, HYPRE_ParVector);
+  local_ordinal_type (*PrecondDestroyPtr_)(HYPRE_Solver);
+  local_ordinal_type (*PrecondSetupPtr_)(HYPRE_Solver, HYPRE_ParCSRMatrix, HYPRE_ParVector, HYPRE_ParVector);
+  local_ordinal_type (*PrecondSolvePtr_)(HYPRE_Solver, HYPRE_ParCSRMatrix, HYPRE_ParVector, HYPRE_ParVector);
 
   bool IsSolverCreated_;
   bool IsPrecondCreated_;
