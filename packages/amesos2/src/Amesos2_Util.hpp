@@ -1040,8 +1040,9 @@ namespace Amesos2 {
       using Teuchos::rcp;
 
       int num_my_elements = map.NumMyElements();
-      Teuchos::Array<int> my_global_elements(num_my_elements);
-      map.MyGlobalElements(my_global_elements.getRawPtr());
+      Teuchos::Array<long long> my_global_elements(num_my_elements);
+      auto ptr = my_global_elements.getRawPtr();
+      map.MyGlobalElementsPtr(ptr);
 
       Teuchos::Array<GO> my_gbl_inds_buf;
       Teuchos::ArrayView<GO> my_gbl_inds;
@@ -1060,7 +1061,7 @@ namespace Amesos2 {
       typedef Tpetra::Map<LO,GO,Node> map_t;
       RCP<map_t> tmap = rcp(new map_t(Teuchos::OrdinalTraits<GS>::invalid(),
                                       my_gbl_inds(),
-                                      as<GO>(map.IndexBase()),
+                                      as<GO>(map.IndexBase64()),
                                       to_teuchos_comm(Teuchos::rcpFromRef(map.Comm()))));
       return tmap;
     }
@@ -1074,16 +1075,16 @@ namespace Amesos2 {
       Teuchos::Array<GO> elements_tmp;
       elements_tmp = map.getLocalElementList();
       int num_my_elements = elements_tmp.size();
-      Teuchos::Array<int> my_global_elements(num_my_elements);
+      Teuchos::Array<long long> my_global_elements(num_my_elements);
       for (int i = 0; i < num_my_elements; ++i){
-        my_global_elements[i] = as<int>(elements_tmp[i]);
+        my_global_elements[i] = as<long long>(elements_tmp[i]);
       }
 
       using Teuchos::rcp;
       RCP<Epetra_Map> emap = rcp(new Epetra_Map(-1,
                                                 num_my_elements,
                                                 my_global_elements.getRawPtr(),
-                                                as<GO>(map.getIndexBase()),
+                                                as<long long>(map.getIndexBase()),
                                                 *to_epetra_comm(map.getComm())));
       return emap;
     }
