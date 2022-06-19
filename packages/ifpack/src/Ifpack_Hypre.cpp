@@ -392,8 +392,8 @@ Ifpack_Hypre::Ifpack_Hypre(Epetra_RowMatrix* A):
     }
   }
   // Next create vectors that will be used when ApplyInverse() is called
-  int ilower = GloballyContiguousRowMap_->MinMyGID64();
-  int iupper = GloballyContiguousRowMap_->MaxMyGID64();
+  HYPRE_BigInt ilower = GloballyContiguousRowMap_->MinMyGID64();
+  HYPRE_BigInt iupper = GloballyContiguousRowMap_->MaxMyGID64();
   // X in AX = Y
   IFPACK_CHK_ERRV(HYPRE_IJVectorCreate(comm, ilower, iupper, &XHypre_));
   IFPACK_CHK_ERRV(HYPRE_IJVectorSetObjectType(XHypre_, HYPRE_PARCSR));
