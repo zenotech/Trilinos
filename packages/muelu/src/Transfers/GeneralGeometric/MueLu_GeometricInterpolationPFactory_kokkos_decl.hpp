@@ -51,7 +51,7 @@
 #include <Teuchos_SerialDenseVector.hpp>
 #include <Teuchos_SerialDenseSolver.hpp>
 
-#include "Xpetra_CrsGraph.hpp"
+#include "Xpetra_CrsGraph_fwd.hpp"
 
 #include "MueLu_PFactory.hpp"
 #include "MueLu_Level_fwd.hpp"
@@ -123,8 +123,8 @@ namespace MueLu{
 
     //@}
 
-  private:
     void BuildConstantP(RCP<Matrix>& P, RCP<const CrsGraph>& prolongatorGraph, RCP<Matrix>& A) const;
+  private:
     void BuildLinearP(RCP<Matrix>& A, RCP<const CrsGraph>& prolongatorGraph,
                       RCP<realvaluedmultivector_type>& fineCoordinates,
                       RCP<realvaluedmultivector_type>& ghostCoordinates,

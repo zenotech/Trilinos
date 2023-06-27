@@ -50,11 +50,11 @@ class AlgDistance1 : public Algorithm<Adapter>
     using map_t = Tpetra::Map<lno_t, gno_t>;
     using femv_scalar_t = int;
     using femv_t = Tpetra::FEMultiVector<femv_scalar_t, lno_t, gno_t>;
-    using device_type = Tpetra::Map<>::device_type;
-    using execution_space = Tpetra::Map<>::execution_space;
-    using memory_space = Tpetra::Map<>::memory_space;
-    using host_exec = typename Kokkos::View<device_type>::HostMirror::execution_space;
-    using host_mem = typename Kokkos::View<device_type>::HostMirror::memory_space;
+    using device_type = typename femv_t::device_type;
+    using execution_space = typename device_type::execution_space;
+    using memory_space = typename device_type::memory_space;
+    using host_exec = typename femv_t::host_view_type::device_type::execution_space;
+    using host_mem = typename femv_t::host_view_type::device_type::memory_space;
     double timer() {
       struct timeval tp;
       gettimeofday(&tp, NULL);
@@ -699,9 +699,11 @@ class AlgDistance1 : public Algorithm<Adapter>
       
       //list of vertices to send to remote processes
       Kokkos::View<lno_t*, device_type> verts_to_send_view("verts to send",boundary_size);
-      Kokkos::parallel_for(boundary_size, KOKKOS_LAMBDA(const int& i){
-        verts_to_send_view(i) = -1;
-      });
+      Kokkos::parallel_for("init verts_to_send_view", 
+        Kokkos::RangePolicy<execution_space, int>(0,boundary_size),
+        KOKKOS_LAMBDA(const int& i){
+          verts_to_send_view(i) = -1;
+        });
       
       //size information for the list of vertices to send. Also includes an atomic copy
       Kokkos::View<size_t*, device_type> verts_to_send_size("verts to send size",1);
@@ -715,14 +717,16 @@ class AlgDistance1 : public Algorithm<Adapter>
       if(verbose)std::cout<<comm->getRank()<<": Done creating send views, initializing...\n";
       if(verbose)std::cout<<comm->getRank()<<": boundary_size = "<<boundary_size<<" verts_to_send_size_atomic(0) = "<<verts_to_send_size_atomic(0)<<"\n";
       //initially the verts to send include all boundary vertices.
-      Kokkos::parallel_for("Initialize verts_to_send",nVtx, KOKKOS_LAMBDA(const int&i){
-        for(offset_t j = dist_offsets(i); j < dist_offsets(i+1); j++){
-	  if((size_t)dist_adjs(j) >= nVtx){
-	    verts_to_send_view(verts_to_send_size_atomic(0)++) = i;
-	    break;
-	  }
-	} 
-      });
+      Kokkos::parallel_for("Initialize verts_to_send",
+        Kokkos::RangePolicy<execution_space, int>(0,nVtx),
+        KOKKOS_LAMBDA(const int&i){
+          for(offset_t j = dist_offsets(i); j < dist_offsets(i+1); j++){
+	    if((size_t)dist_adjs(j) >= nVtx){
+	      verts_to_send_view(verts_to_send_size_atomic(0)++) = i;
+	      break;
+	    }
+	  } 
+        });
       Kokkos::fence();
       
       
@@ -776,9 +780,11 @@ class AlgDistance1 : public Algorithm<Adapter>
         Kokkos::View<int**, Kokkos::LayoutLeft, device_type> femvColors =
 	  femv->template getLocalView<device_type>(Tpetra::Access::ReadWrite); // Partial write
         Kokkos::View<int*, device_type> femv_colors = subview(femvColors, Kokkos::ALL, 0);
-        Kokkos::parallel_for(rand.size()-nVtx,KOKKOS_LAMBDA(const int& i){
-          ghost_colors(i) = femv_colors(i+nVtx);
-        });
+        Kokkos::parallel_for("get colors from femv",
+          Kokkos::RangePolicy<execution_space, int>(0,rand.size()-nVtx),
+          KOKKOS_LAMBDA(const int& i){
+            ghost_colors(i) = femv_colors(i+nVtx);
+          });
 	Kokkos::fence();
 	//detect conflicts on the device, uncolor conflicts consistently.
         double temp = timer();
@@ -867,9 +873,11 @@ class AlgDistance1 : public Algorithm<Adapter>
         recoloringSize_host(0) = 0;
         Kokkos::deep_copy(recoloringSize,recoloringSize_host);
 
-        Kokkos::parallel_for(rand.size()-nVtx, KOKKOS_LAMBDA(const int& i){
-          femv_colors(i+nVtx) = ghost_colors(i);
-        });
+        Kokkos::parallel_for("set femv colors",
+          Kokkos::RangePolicy<execution_space, int>(0,rand.size()-nVtx), 
+          KOKKOS_LAMBDA(const int& i){
+            femv_colors(i+nVtx) = ghost_colors(i);
+          });
         Kokkos::fence();
         //communicate
         Kokkos::deep_copy(verts_to_send_host, verts_to_send_view);
@@ -900,9 +908,11 @@ class AlgDistance1 : public Algorithm<Adapter>
 	
         femvColors = femv->getLocalViewDevice(Tpetra::Access::ReadWrite);
         femv_colors = subview(femvColors, Kokkos::ALL, 0);
-        Kokkos::parallel_for(rand.size()-nVtx, KOKKOS_LAMBDA(const int& i){
-          ghost_colors(i) = femv_colors(i+nVtx);
-        });
+        Kokkos::parallel_for("get femv colors 2",
+          Kokkos::RangePolicy<execution_space, int>(0,rand.size()-nVtx),
+          KOKKOS_LAMBDA(const int& i){
+            ghost_colors(i) = femv_colors(i+nVtx);
+          });
         Kokkos::fence();
 	verts_to_send_size_host(0) = 0;
 	deep_copy(verts_to_send_size, verts_to_send_size_host);
@@ -1056,7 +1066,7 @@ class AlgDistance1 : public Algorithm<Adapter>
           }
         }
         //print how many rounds of speculating/correcting happened (this should be the same for all ranks):
-        if(comm->getRank()==0) printf("did %d rounds of distributed coloring\n", distributedRounds);
+        //if(comm->getRank()==0) printf("did %d rounds of distributed coloring\n", distributedRounds);
 	int totalBoundarySize = 0;
         int totalVertsPerRound[numStatisticRecordingRounds];
         double finalTotalPerRound[numStatisticRecordingRounds];
@@ -1092,20 +1102,36 @@ class AlgDistance1 : public Algorithm<Adapter>
         Teuchos::reduceAll<int,gno_t> (*comm, Teuchos::REDUCE_SUM,numStatisticRecordingRounds,recvPerRound, finalRecvPerRound);
         Teuchos::reduceAll<int,gno_t> (*comm, Teuchos::REDUCE_SUM,numStatisticRecordingRounds,sentPerRound, finalSentPerRound);
         
-        printf("Rank %d: boundary size: %d\n",comm->getRank(),localBoundaryVertices);
-        if(comm->getRank()==0) printf("Total boundary size: %d\n",totalBoundarySize);
+        std::cout << "Rank " << comm->getRank() 
+                  << ": boundary size: " << localBoundaryVertices << std::endl;
+        if(comm->getRank()==0) 
+          std::cout << "Total boundary size: " << totalBoundarySize << std::endl;
         for(int i = 0; i < std::min(distributedRounds,numStatisticRecordingRounds); i++){
-          printf("Rank %d: recolor %d vertices in round %d\n",comm->getRank(),vertsPerRound[i],i);
-          if(comm->getRank()==0) printf("recolored %d vertices in round %d\n",totalVertsPerRound[i],i);
-          if(comm->getRank()==0) printf("total time in round %d: %f\n",i,finalTotalPerRound[i]);
-          if(comm->getRank()==0) printf("recoloring time in round %d: %f\n",i,maxRecoloringPerRound[i]);
-          if(comm->getRank()==0) printf("serial recoloring time in round %d: %f\n",i,finalSerialRecoloringPerRound[i]);
-          if(comm->getRank()==0) printf("min recoloring time in round %d: %f\n",i,minRecoloringPerRound[i]);
-          if(comm->getRank()==0) printf("conflict detection time in round %d: %f\n",i,finalConflictDetectionPerRound[i]);
-          if(comm->getRank()==0) printf("comm time in round %d: %f\n",i,finalCommPerRound[i]);
-          if(comm->getRank()==0) printf("total sent in round %d: %lld\n",i,finalSentPerRound[i]);
-          if(comm->getRank()==0) printf("total recv in round %d: %lld\n",i,finalRecvPerRound[i]);
-          if(comm->getRank()==0) printf("comp time in round %d: %f\n",i,finalCompPerRound[i]);
+          std::cout << "Rank " << comm->getRank() 
+                    << ": recolor " << vertsPerRound[i]
+                    << " vertices in round " << i << std::endl;
+          if(comm->getRank()==0) {
+            std::cout << "recolored " << totalVertsPerRound[i]
+                      << " vertices in round " << i << std::endl;
+            std::cout << "total time in round " << i 
+                      << ":  " << finalTotalPerRound[i] << std::endl;;
+            std::cout << "recoloring time in round " << i
+                      << ": " << maxRecoloringPerRound[i] << std::endl;
+            std::cout << "serial recoloring time in round " << i
+                      << ": " << finalSerialRecoloringPerRound[i] << std::endl;
+            std::cout << "min recoloring time in round " << i
+                      << ": " << minRecoloringPerRound[i] << std::endl;
+            std::cout << "conflict detection time in round " << i
+                      << ": " << finalConflictDetectionPerRound[i] << std::endl;
+            std::cout << "comm time in round " << i
+                      << ": " << finalCommPerRound[i] << std::endl;
+            std::cout << "total sent in round " << i
+                      << ": " << finalSentPerRound[i] << std::endl;
+            std::cout << "total recv in round " << i
+                      << ": " << finalRecvPerRound[i] << std::endl;
+            std::cout << "comp time in round " << i
+                      << ": " << finalCompPerRound[i] << std::endl;
+          }
         }
       } else if(timing){
         double global_total_time = 0.0;
@@ -1125,13 +1151,13 @@ class AlgDistance1 : public Algorithm<Adapter>
         comm->barrier();
         fflush(stdout);
         if(comm->getRank()==0){
-          printf("Total Time: %f\n",global_total_time);
-          printf("Interior Time: %f\n",global_interior_time);
-          printf("Recoloring Time: %f\n",global_recoloring_time);
-          printf("Min Recoloring Time: %f\n",global_min_recoloring_time);
-          printf("Conflict Detection Time: %f\n",global_conflict_detection);
-          printf("Comm Time: %f\n",global_comm_time);
-          printf("Comp Time: %f\n",global_comp_time);
+          std::cout << "Total Time: " << global_total_time << std::endl;
+          std::cout << "Interior Time: " << global_interior_time << std::endl;
+          std::cout << "Recoloring Time: " << global_recoloring_time << std::endl;
+          std::cout << "Min Recoloring Time: " << global_min_recoloring_time << std::endl;
+          std::cout << "Conflict Detection Time: " << global_conflict_detection << std::endl;
+          std::cout << "Comm Time: " << global_comm_time << std::endl;
+          std::cout << "Comp Time: " << global_comp_time << std::endl;
         }
       }
       if(verbose) std::cout<<comm->getRank()<<": exiting coloring\n";

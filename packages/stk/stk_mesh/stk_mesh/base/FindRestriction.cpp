@@ -56,7 +56,7 @@ void throw_conflicting_restrictions(const FieldBase& field, const PartVector& pa
   for ( size_t i = 0, ie = parts.size(); i < ie; ++i) {
     oss << parts[i]->name() << ", ";
   }
-  ThrowErrorMsg("find_restriction calculation failed with different field-restriction selectors giving incompatible sizes.  Field name = "
+  STK_ThrowErrorMsg("find_restriction calculation failed with different field-restriction selectors giving incompatible sizes.  Field name = "
                 << field.name() << "on bucket with parts = " << oss.str() << "with one selector = " << first.selector() << ", num_scalars = "
                 << first.num_scalars_per_entity()
                 << " and another selector = " << second.selector() << ", dimension = " << second.num_scalars_per_entity() << "!");
@@ -87,7 +87,7 @@ const FieldBase::Restriction& find_restriction(const FieldBase& field,
                                                EntityRank erank,
                                                const PartVector& parts)
 {
-  if(static_cast<unsigned>(field.entity_rank()) == erank)
+  if (field.entity_rank() == erank)
   {
       const std::vector<FieldBase::Restriction> & restrictions = field.restrictions();
       for(std::vector<FieldBase::Restriction>::const_iterator it=restrictions.begin(), it_end=restrictions.end(); it != it_end; ++it) {
@@ -104,7 +104,7 @@ const FieldBase::Restriction& find_restriction(const FieldBase& field,
                                                EntityRank erank,
                                                const Part & part)
 {
-  if(static_cast<unsigned>(field.entity_rank()) == erank)
+  if (field.entity_rank() == erank)
   {
       const std::vector<FieldBase::Restriction> & restrictions = field.restrictions();
       for(std::vector<FieldBase::Restriction>::const_iterator it=restrictions.begin(), it_end=restrictions.end(); it != it_end; ++it) {
@@ -125,7 +125,7 @@ const FieldBase::Restriction& find_and_check_restriction(const FieldBase& field,
   const FieldBase::Restriction & empty = empty_field_restriction();
   const FieldBase::Restriction * restriction = & empty;
 
-  if(static_cast<unsigned>(field.entity_rank()) == erank)
+  if (field.entity_rank() == erank)
   {
       const std::vector<FieldBase::Restriction> & restrictions = field.restrictions();
       for(std::vector<FieldBase::Restriction>::const_iterator it=restrictions.begin(), it_end=restrictions.end(); it != it_end; ++it) {

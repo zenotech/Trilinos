@@ -48,7 +48,7 @@
 SET(HEADERS "")
 SET(SOURCES "")
 
-INCLUDE_DIRECTORIES(${${PACKAGE_NAME}_SOURCE_DIR})
+TRIBITS_INCLUDE_DIRECTORIES(${${PACKAGE_NAME}_SOURCE_DIR})
 
 
 IF (TPL_ENABLE_MPI)
@@ -59,16 +59,20 @@ FILE(GLOB SOURCES *.cpp)
 ELSE()
 
 FILE(GLOB HEADERS
+     CommBuffer.hpp
      Parallel.hpp
      ParallelComm.hpp
      ParallelReduce.hpp
      ParallelReduceBool.hpp
      ParallelVectorConcat.hpp
+     mpi_filebuf.hpp
     )
 FILE(GLOB SOURCES
+     CommBuffer.cpp
      Parallel.cpp
      ParallelComm.cpp
      ParallelReduce.cpp
+     mpi_filebuf.cpp
     )
 
 ENDIF()
@@ -85,4 +89,4 @@ TRIBITS_ADD_LIBRARY(
   )
 
 INSTALL(FILES ${HEADERS} DESTINATION
-    ${CMAKE_INSTALL_PREFIX}/${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_util/parallel/)
+    ${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_util/parallel/)

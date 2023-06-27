@@ -61,16 +61,26 @@ struct MPVectorWorkConfig {
   typedef ExecSpace          execution_space ;
   typedef Tag                work_tag ;
 
+  execution_space space_;
   size_t range;
   size_t team;
   size_t shared;
 
+
+  /*! \brief in the provided execution space instance */
+  MPVectorWorkConfig( const execution_space &space,
+                      const size_t range_,
+                      const size_t team_,
+                      const size_t shared_ = 0 ) :
+    space_(space), range(range_), team(team_), shared(shared_) {}
+
+  /*! \brief in the default execution space instance */
   MPVectorWorkConfig( const size_t range_,
                       const size_t team_,
                       const size_t shared_ = 0 ) :
-    range(range_), team(team_), shared(shared_) {}
+    MPVectorWorkConfig(execution_space(), range_, team_, shared_) {}
 
-  ExecSpace space() const { return ExecSpace(); }
+  ExecSpace space() const { return space_; }
 };
 
 namespace Impl {
@@ -212,11 +222,11 @@ public:
 
     Cuda::size_type nblock =
       std::min( (m_work + block.y - 1 ) / block.y ,
-                cuda_internal_maximum_grid_count() );
+                cuda_internal_maximum_grid_count()[0] );
     const dim3 grid( nblock , 1 , 1 );
 
     const Cuda::size_type shared = m_config.shared;
-    CudaParallelLaunch< ParallelFor >( *this , grid , block , shared , m_policy.space().impl_internal_space_instance(), false );
+    CudaParallelLaunch< ParallelFor >( *this , grid , block , shared , m_policy.space().impl_internal_space_instance() );
   }
 };
 

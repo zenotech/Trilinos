@@ -46,8 +46,6 @@
 #ifndef MUELU_AGGREGATIONPHASE2BALGORITHM_KOKKOS_DEF_HPP
 #define MUELU_AGGREGATIONPHASE2BALGORITHM_KOKKOS_DEF_HPP
 
-#ifdef HAVE_MUELU_KOKKOS_REFACTOR
-
 #include <Teuchos_Comm.hpp>
 #include <Teuchos_CommHelpers.hpp>
 
@@ -55,7 +53,7 @@
 
 #include "MueLu_AggregationPhase2bAlgorithm_kokkos_decl.hpp"
 
-#include "MueLu_Aggregates_kokkos.hpp"
+#include "MueLu_Aggregates.hpp"
 #include "MueLu_Exceptions.hpp"
 #include "MueLu_LWGraph_kokkos.hpp"
 #include "MueLu_Monitor.hpp"
@@ -68,7 +66,7 @@ namespace MueLu {
   void AggregationPhase2bAlgorithm_kokkos<LocalOrdinal, GlobalOrdinal, Node>::
   BuildAggregates(const ParameterList& params,
                   const LWGraph_kokkos& graph,
-                  Aggregates_kokkos& aggregates,
+                  Aggregates& aggregates,
                   Kokkos::View<unsigned*, typename LWGraph_kokkos::device_type>& aggStat,
                   LO& numNonAggregatedNodes) const {
 
@@ -86,7 +84,7 @@ namespace MueLu {
   void AggregationPhase2bAlgorithm_kokkos<LO, GO, Node>::
   BuildAggregatesRandom(const ParameterList& params,
                         const LWGraph_kokkos& graph,
-                        Aggregates_kokkos& aggregates,
+                        Aggregates& aggregates,
                         Kokkos::View<unsigned*, typename LWGraph_kokkos::device_type>& aggStat,
                         LO& numNonAggregatedNodes) const {
 
@@ -98,6 +96,8 @@ namespace MueLu {
     auto colors                 = aggregates.GetGraphColors();
     const LO numColors          = aggregates.GetGraphNumColors();
     const LO numLocalAggregates = aggregates.GetNumAggregates();
+
+    auto lclLWGraph = graph.getLocalLWGraph();
 
     const LO defaultConnectWeight = 100;
     const LO penaltyConnectWeight = 10;
@@ -131,13 +131,13 @@ namespace MueLu {
                                   if (aggStat(i) != READY || colors(i) != color)
                                     return;
 
-                                  auto neighOfINode = graph.getNeighborVertices(i);
+                                  auto neighOfINode = lclLWGraph.getNeighborVertices(i);
                                   for (int j = 0; j < neighOfINode.length; j++) {
                                     LO neigh = neighOfINode(j);
 
                                     // We don't check (neigh != i), as it is covered by checking
                                     // (aggStat[neigh] == AGGREGATED)
-                                    if (graph.isLocalNeighborVertex(neigh) &&
+                                    if (lclLWGraph.isLocalNeighborVertex(neigh) &&
                                         aggStat(neigh) == AGGREGATED)
                                       Kokkos::atomic_add(&aggWeight(vertex2AggId(neigh, 0)),
                                                          connectWeight(neigh));
@@ -150,7 +150,7 @@ namespace MueLu {
                                   for (int j = 0; j < neighOfINode.length; j++) {
                                     LO neigh = neighOfINode(j);
 
-                                    if (graph.isLocalNeighborVertex(neigh) &&
+                                    if (lclLWGraph.isLocalNeighborVertex(neigh) &&
                                         aggStat(neigh) == AGGREGATED) {
                                       auto aggId = vertex2AggId(neigh, 0);
                                       int score = aggWeight(aggId) - aggPenalties(aggId);
@@ -188,7 +188,7 @@ namespace MueLu {
   void AggregationPhase2bAlgorithm_kokkos<LO, GO, Node>::
   BuildAggregatesDeterministic(const ParameterList& params,
                                const LWGraph_kokkos& graph,
-                               Aggregates_kokkos& aggregates,
+                               Aggregates& aggregates,
                                Kokkos::View<unsigned*, typename LWGraph_kokkos::device_type>& aggStat,
                                LO& numNonAggregatedNodes) const {
 
@@ -200,6 +200,8 @@ namespace MueLu {
     auto colors           = aggregates.GetGraphColors();
     const LO numColors    = aggregates.GetGraphNumColors();
     LO numLocalAggregates = aggregates.GetNumAggregates();
+
+    auto lclLWGraph = graph.getLocalLWGraph();
 
     const int defaultConnectWeight = 100;
     const int penaltyConnectWeight = 10;
@@ -233,12 +235,12 @@ namespace MueLu {
           {
             if (aggStat(i) != READY || colors(i) != color)
               return;
-            auto neighOfINode = graph.getNeighborVertices(i);
+            auto neighOfINode = lclLWGraph.getNeighborVertices(i);
             for (int j = 0; j < neighOfINode.length; j++) {
               LO neigh = neighOfINode(j);
               // We don't check (neigh != i), as it is covered by checking
               // (aggStat[neigh] == AGGREGATED)
-              if (graph.isLocalNeighborVertex(neigh) &&
+              if (lclLWGraph.isLocalNeighborVertex(neigh) &&
                   aggStat(neigh) == AGGREGATED)
               Kokkos::atomic_add(&aggWeight(vertex2AggId(neigh, 0)),
                   connectWeight(neigh));
@@ -255,11 +257,11 @@ namespace MueLu {
             int bestAggId   = -1;
             int bestConnect = -1;
 
-            auto neighOfINode = graph.getNeighborVertices(i);
+            auto neighOfINode = lclLWGraph.getNeighborVertices(i);
             for (int j = 0; j < neighOfINode.length; j++) {
               LO neigh = neighOfINode(j);
 
-              if (graph.isLocalNeighborVertex(neigh) &&
+              if (lclLWGraph.isLocalNeighborVertex(neigh) &&
                   aggStat(neigh) == AGGREGATED) {
                 auto aggId = vertex2AggId(neigh, 0);
                 int score = aggWeight(aggId) - aggPenalties(aggId);
@@ -299,5 +301,4 @@ namespace MueLu {
   } // BuildAggregatesDeterministic
 } // end namespace
 
-#endif // HAVE_MUELU_KOKKOS_REFACTOR
 #endif // MUELU_AGGREGATIONPHASE2BALGORITHM_KOKKOS_DEF_HPP

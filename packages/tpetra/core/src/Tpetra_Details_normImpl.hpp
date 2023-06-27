@@ -122,7 +122,7 @@ lclNormImpl (const RV& normsOut,
   static_assert (static_cast<int> (RV::Rank) == 1,
                  "Tpetra::MultiVector::lclNormImpl: "
                  "The first argument normsOut must have rank 1.");
-  static_assert (Kokkos::Impl::is_view<XMV>::value,
+  static_assert (Kokkos::is_view<XMV>::value,
                  "Tpetra::MultiVector::lclNormImpl: "
                  "The second argument X is not a Kokkos::View.");
   static_assert (static_cast<int> (XMV::Rank) == 2,
@@ -147,7 +147,9 @@ lclNormImpl (const RV& normsOut,
 
   if (lclNumRows == 0) {
     const mag_type zeroMag = Kokkos::ArithTraits<mag_type>::zero ();
-    Kokkos::deep_copy (normsOut, zeroMag);
+    // DEEP_COPY REVIEW - VALUE-TO-DEVICE
+    using execution_space = typename RV::execution_space;
+    Kokkos::deep_copy (execution_space(), normsOut, zeroMag);
   }
   else { // lclNumRows != 0
     if (constantStride) {
@@ -248,12 +250,15 @@ gblNormImpl (const RV& normsOut,
   if (distributed && comm != nullptr) {
     // The calling process only participates in the collective if
     // both the Map and its Comm on that process are nonnull.
+
     const int nv = static_cast<int> (numVecs);
     const bool commIsInterComm = ::Tpetra::Details::isInterComm (*comm);
 
     if (commIsInterComm) {
       RV lclNorms (Kokkos::ViewAllocateWithoutInitializing ("MV::normImpl lcl"), numVecs);
-      Kokkos::deep_copy (lclNorms, normsOut);
+      // DEEP_COPY REVIEW - DEVICE-TO-DEVICE
+      using execution_space = typename RV::execution_space;
+      Kokkos::deep_copy (execution_space(), lclNorms, normsOut);
       const mag_type* const lclSum = lclNorms.data ();
       mag_type* const gblSum = normsOut.data ();
 
@@ -314,6 +319,7 @@ normImpl (MagnitudeType norms[],
           const bool isDistributed,
           const Teuchos::Comm<int>* comm)
 {
+  using execution_space = typename DeviceType::execution_space;
   using RV = Kokkos::View<MagnitudeType*, Kokkos::HostSpace>;
   //using XMV = Kokkos::View<const ValueType**, ArrayLayout, DeviceType>;
   //using pair_type = std::pair<size_t, size_t>;
@@ -328,6 +334,15 @@ normImpl (MagnitudeType norms[],
 
   Impl::lclNormImpl (normsOut, X, numVecs, whichVecs,
                      isConstantStride, whichNorm);
+
+  // lbv 03/15/23: the data from the local norm calculation
+  // better really be available before communication happens
+  // so fencing to make sure the local computations have
+  // completed on device. We might want to make this an
+  // execution space fence down the road?
+  execution_space exec_space_instance = execution_space();
+  exec_space_instance.fence();
+
   Impl::gblNormImpl (normsOut, comm, isDistributed, whichNorm);
 }
 

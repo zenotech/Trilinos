@@ -264,8 +264,7 @@ buildNodeToCellMatrix(const Teuchos::RCP<const Teuchos::Comm<int> > & comm,
     const unsigned int num_nodes_per_cell = owned_cells_to_nodes.extent(1);
 
     // The matrix is indexed by (global cell, global node) = local node
-    cell_to_node = rcp(new crs_type(cell_map,num_nodes_per_cell,
-                                    Tpetra::StaticProfile));
+    cell_to_node = rcp(new crs_type(cell_map,num_nodes_per_cell));
 
     std::vector<panzer::LocalOrdinal> local_node_indexes(num_nodes_per_cell);
     std::vector<panzer::GlobalOrdinal> global_node_indexes(num_nodes_per_cell);
@@ -848,7 +847,7 @@ fillLocalCellIDs(const Teuchos::RCP<const Teuchos::Comm<int>> & comm,
 
   // this class comes from Mini-PIC and Matt B
   auto faceToElement = Teuchos::rcp(new panzer::FaceToElement<panzer::LocalOrdinal,panzer::GlobalOrdinal>());
-  faceToElement->initialize(conn);
+  faceToElement->initialize(conn, comm);
   auto elems_by_face = faceToElement->getFaceToElementsMap();
   auto face_to_lidx  = faceToElement->getFaceToCellLocalIdxMap();
 

@@ -87,12 +87,14 @@ void remove_diags_and_scale(const MatrixType& L, const MatrixType& U,
   typedef Kokkos::TeamPolicy<execution_space> team_policy;
   typedef typename Kokkos::TeamPolicy<execution_space>::member_type member_type;
 
-  auto L_rowmap  = L.getLocalMatrixDevice().graph.row_map;
-  auto L_entries = L.getLocalMatrixDevice().graph.entries;
-  auto L_values  = L.getLocalValuesView();
-  auto U_rowmap  = U.getLocalMatrixDevice().graph.row_map;
-  auto U_entries = U.getLocalMatrixDevice().graph.entries;
-  auto U_values  = U.getLocalValuesView();
+  auto lclL = L.getLocalMatrixDevice();
+  auto L_rowmap  = lclL.graph.row_map;
+  auto L_entries = lclL.graph.entries;
+  auto L_values  = lclL.values;
+  auto lclU = U.getLocalMatrixDevice();
+  auto U_rowmap  = lclU.graph.row_map;
+  auto U_entries = lclU.graph.entries;
+  auto U_values  = lclU.values;
 
   rowmap_type  Ln_rowmap ("Ln_rowmap",  L_rowmap.extent(0));
   entries_type Ln_entries("Ln_entries", L_entries.extent(0) - (L_rowmap.extent(0) - 1));
@@ -318,9 +320,8 @@ void Ifpack2RILUKSingleProcess_test1 (bool& success, Teuchos::FancyOStream& out,
     tif_utest::create_test_matrix2<Scalar,LO,GO,Node>(rowmap);
 
   {//CMS
-    auto out = Teuchos::getFancyOStream (Teuchos::rcpFromRef (std::cout));
-    *out<<"***** A *****"<<std::endl;
-    crsmatrix->describe(*out,Teuchos::VERB_EXTREME);
+    out<<"***** A *****"<<std::endl;
+    crsmatrix->describe(out,Teuchos::VERB_EXTREME);
   }
 
   //----------------Default trisolver----------------//
@@ -341,13 +342,12 @@ void Ifpack2RILUKSingleProcess_test1 (bool& success, Teuchos::FancyOStream& out,
     prec.compute();
    
   {//CMS
-    auto out = Teuchos::getFancyOStream (Teuchos::rcpFromRef (std::cout));
-    *out<<"***** Test L *****"<<std::endl;
-    prec.getL().describe(*out,Teuchos::VERB_EXTREME);
-    *out<<"***** Test U *****"<<std::endl;
-    prec.getU().describe(*out,Teuchos::VERB_EXTREME);
-    *out<<"***** Test D *****"<<std::endl;
-    prec.getD().describe(*out,Teuchos::VERB_EXTREME);
+    out<<"***** Test L *****"<<std::endl;
+    prec.getL().describe(out,Teuchos::VERB_EXTREME);
+    out<<"***** Test U *****"<<std::endl;
+    prec.getU().describe(out,Teuchos::VERB_EXTREME);
+    out<<"***** Test D *****"<<std::endl;
+    prec.getD().describe(out,Teuchos::VERB_EXTREME);
   }
 
  
@@ -716,7 +716,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL(Ifpack2RILUKSingleProcess, IgnoreRowMapGIDs, S
 
   //Create a permuted row map.  The first entry is the same as the original row map,
   //the remainder are in descending order.
-  Teuchos::ArrayView<const GO> GIDs = rowMap->getNodeElementList();
+  Teuchos::ArrayView<const GO> GIDs = rowMap->getLocalElementList();
   Teuchos::Array<GO> permutedGIDs(GIDs.size());
   Teuchos::Array<GO> origToPerm(GIDs.size());
   permutedGIDs[0] = GIDs[0];
@@ -884,7 +884,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL(Ifpack2RILUKSingleProcess, TestGIDConsistency,
   // Create a column Map with the same GIDs at the row Map, but in
   // permuted order.  The first entry is the same as the row Map, the
   // remainder are in descending order.
-  Teuchos::ArrayView<const GO> rowGIDs = rowMap->getNodeElementList ();
+  Teuchos::ArrayView<const GO> rowGIDs = rowMap->getLocalElementList ();
   Teuchos::Array<GO> colElements (rowGIDs.size ());
   colElements[0] = rowGIDs[0];
   for (GO i = 1; i < rowGIDs.size (); ++i) {
@@ -901,7 +901,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL(Ifpack2RILUKSingleProcess, TestGIDConsistency,
   const Scalar two = one + one;
   Teuchos::Array<GO> col (3);
   Teuchos::Array<Scalar> val (3);
-  size_t numLocalElts = rowMap->getNodeNumElements ();
+  size_t numLocalElts = rowMap->getLocalNumElements ();
   for (LO l_row = 0; static_cast<size_t> (l_row) < numLocalElts; ++l_row) {
     const GO g_row = rowMap->getGlobalElement (l_row);
     size_t i = 0;

@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2021 National Technology & Engineering Solutions
+// Copyright(C) 1999-2023 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -37,7 +37,6 @@
 #include <iterator>
 #include <set>
 #include <string>
-#include <sys/stat.h>
 #include <tokenize.h>
 #include <utility>
 #include <vector>
@@ -74,7 +73,7 @@ namespace {
     unsigned int       min_hash   = util.global_minmax(hash_code, Ioss::ParallelUtils::DO_MIN);
     if (max_hash != min_hash) {
       const std::string &ge_name = ge->name();
-      fmt::print(Ioss::WARNING(),
+      fmt::print(Ioss::WarnOut(),
                  "[{}] Parallel inconsistency detected for {} field '{}' on entity '{}'. (Hash: {} "
                  "{} {})\n",
                  in_out == 0 ? "writing" : "reading", util.parallel_rank(), field_name, ge_name,
@@ -94,7 +93,7 @@ namespace {
                          double &xmax, double &ymax, double &zmax)
   {
     std::vector<int> elem_block_nodes(node_count);
-    for (auto &node : connectivity) {
+    for (const auto &node : connectivity) {
       elem_block_nodes[node - 1] = 1;
     }
 
@@ -167,16 +166,22 @@ namespace {
 
 namespace Ioss {
   DatabaseIO::DatabaseIO(Region *region, std::string filename, DatabaseUsage db_usage,
-                         MPI_Comm communicator, const PropertyManager &props)
+                         Ioss_MPI_Comm communicator, const PropertyManager &props)
       : properties(props), DBFilename(std::move(filename)), dbUsage(db_usage),
-        util_(db_usage == WRITE_HISTORY || db_usage == WRITE_HEARTBEAT ? MPI_COMM_SELF
-                                                                       : communicator),
+        util_(db_usage == WRITE_HISTORY || db_usage == WRITE_HEARTBEAT
+                  ? Ioss::ParallelUtils::comm_self()
+                  : communicator),
         region_(region), isInput(is_input_event(db_usage)),
         singleProcOnly(db_usage == WRITE_HISTORY || db_usage == WRITE_HEARTBEAT ||
                        SerializeIO::isEnabled())
   {
     isParallel  = util_.parallel_size() > 1;
     myProcessor = util_.parallel_rank();
+
+    nodeMap.set_rank(myProcessor);
+    edgeMap.set_rank(myProcessor);
+    faceMap.set_rank(myProcessor);
+    elemMap.set_rank(myProcessor);
 
     // Some operations modify DBFilename and there is a need to get
     // back to the original filename...
@@ -187,10 +192,83 @@ namespace Ioss {
     util_.add_environment_properties(properties);
 
     Utils::check_set_bool_property(properties, "ENABLE_FIELD_RECOGNITION", enableFieldRecognition);
+    Utils::check_set_bool_property(properties, "IGNORE_REALN_FIELDS", m_ignoreRealnFields);
 
     if (properties.exists("FIELD_SUFFIX_SEPARATOR")) {
-      std::string tmp = properties.get("FIELD_SUFFIX_SEPARATOR").get_string();
-      fieldSeparator  = tmp[0];
+      std::string tmp         = properties.get("FIELD_SUFFIX_SEPARATOR").get_string();
+      fieldSeparator          = tmp[0];
+      fieldSeparatorSpecified = true;
+    }
+
+    // If `FIELD_SUFFIX_SEPARATOR` is empty and there are fields that
+    // end with an underscore, then strip the underscore. This will
+    // cause d_x, d_y, d_z to be a 3-component field 'd' and vx, vy,
+    // vz to be a 3-component field 'v'.
+    Utils::check_set_bool_property(properties, "FIELD_STRIP_TRAILING_UNDERSCORE",
+                                   fieldStripTrailing_);
+
+    // Determine how to handle duplicate incompatible fields (transient and attribute field with
+    // same name, ...)
+    if (properties.exists("DUPLICATE_FIELD_NAME_BEHAVIOR")) {
+      auto prop = properties.get("DUPLICATE_FIELD_NAME_BEHAVIOR").get_string();
+      if (prop == "IGNORE") {
+        duplicateFieldBehavior = DuplicateFieldBehavior::IGNORE_;
+      }
+      else if (prop == "WARNING") {
+        duplicateFieldBehavior = DuplicateFieldBehavior::WARNING_;
+      }
+      else if (prop == "ERROR") {
+        duplicateFieldBehavior = DuplicateFieldBehavior::ERROR_;
+      }
+      else {
+        std::ostringstream errmsg;
+        fmt::print(errmsg,
+                   "Invalid value ({}) for property `DUPLICATE_FIELD_NAME_BEHAVIOR`.\n"
+                   "\tValid values are `IGNORE`, `WARNING`, or `ERROR`\n",
+                   prop);
+        IOSS_ERROR(errmsg);
+      }
+    }
+    else {
+      bool allow_duplicate = false;
+      Utils::check_set_bool_property(properties, "IGNORE_DUPLICATE_FIELD_NAMES", allow_duplicate);
+      if (allow_duplicate) {
+        duplicateFieldBehavior = DuplicateFieldBehavior::WARNING_;
+      }
+      else {
+        duplicateFieldBehavior = DuplicateFieldBehavior::ERROR_;
+      }
+    }
+
+    if (properties.exists("SURFACE_SPLIT_TYPE")) {
+      Ioss::SurfaceSplitType split_type = Ioss::SPLIT_INVALID;
+      auto                   type       = properties.get("SURFACE_SPLIT_TYPE").get_type();
+      if (type == Ioss::Property::INTEGER) {
+        int split  = properties.get("SURFACE_SPLIT_TYPE").get_int();
+        split_type = Ioss::int_to_surface_split(split);
+      }
+      else if (type == Ioss::Property::STRING) {
+        std::string split = properties.get("SURFACE_SPLIT_TYPE").get_string();
+        if (Ioss::Utils::str_equal(split, "TOPOLOGY")) {
+          split_type = Ioss::SPLIT_BY_TOPOLOGIES;
+        }
+        else if (Ioss::Utils::str_equal(split, "BLOCK")) {
+          split_type = Ioss::SPLIT_BY_ELEMENT_BLOCK;
+        }
+        else if (Ioss::Utils::str_equal(split, "NO_SPLIT")) {
+          split_type = Ioss::SPLIT_BY_DONT_SPLIT;
+        }
+        else {
+          split_type = Ioss::SPLIT_INVALID;
+          fmt::print(Ioss::WarnOut(),
+                     "Invalid setting for SURFACE_SPLIT_TYPE Property ('{}').  Valid entries are "
+                     "TOPOLOGY, BLOCK, NO_SPLIT. Ignoring.\n",
+                     split);
+        }
+      }
+      if (split_type != Ioss::SPLIT_INVALID) {
+        set_surface_split_type(split_type);
+      }
     }
 
     if (properties.exists("INTEGER_SIZE_API")) {
@@ -208,13 +286,8 @@ namespace Ioss {
       }
     }
 
-    if (properties.exists("CYCLE_COUNT")) {
-      cycleCount = properties.get("CYCLE_COUNT").get_int();
-    }
-
-    if (properties.exists("OVERLAY_COUNT")) {
-      overlayCount = properties.get("OVERLAY_COUNT").get_int();
-    }
+    cycleCount   = properties.get_optional("CYCLE_COUNT", cycleCount);
+    overlayCount = properties.get_optional("OVERLAY_COUNT", overlayCount);
 
     Utils::check_set_bool_property(properties, "ENABLE_TRACING", m_enableTracing);
     Utils::check_set_bool_property(properties, "TIME_STATE_INPUT_OUTPUT", m_timeStateInOut);
@@ -282,7 +355,19 @@ namespace Ioss {
     }
     char tmp[2] = {separator, '\0'};
     properties.add(Property("FIELD_SUFFIX_SEPARATOR", tmp));
-    fieldSeparator = separator;
+    fieldSeparator          = separator;
+    fieldSeparatorSpecified = true;
+  }
+
+  std::string DatabaseIO::get_component_name(const Ioss::Field &field, Ioss::Field::InOut in_out,
+                                             int component) const
+  {
+    // If the user has explicitly set the suffix separator for this database,
+    // then use it for all fields.
+    // If it was not explicitly set, then use whatever the field has defined,
+    // of if field also has nothing explicitly set, use '_'
+    char suffix = fieldSeparatorSpecified ? get_field_separator() : 1;
+    return field.get_component_name(component, in_out, suffix);
   }
 
   /**
@@ -316,7 +401,7 @@ namespace Ioss {
         }
         else {
           if (myProcessor == 0) {
-            fmt::print(Ioss::WARNING(),
+            fmt::print(Ioss::WarnOut(),
                        "DataWarp enabled via Ioss property `ENABLE_DATAWARP`, but\n"
                        "         burst buffer path was not specified via `DW_JOB_STRIPED` or "
                        "`DW_JOB_PRIVATE`\n"
@@ -349,7 +434,7 @@ namespace Ioss {
 #if defined SEACAS_HAVE_DATAWARP
 #if IOSS_DEBUG_OUTPUT
         if (myProcessor == 0) {
-          fmt::print(Ioss::DEBUG(), "DW: dw_wait_file_stage({});\n", bb_file.filename());
+          fmt::print(Ioss::DebugOut(), "DW: dw_wait_file_stage({});\n", bb_file.filename());
         }
 #endif
         int dwret = dw_wait_file_stage(bb_file.filename().c_str());
@@ -361,7 +446,7 @@ namespace Ioss {
         }
 #else
         // Used to debug DataWarp logic on systems without DataWarp...
-        fmt::print(Ioss::DEBUG(), "DW: (FAKE) dw_wait_file_stage({});\n", bb_file.filename());
+        fmt::print(Ioss::DebugOut(), "DW: (FAKE) dw_wait_file_stage({});\n", bb_file.filename());
 #endif
       }
       set_dwname(bb_file.filename());
@@ -383,7 +468,8 @@ namespace Ioss {
         dw_query_file_stage(get_dwname().c_str(), &complete, &pending, &deferred, &failed);
 #if IOSS_DEBUG_OUTPUT
         auto initial = std::chrono::steady_clock::now();
-        fmt::print(Ioss::DEBUG(), "Query: {}, {}, {}, {}\n", complete, pending, deferred, failed);
+        fmt::print(Ioss::DebugOut(), "Query: {}, {}, {}, {}\n", complete, pending, deferred,
+                   failed);
 #endif
         if (pending > 0) {
           int dwret = dw_wait_file_stage(get_dwname().c_str());
@@ -395,12 +481,13 @@ namespace Ioss {
           }
 #if IOSS_DEBUG_OUTPUT
           dw_query_file_stage(get_dwname().c_str(), &complete, &pending, &deferred, &failed);
-          fmt::print(Ioss::DEBUG(), "Query: {}, {}, {}, {}\n", complete, pending, deferred, failed);
+          fmt::print(Ioss::DebugOut(), "Query: {}, {}, {}, {}\n", complete, pending, deferred,
+                     failed);
 #endif
         }
 
 #if IOSS_DEBUG_OUTPUT
-        fmt::print(Ioss::DEBUG(), "\nDW: BEGIN dw_stage_file_out({}, {}, DW_STAGE_IMMEDIATE);\n",
+        fmt::print(Ioss::DebugOut(), "\nDW: BEGIN dw_stage_file_out({}, {}, DW_STAGE_IMMEDIATE);\n",
                    get_dwname(), get_pfsname());
 #endif
         int ret =
@@ -409,7 +496,7 @@ namespace Ioss {
 #if IOSS_DEBUG_OUTPUT
         auto                          time_now = std::chrono::steady_clock::now();
         std::chrono::duration<double> diff     = time_now - initial;
-        fmt::print(Ioss::DEBUG(), "\nDW: END dw_stage_file_out({})\n", diff.count());
+        fmt::print(Ioss::DebugOut(), "\nDW: END dw_stage_file_out({})\n", diff.count());
 #endif
         if (ret < 0) {
           std::ostringstream errmsg;
@@ -418,8 +505,9 @@ namespace Ioss {
           IOSS_ERROR(errmsg);
         }
 #else
-        fmt::print(Ioss::DEBUG(), "\nDW: (FAKE) dw_stage_file_out({}, {}, DW_STAGE_IMMEDIATE);\n",
-                   get_dwname(), get_pfsname());
+        fmt::print(Ioss::DebugOut(),
+                   "\nDW: (FAKE) dw_stage_file_out({}, {}, DW_STAGE_IMMEDIATE);\n", get_dwname(),
+                   get_pfsname());
 #endif
       }
       if (using_parallel_io()) {
@@ -479,6 +567,7 @@ namespace Ioss {
   bool DatabaseIO::begin_state(int state, double time)
   {
     IOSS_FUNC_ENTER(m_);
+    progress(__func__);
     if (m_timeStateInOut) {
       m_stateStart = std::chrono::steady_clock::now();
     }
@@ -492,6 +581,7 @@ namespace Ioss {
       auto finish = std::chrono::steady_clock::now();
       log_time(m_stateStart, finish, state, time, is_input(), singleProcOnly, util_);
     }
+    progress(__func__);
     return res;
   }
 
@@ -558,7 +648,7 @@ namespace Ioss {
   void DatabaseIO::create_group(EntityType /*type*/, const std::string &type_name,
                                 const std::vector<std::string> &group_spec, const T * /*set_type*/)
   {
-    fmt::print(Ioss::WARNING(),
+    fmt::print(Ioss::WarnOut(),
                "Grouping of {0} sets is not yet implemented.\n"
                "         Skipping the creation of {0} set '{1}'\n\n",
                type_name, group_spec[0]);
@@ -590,7 +680,7 @@ namespace Ioss {
         for (auto &sbold : side_blocks) {
           size_t  side_count = sbold->entity_count();
           auto    sbnew      = new SideBlock(this, sbold->name(), sbold->topology()->name(),
-                                     sbold->parent_element_topology()->name(), side_count);
+                                             sbold->parent_element_topology()->name(), side_count);
           int64_t id         = sbold->get_property("id").get_int();
           sbnew->property_add(Property("set_offset", entity_count));
           sbnew->property_add(Property("set_df_offset", df_count));
@@ -613,7 +703,7 @@ namespace Ioss {
         }
       }
       else {
-        fmt::print(Ioss::WARNING(),
+        fmt::print(Ioss::WarnOut(),
                    "While creating the grouped surface '{}', the surface '{}' does not exist. "
                    "This surface will skipped and not added to the group.\n\n",
                    group_spec[0], group_spec[i]);
@@ -702,6 +792,29 @@ namespace Ioss {
     }
   }
 
+  void DatabaseIO::set_assembly_omissions(const std::vector<std::string> &omissions,
+                                          const std::vector<std::string> &inclusions)
+  {
+    if (!omissions.empty() && !inclusions.empty()) {
+      // Only one can be non-empty
+      std::ostringstream errmsg;
+      fmt::print(errmsg,
+                 "ERROR: Only one of assembly omission or inclusion can be non-empty"
+                 "       [{}]\n",
+                 get_filename());
+      IOSS_ERROR(errmsg);
+    }
+
+    if (!omissions.empty()) {
+      assemblyOmissions.assign(omissions.cbegin(), omissions.cend());
+      Ioss::sort(assemblyOmissions.begin(), assemblyOmissions.end());
+    }
+    if (!inclusions.empty()) {
+      assemblyInclusions.assign(inclusions.cbegin(), inclusions.cend());
+      Ioss::sort(assemblyInclusions.begin(), assemblyInclusions.end());
+    }
+  }
+
   // Check topology of all sides (face/edges) in model...
   void DatabaseIO::check_side_topology() const
   {
@@ -729,7 +842,8 @@ namespace Ioss {
         const ElementTopology *elem_type = block->topology();
         const ElementTopology *side_type = elem_type->boundary_type();
         if (side_type == nullptr) {
-          // heterogeneous sides.  Iterate through...
+          // heterogeneous sides.  Iterate through... (or there is no
+          // defined `side` for this parent topology.
           int size = elem_type->number_boundaries();
           for (int i = 1; i <= size; i++) {
             side_type = elem_type->boundary_type(i);
@@ -844,7 +958,7 @@ namespace Ioss {
         if (int_byte_size_api() == 8) {
           std::vector<int64_t> conn;
           eb->get_field_data("connectivity_raw", conn);
-          for (auto node : conn) {
+          for (const auto &node : conn) {
             assert(node > 0 && node - 1 < nodeCount);
             node_used[node - 1] = blk_position + 1;
           }
@@ -852,7 +966,7 @@ namespace Ioss {
         else {
           std::vector<int> conn;
           eb->get_field_data("connectivity_raw", conn);
-          for (auto node : conn) {
+          for (const auto &node : conn) {
             assert(node > 0 && node - 1 < nodeCount);
             node_used[node - 1] = blk_position + 1;
           }
@@ -1077,10 +1191,10 @@ namespace Ioss {
     if (elementBlockBoundingBoxes.empty()) {
       // Calculate the bounding boxes for all element blocks...
       std::vector<double> coordinates;
-      Ioss::NodeBlock *   nb = get_region()->get_node_blocks()[0];
+      Ioss::NodeBlock    *nb = get_region()->get_node_blocks()[0];
       nb->get_field_data("mesh_model_coordinates", coordinates);
-      ssize_t nnode = nb->entity_count();
-      ssize_t ndim  = nb->get_property("component_degree").get_int();
+      auto nnode = nb->entity_count();
+      auto ndim  = nb->get_property("component_degree").get_int();
 
       const Ioss::ElementBlockContainer &element_blocks = get_region()->get_element_blocks();
       size_t                             nblock         = element_blocks.size();
@@ -1113,8 +1227,8 @@ namespace Ioss {
       util().global_array_minmax(minmax, Ioss::ParallelUtils::DO_MIN);
 
       for (size_t i = 0; i < element_blocks.size(); i++) {
-        Ioss::ElementBlock *   block = element_blocks[i];
-        const std::string &    name  = block->name();
+        Ioss::ElementBlock    *block = element_blocks[i];
+        const std::string     &name  = block->name();
         AxisAlignedBoundingBox bbox(minmax[6 * i + 0], minmax[6 * i + 1], minmax[6 * i + 2],
                                     -minmax[6 * i + 3], -minmax[6 * i + 4], -minmax[6 * i + 5]);
         elementBlockBoundingBoxes[name] = bbox;
@@ -1127,8 +1241,8 @@ namespace Ioss {
   {
     std::vector<double> coordinates;
     nb->get_field_data("mesh_model_coordinates", coordinates);
-    ssize_t nnode = nb->entity_count();
-    ssize_t ndim  = nb->get_property("component_degree").get_int();
+    auto nnode = nb->entity_count();
+    auto ndim  = nb->get_property("component_degree").get_int();
 
     double xmin, ymin, zmin, xmax, ymax, zmax;
     calc_bounding_box(ndim, nnode, coordinates, xmin, ymin, zmin, xmax, ymax, zmax);
@@ -1151,7 +1265,7 @@ namespace Ioss {
 
   AxisAlignedBoundingBox DatabaseIO::get_bounding_box(const Ioss::StructuredBlock *sb) const
   {
-    ssize_t ndim = sb->get_property("component_degree").get_int();
+    auto ndim = sb->get_property("component_degree").get_int();
 
     std::pair<double, double> xx;
     std::pair<double, double> yy;
@@ -1199,7 +1313,7 @@ namespace {
                  current_state, state_time);
 
       double total = 0.0;
-      for (auto &p_time : all_times) {
+      for (const auto &p_time : all_times) {
         total += p_time;
       }
 
@@ -1221,7 +1335,7 @@ namespace {
       if (util.parallel_size() > 1) {
         fmt::print(strm, "\tTot: {} (ms)\n", total);
       }
-      fmt::print(Ioss::DEBUG(), "{}", strm.str());
+      fmt::print(Ioss::DebugOut(), "{}", strm.str());
     }
   }
 
@@ -1238,14 +1352,14 @@ namespace {
       }
 
       if (util.parallel_rank() == 0 || single_proc_only) {
-        const std::string &           name = entity->name();
+        const std::string            &name = entity->name();
         std::ostringstream            strm;
         auto                          now  = std::chrono::steady_clock::now();
         std::chrono::duration<double> diff = now - initial_time;
-        fmt::print(strm, "{} [{:.3f}]\t", symbol, diff.count());
+        fmt::print(strm, "{} [{:.5f}]\t", symbol, diff.count());
 
         int64_t total = 0;
-        for (auto &p_size : all_sizes) {
+        for (const auto &p_size : all_sizes) {
           total += p_size;
         }
         // Now append each processors size onto the stream...
@@ -1255,7 +1369,7 @@ namespace {
                      total / all_sizes.size());
         }
         else {
-          for (auto &p_size : all_sizes) {
+          for (const auto &p_size : all_sizes) {
             fmt::print(strm, "{:8d}:", p_size);
           }
         }
@@ -1263,7 +1377,7 @@ namespace {
           fmt::print(strm, " T:{:8d}", total);
         }
         fmt::print(strm, "\t{}/{}\n", name, field.get_name());
-        fmt::print(Ioss::DEBUG(), "{}", strm.str());
+        fmt::print(Ioss::DebugOut(), "{}", strm.str());
       }
     }
     else {
@@ -1273,7 +1387,7 @@ namespace {
       if (util.parallel_rank() == 0 || single_proc_only) {
         auto                          time_now = std::chrono::steady_clock::now();
         std::chrono::duration<double> diff     = time_now - initial_time;
-        fmt::print("{} [{:.3f}]\n", symbol, diff.count());
+        fmt::print(Ioss::DebugOut(), "{} [{:.5f}]\n", symbol, diff.count());
       }
     }
   }

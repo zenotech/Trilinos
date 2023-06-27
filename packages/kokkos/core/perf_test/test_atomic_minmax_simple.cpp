@@ -1,3 +1,19 @@
+//@HEADER
+// ************************************************************************
+//
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
+//
+// Under the terms of Contract DE-NA0003525 with NTESS,
+// the U.S. Government retains certain rights in this software.
+//
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//@HEADER
+
 // export OMP_PROC_BIND=spread ; export OMP_PLACES=threads
 // c++  -O2 -g -DNDEBUG  -fopenmp
 // ../core/perf_test/test_atomic_minmax_simple.cpp -I../core/src/ -I. -o
@@ -12,13 +28,13 @@
 #include <typeinfo>
 
 #include <Kokkos_Core.hpp>
-#include <impl/Kokkos_Timer.hpp>
+#include <Kokkos_Timer.hpp>
 
 using exec_space = Kokkos::DefaultExecutionSpace;
 
 template <typename T>
 void test(const int length) {
-  Kokkos::Impl::Timer timer;
+  Kokkos::Timer timer;
 
   using vector = Kokkos::View<T*, exec_space>;
 

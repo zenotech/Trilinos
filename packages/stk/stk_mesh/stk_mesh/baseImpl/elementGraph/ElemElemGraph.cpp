@@ -37,15 +37,15 @@ void convert_keys_to_entities(stk::mesh::BulkData& bulkData,
 
 void SharedSidesCommunication::pack_shared_side_nodes_of_elements(stk::CommSparse &comm) const
 {
-    impl::ElemSideToProcAndFaceId::const_iterator iter = m_elementSidesToSend.begin();
-    impl::ElemSideToProcAndFaceId::const_iterator end = m_elementSidesToSend.end();
+    impl::ElemSideProcVector::const_iterator iter = m_elementSidesToSend.begin();
+    impl::ElemSideProcVector::const_iterator end = m_elementSidesToSend.end();
     stk::mesh::EntityVector side_nodes;
     std::vector<stk::mesh::EntityKey> side_node_entity_keys;
     for(; iter!= end; ++iter)
     {
-        stk::mesh::Entity elem = iter->first.entity;
-        unsigned side_index    = iter->first.side_id;
-        int sharing_proc       = iter->second.proc;
+        stk::mesh::Entity elem = iter->elemSidePair.entity;
+        unsigned side_index    = iter->elemSidePair.side_id;
+        int sharing_proc       = iter->proc;
         stk::mesh::EntityId element_id     = m_bulkData.identifier(elem);
         stk::topology topology = m_bulkData.bucket(elem).topology();
 
@@ -53,7 +53,8 @@ void SharedSidesCommunication::pack_shared_side_nodes_of_elements(stk::CommSpars
         comm.send_buffer(sharing_proc).pack<stk::topology>(topology);
         comm.send_buffer(sharing_proc).pack<unsigned>(side_index);
 
-        impl:: fill_element_side_nodes_from_topology(m_bulkData, elem, side_index, side_nodes);
+        const stk::mesh::Entity* elemNodes = m_bulkData.begin_nodes(elem);
+        impl:: fill_element_side_nodes_from_topology(topology, elemNodes, side_index, side_nodes);
         side_node_entity_keys.resize(side_nodes.size());
         for(size_t i=0; i<side_nodes.size(); ++i)
         {
@@ -63,9 +64,8 @@ void SharedSidesCommunication::pack_shared_side_nodes_of_elements(stk::CommSpars
     }
 }
 
-void SharedSidesCommunication::unpack_side_data(stk::CommSparse &comm)
+void SharedSidesCommunication::unpack_side_data_map(SideNodeToReceivedElementDataMap& elementSidesReceived)
 {
-    m_elementSidesReceived.clear();
     std::vector<stk::mesh::EntityKey> node_keys;
     stk::mesh::impl::ParallelElementData elementData;
     stk::mesh::EntityVector sideNodes;
@@ -73,25 +73,57 @@ void SharedSidesCommunication::unpack_side_data(stk::CommSparse &comm)
     {
         if(proc_id != m_bulkData.parallel_rank())
         {
-            while(comm.recv_buffer(proc_id).remaining())
+            while(m_commSparse.recv_buffer(proc_id).remaining())
             {
                 stk::mesh::EntityId elementIdentifier;
                 stk::topology topology;
                 unsigned side_index = 0;
-                comm.recv_buffer(proc_id).unpack<stk::mesh::EntityId>(elementIdentifier);
-                comm.recv_buffer(proc_id).unpack<stk::topology>(topology);
-                comm.recv_buffer(proc_id).unpack<unsigned>(side_index);
+                m_commSparse.recv_buffer(proc_id).unpack<stk::mesh::EntityId>(elementIdentifier);
+                m_commSparse.recv_buffer(proc_id).unpack<stk::topology>(topology);
+                m_commSparse.recv_buffer(proc_id).unpack<unsigned>(side_index);
 
                 elementData.set_proc_rank(proc_id);
                 elementData.set_element_identifier(elementIdentifier);
                 elementData.set_element_topology(topology);
                 elementData.set_element_side_index(side_index);
 
-                stk::unpack_vector_from_proc(comm, node_keys, proc_id);
+                stk::unpack_vector_from_proc(m_commSparse, node_keys, proc_id);
                 convert_keys_to_entities(m_bulkData, node_keys, sideNodes);
                 elementData.set_element_side_nodes(sideNodes);
                 std::sort(sideNodes.begin(), sideNodes.end());
-                m_elementSidesReceived[sideNodes].push_back(elementData);
+                elementSidesReceived[sideNodes].push_back(elementData);
+            }
+        }
+    }
+}
+
+void SharedSidesCommunication::unpack_side_data_vec(impl::ParallelElementDataVector& elementSidesReceived)
+{
+    std::vector<stk::mesh::EntityKey> node_keys;
+    stk::mesh::impl::ParallelElementData elementData;
+    stk::mesh::EntityVector sideNodes;
+    for(int proc_id = 0; proc_id < m_bulkData.parallel_size(); ++proc_id)
+    {
+        if(proc_id != m_bulkData.parallel_rank())
+        {
+            while(m_commSparse.recv_buffer(proc_id).remaining())
+            {
+                stk::mesh::EntityId elementIdentifier;
+                stk::topology topology;
+                unsigned side_index = 0;
+                m_commSparse.recv_buffer(proc_id).unpack<stk::mesh::EntityId>(elementIdentifier);
+                m_commSparse.recv_buffer(proc_id).unpack<stk::topology>(topology);
+                m_commSparse.recv_buffer(proc_id).unpack<unsigned>(side_index);
+
+                elementData.set_proc_rank(proc_id);
+                elementData.set_element_identifier(elementIdentifier);
+                elementData.set_element_topology(topology);
+                elementData.set_element_side_index(side_index);
+
+                stk::unpack_vector_from_proc(m_commSparse, node_keys, proc_id);
+                convert_keys_to_entities(m_bulkData, node_keys, sideNodes);
+                elementData.set_element_side_nodes(sideNodes);
+                elementSidesReceived.push_back(elementData);
             }
         }
     }
@@ -101,9 +133,8 @@ void SharedSidesCommunication::unpack_side_data(stk::CommSparse &comm)
 
 void SharedSidesCommunication::communicate_element_sides()
 {
-    stk::CommSparse comm(m_bulkData.parallel());
-    stk::pack_and_communicate(comm, [this,&comm](){pack_shared_side_nodes_of_elements(comm);} );
-    unpack_side_data(comm);
+  stk::CommSparse& commSparse = m_commSparse;
+  stk::pack_and_communicate(commSparse, [this,&commSparse](){pack_shared_side_nodes_of_elements(commSparse);} );
 }
 
 ElemElemGraph::ElemElemGraph(stk::mesh::BulkData& bulkData) :
@@ -122,22 +153,38 @@ void ElemElemGraph::fill_from_mesh()
 {
     clear_data_members();
 
-    impl::ElemSideToProcAndFaceId elementSideIdsToSend;
+    impl::ElemSideProcVector elementSideIdsToSend;
 
     int numElems = size_data_members();
-    if (numElems > 0)
-    {
+    if (numElems > 0) {
         m_any_shell_elements_exist = impl::fill_topologies(*this, m_idMapper, m_element_topologies);
-        fill_graph();
         elementSideIdsToSend = impl::gather_element_side_ids_to_send(m_bulk_data);
+        std::sort(elementSideIdsToSend.begin(), elementSideIdsToSend.end());
     }
 
+    m_edgesToAdd.clear();
+
     m_parallelInfoForGraphEdges.clear();
-    SideNodeToReceivedElementDataMap elementSidesReceived = communicate_shared_sides(elementSideIdsToSend);
+    impl::ParallelElementDataVector elementSidesReceived;
+    communicate_shared_sides(elementSideIdsToSend, elementSidesReceived);
     fill_parallel_graph(elementSideIdsToSend, elementSidesReceived);
+
+    if (numElems > 0) {
+        fill_graph();
+    }
+
+    stk::util::sort_and_unique(m_edgesToAdd, GraphEdgeLessByElem1());
+    m_graph.replace_sorted_edges(m_edgesToAdd);
 
     GraphInfo graphInfo(m_graph, m_parallelInfoForGraphEdges, m_element_topologies);
     remove_graph_edges_blocked_by_shell(graphInfo);
+
+    m_graph.delete_sorted_edges(m_edgesToDelete);
+
+    {
+      std::vector<GraphEdge> emptyDelete;
+      m_edgesToDelete.swap(emptyDelete);
+    }
 
     m_modCycleWhenGraphModified = m_bulk_data.synchronized_count();
 }
@@ -146,7 +193,7 @@ size_t ElemElemGraph::num_parallel_edges() const
 {
   size_t numParallelEdges = 0;
   for (size_t i = 0; i < m_graph.get_num_elements_in_graph(); ++i) {
-    const GraphEdgesForElement& graphEdges = m_graph.get_edges_for_element(i);
+    const GraphEdgesForElement graphEdges = m_graph.get_edges_for_element(i);
     for (const GraphEdge& graphEdge : graphEdges) {
       if (!graphEdge.is_elem2_local()) {
         ++numParallelEdges;
@@ -180,7 +227,7 @@ impl::ElementViaSidePair ElemElemGraph::get_connected_element_and_via_side(stk::
 
 impl::IdViaSidePair ElemElemGraph::get_connected_remote_id_and_via_side(stk::mesh::Entity localElement, size_t indexConnElement) const
 {
-    ThrowRequireWithSierraHelpMsg(!is_connected_elem_locally_owned(localElement, indexConnElement));
+    STK_ThrowRequireWithSierraHelpMsg(!is_connected_elem_locally_owned(localElement, indexConnElement));
     impl::LocalId local_id = get_local_element_id(localElement);
     const GraphEdge & graphEdge = m_graph.get_edge_for_element(local_id, indexConnElement);
     return {m_parallelInfoForGraphEdges.convert_negative_local_id_to_remote_global_id(graphEdge.elem2()), graphEdge.side1()};
@@ -232,7 +279,7 @@ impl::LocalId ElemElemGraph::get_local_element_id(stk::mesh::Entity local_elemen
     impl::LocalId local_id = m_idMapper.entity_to_local(local_element);
     if (require_valid_id)
     {
-        ThrowRequireWithSierraHelpMsg(local_id != impl::INVALID_LOCAL_ID);
+        STK_ThrowRequireWithSierraHelpMsg(local_id != impl::INVALID_LOCAL_ID);
     }
     return local_id;
 }
@@ -251,6 +298,8 @@ int ElemElemGraph::size_data_members()
 void ElemElemGraph::clear_data_members()
 {
     m_graph.clear();
+    m_edgesToAdd.clear();
+    m_edgesToDelete.clear();
     m_idMapper.clear();
     m_element_topologies.clear();
     m_any_shell_elements_exist = false;
@@ -264,21 +313,19 @@ void ElemElemGraph::clear_data_members()
 void ElemElemGraph::fill_elements_attached_to_local_nodes(const stk::mesh::EntityVector& sideNodesOfReceivedElement,
                                                                                   stk::mesh::EntityId elementId,
                                                                                   stk::topology elementTopology,
-                                                                                  stk::mesh::EntityVector& scratchEntityVector,
                                                                                   impl::SerialElementDataVector& connectedElementDataVector) const
 {
     connectedElementDataVector.clear();
     impl::get_elements_with_larger_ids_connected_via_sidenodes<impl::SerialElementData>(m_bulk_data, elementId, elementTopology, m_idMapper, sideNodesOfReceivedElement,
-                                                                                        scratchEntityVector, connectedElementDataVector);
+                                                                                        m_scratchEntityVector, connectedElementDataVector);
 }
 
 void ElemElemGraph::get_elements_attached_to_remote_nodes(const stk::mesh::EntityVector& sideNodesOfReceivedElement, stk::mesh::EntityId elementId, stk::topology elementTopology,
-                                                                                     stk::mesh::EntityVector& scratchEntityVector,
                                                                                      impl::ParallelElementDataVector& connectedElementDataVector) const
 {
     connectedElementDataVector.clear();
     impl::get_elements_connected_via_sidenodes<impl::ParallelElementData>(m_bulk_data, elementId, elementTopology, m_idMapper,
-                                                                                 sideNodesOfReceivedElement, scratchEntityVector, connectedElementDataVector);
+                                                                                 sideNodesOfReceivedElement, m_scratchEntityVector, connectedElementDataVector);
 }
 
 bool is_coincident(const stk::mesh::impl::TopologyChecker& topoChecker,
@@ -310,7 +357,6 @@ void ElemElemGraph::add_local_graph_edges_for_elem(const stk::mesh::MeshIndex &m
                                                    impl::LocalId local_elem_id,
                                                    std::vector<stk::mesh::GraphEdge> &graphEdges,
                                                    std::vector<stk::mesh::GraphEdge> &coincidentGraphEdges,
-                                                   stk::mesh::EntityVector& scratchEntityVector,
                                                    stk::mesh::EntityVector& side_nodes,
                                                    impl::SerialElementDataVector& connectedElementDataVector,
                                                    bool only_consider_upper_symmetry) const
@@ -322,10 +368,11 @@ void ElemElemGraph::add_local_graph_edges_for_elem(const stk::mesh::MeshIndex &m
     coincidentGraphEdges.clear();
     stk::mesh::EntityId elemGlobalId = m_bulk_data.identifier(element);
     if(!only_consider_upper_symmetry) elemGlobalId = 0;
+    const stk::mesh::Entity* elemNodes = m_bulk_data.begin_nodes(element);
     for(int side_index=0; side_index<num_sides; ++side_index)
     {
-        impl::fill_element_side_nodes_from_topology(m_bulk_data, element, side_index, side_nodes);
-        fill_elements_attached_to_local_nodes(side_nodes, elemGlobalId, elemTopology, scratchEntityVector, connectedElementDataVector);
+        impl::fill_element_side_nodes_from_topology(elemTopology, elemNodes, side_index, side_nodes);
+        fill_elements_attached_to_local_nodes(side_nodes, elemGlobalId, elemTopology, connectedElementDataVector);
         const stk::mesh::Permutation perm = static_cast<stk::mesh::Permutation>(0);
         for (const impl::SerialElementData & otherElem: connectedElementDataVector)
         {
@@ -345,46 +392,43 @@ void ElemElemGraph::add_local_graph_edges_for_elem(const stk::mesh::MeshIndex &m
     stk::util::sort_and_unique(graphEdges, GraphEdgeLessByElem2());
 }
 
-template <typename GraphType>
-void add_edges_to_graph(const std::vector<stk::mesh::GraphEdge> &newGraphEdges, GraphType &graph)
+class GraphEdgeAdder
 {
-  if (!newGraphEdges.empty())
-  {
-    for(const stk::mesh::GraphEdge &graphEdge : newGraphEdges)
-    {
-        graph.add_edge(graphEdge);
-        graph.add_edge(create_symmetric_edge(graphEdge));
-    }
-  }
-}
+public:
+  GraphEdgeAdder(std::vector<GraphEdge>& edges) : m_edges(edges) {}
+  void add_edge(const GraphEdge& edge) { m_edges.emplace_back(edge); }
+private:
+  std::vector<GraphEdge>& m_edges;
+};
 
 void ElemElemGraph::fill_graph()
 {
     const stk::mesh::BucketVector& elemBuckets = m_bulk_data.get_buckets(stk::topology::ELEM_RANK, m_bulk_data.mesh_meta_data().locally_owned_part());
-    std::vector<stk::mesh::GraphEdge> newGraphEdges;
-    std::vector<stk::mesh::GraphEdge> coincidentGraphEdges;
-    stk::mesh::EntityVector scratchEntityVector;
     stk::mesh::EntityVector side_nodes;
     impl::SerialElementDataVector connectedElementDataVector;
+    const bool only_consider_upper_symmetry = true;
     for(size_t i=0; i<elemBuckets.size(); ++i)
     {
         const stk::mesh::Bucket& bucket = *elemBuckets[i];
         for(size_t j=0; j<bucket.size(); ++j)
         {
-            impl::LocalId local_elem_id = get_local_element_id(bucket[j]);
-            add_local_graph_edges_for_elem(stk::mesh::MeshIndex(elemBuckets[i],j), local_elem_id, newGraphEdges, coincidentGraphEdges, scratchEntityVector, side_nodes, connectedElementDataVector);
-            add_edges_to_graph(newGraphEdges, m_graph);
-            add_edges_to_graph(coincidentGraphEdges, m_coincidentGraph);
+            Entity elemToAdd = bucket[j];
+            impl::LocalId local_elem_id = get_local_element_id(elemToAdd);
+            add_local_graph_edges_for_elem(m_bulk_data.mesh_index(elemToAdd), local_elem_id, m_newGraphEdges, m_coincidentGraphEdges, side_nodes, connectedElementDataVector, only_consider_upper_symmetry);
+            GraphEdgeAdder graphEdgeAdder(m_edgesToAdd);
+            add_new_local_edges_to_graph(graphEdgeAdder, m_newGraphEdges);
+            add_new_local_edges_to_graph(m_coincidentGraph, m_coincidentGraphEdges);
         }
     }
+
+    stk::util::sort_and_unique(m_edgesToAdd, GraphEdgeLessByElem1());
 }
 
-SideNodeToReceivedElementDataMap ElemElemGraph::communicate_shared_sides(impl::ElemSideToProcAndFaceId& elementSidesToSend)
+void ElemElemGraph::communicate_shared_sides(impl::ElemSideProcVector& elementSidesToSend, impl::ParallelElementDataVector& elementSidesReceived)
 {
-     impl::fill_suggested_side_ids(m_bulk_data, elementSidesToSend);
      SharedSidesCommunication sharedSidesCommunication(m_bulk_data, elementSidesToSend);
-     SideNodeToReceivedElementDataMap elementSidesReceived = sharedSidesCommunication.get_received_element_sides();
-     return elementSidesReceived;
+     sharedSidesCommunication.communicate_element_sides();
+     sharedSidesCommunication.unpack_side_data_vec(elementSidesReceived);
 }
 
 void add_shared_edge(const impl::ParallelElementData& elementDataOtherProc, stk::mesh::EntityId elem_id, const unsigned side_index,
@@ -411,9 +455,8 @@ std::string ElemElemGraph::print_edge(const GraphEdge& graphEdge)
   }
 
   if(!impl::is_local_element(graphEdge.elem2())) {
-    const impl::ParallelGraphInfo& pGraphInfo = m_parallelInfoForGraphEdges.get_parallel_graph_info();
-    auto iter = pGraphInfo.find(graphEdge);
-    if(iter != pGraphInfo.end()) {
+    auto iter = m_parallelInfoForGraphEdges.get_parallel_info_iterator_for_graph_edge(graphEdge);
+    if(iter != m_parallelInfoForGraphEdges.get_parallel_graph_info().end()) {
       otherTopology = iter->second.m_remote_element_topology;
     }
     os << "ParallelGraphEdge{" << m_bulk_data.identifier(localElem) << "|" << graphEdge.side1() << "|" << localTopology << " , "
@@ -432,8 +475,9 @@ std::string ElemElemGraph::print_edge(const GraphEdge& graphEdge)
 
 void ElemElemGraph::create_parallel_graph_edge(const impl::ParallelElementData &localElementData,
                                                const stk::mesh::impl::ParallelElementData &remoteElementData,
-                                               impl::ElemSideToProcAndFaceId & elementSidesToSend,
-                                               std::vector<impl::SharedEdgeInfo> &newlySharedEdges)
+                                               impl::ElemSideProcVector & elementSidesToSend,
+                                               std::vector<impl::SharedEdgeInfo> &newlySharedEdges,
+                                               impl::ParallelGraphInfo& newParallelGraphInfo)
 {
     impl::LocalId local_elem_id = localElementData.get_element_local_id();
     impl::LocalId negativeRemoteElemId = -1 * static_cast<impl::LocalId>(remoteElementData.get_element_identifier());
@@ -443,19 +487,21 @@ void ElemElemGraph::create_parallel_graph_edge(const impl::ParallelElementData &
                                localElementData.get_permutation(),
                                 remoteElementData.get_element_topology());
 
-    bool insertedNewParallelEdge = m_parallelInfoForGraphEdges.insert_parallel_info_for_graph_edge(graphEdge, parInfo);
+    bool parallelEdgeAlreadyExists = m_parallelInfoForGraphEdges.find_parallel_info_for_graph_edge(graphEdge);
 
-    if(insertedNewParallelEdge) {
-      m_graph.add_edge(graphEdge);
+    if(parallelEdgeAlreadyExists) {
+      return;
     }
 
-    stk::mesh::Entity localElem = get_entity(local_elem_id);
-    ThrowRequireWithSierraHelpMsg(m_bulk_data.is_valid(localElem));
+    m_edgesToAdd.push_back(graphEdge);
+    newParallelGraphInfo.push_back(std::make_pair(graphEdge, parInfo));
 
-    stk::mesh::impl::ElemSideToProcAndFaceId::const_iterator iter_elem_side_comm = elementSidesToSend.find(impl::EntitySidePair(localElem, localElementData.get_element_side_index()));
-    bool did_this_proc_send_info_about_this_side_to_other_proc = iter_elem_side_comm != elementSidesToSend.end();
+    stk::mesh::Entity localElem = get_entity(local_elem_id);
+    STK_ThrowRequireWithSierraHelpMsg(m_bulk_data.is_valid(localElem));
+
+    const bool did_this_proc_send_info_about_this_side_to_other_proc = std::binary_search(elementSidesToSend.begin(), elementSidesToSend.end(), impl::EntitySidePair(localElem, localElementData.get_element_side_index()));
     // communicate back to originating processor
-    if(!did_this_proc_send_info_about_this_side_to_other_proc && insertedNewParallelEdge)
+    if(!did_this_proc_send_info_about_this_side_to_other_proc && !parallelEdgeAlreadyExists)
     {
         // for cases of mesh modification, only proc with "created" element will communicate
         // new side was sent to this proc (to fish for possible face connections)
@@ -464,21 +510,26 @@ void ElemElemGraph::create_parallel_graph_edge(const impl::ParallelElementData &
     }
 }
 
-void ElemElemGraph::fill_parallel_graph(impl::ElemSideToProcAndFaceId & elementSidesToSend, SideNodeToReceivedElementDataMap&  elementSidesReceived)
+void ElemElemGraph::fill_parallel_graph(impl::ElemSideProcVector & elementSidesToSend, impl::ParallelElementDataVector& elementSidesReceived)
 {
     std::vector<impl::SharedEdgeInfo> newlySharedEdges;
-    stk::mesh::EntityVector scratchEntityVector;
     impl::ParallelElementDataVector localElementsAttachedToReceivedNodes;
-    for (SideNodeToReceivedElementDataMap::value_type & receivedElementDataForNodes: elementSidesReceived)
+    impl::ParallelGraphInfo newParallelGraphInfo;
+    for(const stk::mesh::impl::ParallelElementData &remoteElementData : elementSidesReceived)
     {
-        for(const stk::mesh::impl::ParallelElementData &remoteElementData : receivedElementDataForNodes.second)
-        {
-             get_elements_attached_to_remote_nodes(remoteElementData.get_side_nodes(), remoteElementData.get_element_identifier(),
-                                                   remoteElementData.get_element_topology(), scratchEntityVector, localElementsAttachedToReceivedNodes);
-            for(const impl::ParallelElementData &localElemAttachedToNodes : localElementsAttachedToReceivedNodes)
-                create_parallel_graph_edge(localElemAttachedToNodes, remoteElementData, elementSidesToSend, newlySharedEdges);
-        }
+         get_elements_attached_to_remote_nodes(remoteElementData.get_side_nodes(), remoteElementData.get_element_identifier(),
+                                               remoteElementData.get_element_topology(), localElementsAttachedToReceivedNodes);
+        for(const impl::ParallelElementData &localElemAttachedToNodes : localElementsAttachedToReceivedNodes)
+            create_parallel_graph_edge(localElemAttachedToNodes, remoteElementData, elementSidesToSend, newlySharedEdges, newParallelGraphInfo);
     }
+
+    {
+      impl::ElemSideProcVector().swap(elementSidesToSend);
+      impl::ParallelElementDataVector().swap(elementSidesReceived);
+    }
+
+    stk::util::sort_and_unique(newParallelGraphInfo, GraphEdgeLessByElem2());
+    m_parallelInfoForGraphEdges.insert_sorted_edges(newParallelGraphInfo);
 
     std::vector<impl::SharedEdgeInfo> receivedSharedEdges;
     communicate_remote_edges_for_pre_existing_graph_nodes(newlySharedEdges, receivedSharedEdges);
@@ -594,42 +645,24 @@ void ElemElemGraph::connect_remote_element_to_existing_graph( const impl::Shared
     unsigned side_index = receivedSharedEdge.get_local_element_side_index();
     stk::mesh::Entity localElem = m_bulk_data.get_entity(stk::topology::ELEM_RANK, receivedSharedEdge.get_local_element_global_id());
     stk::mesh::EntityVector localElemSideNodes;
-    impl::fill_element_side_nodes_from_topology(m_bulk_data, localElem, side_index, localElemSideNodes);
+    stk::topology elemTopo = m_bulk_data.bucket(localElem).topology();
+    const stk::mesh::Entity* elemNodes = m_bulk_data.begin_nodes(localElem);
+    impl::fill_element_side_nodes_from_topology(elemTopo, elemNodes, side_index, localElemSideNodes);
 
     stk::EquivalentPermutation permutationIfConnected = stk::mesh::side_equivalent(m_bulk_data, localElem, side_index, sideNodes.data());
-    ThrowRequireWithSierraHelpMsg(permutationIfConnected.is_equivalent);
+    STK_ThrowRequireWithSierraHelpMsg(permutationIfConnected.is_equivalent);
 
     impl::LocalId local_elem_id = get_local_element_id(localElem);
     impl::LocalId negSgnRemoteElemId = -1 * static_cast<impl::LocalId>(receivedSharedEdge.get_remote_element_global_id());
 
     GraphEdge graphEdge(local_elem_id, side_index, negSgnRemoteElemId, receivedSharedEdge.get_remote_element_side_index());
-    m_graph.add_edge(graphEdge);
+    m_edgesToAdd.push_back(graphEdge);
 
     impl::ParallelInfo parInfo(receivedSharedEdge.get_remote_processor_rank(),
                                 permutationIfConnected.permutation_number,
                                 receivedSharedEdge.m_remoteElementTopology);
 
     m_parallelInfoForGraphEdges.insert_parallel_info_for_graph_edge(graphEdge, parInfo);
-}
-
-stk::mesh::EntityId find_side_id(const stk::mesh::impl::ElemSideToProcAndFaceId& elemSideDataSent,
-        const stk::mesh::Entity localElem, const unsigned side_index, const int elem_proc_id)
-{
-    stk::mesh::EntityId chosen_side_id = stk::mesh::InvalidEntityId;
-    const auto iterRange = elemSideDataSent.equal_range(impl::EntitySidePair(localElem, side_index));
-    for (impl::ElemSideToProcAndFaceId::const_iterator iter = iterRange.first; iter != iterRange.second; ++iter)
-    {
-        bool is_received_element_data_info_from_proc_in_elem_side_comm = iter->second.proc == elem_proc_id;
-        //bool is_received_element_data_info_have_same_side_index_as_in_elem_side_comm = iter->first.side_id == elemData.m_localSideIndex;
-
-        if (is_received_element_data_info_from_proc_in_elem_side_comm)
-        {
-            chosen_side_id = iter->second.side_id;
-            break;
-        }
-    }
-    ThrowRequireWithSierraHelpMsg(chosen_side_id!=stk::mesh::InvalidEntityId);
-    return chosen_side_id;
 }
 
 stk::topology ElemElemGraph::get_topology_of_remote_element(const GraphEdge &graphEdge)
@@ -667,8 +700,8 @@ void report_error_with_invalid_ordinal(std::pair<stk::mesh::ConnectivityOrdinal,
         std::cerr << os.str();
     }
 
-    ThrowRequireMsg(ord_and_perm.first != stk::mesh::INVALID_CONNECTIVITY_ORDINAL, "yikes!");
-    ThrowRequireMsg(ord_and_perm.second != stk::mesh::INVALID_PERMUTATION, "yikes!");
+    STK_ThrowRequireMsg(ord_and_perm.first != stk::mesh::INVALID_CONNECTIVITY_ORDINAL, "yikes!");
+    STK_ThrowRequireMsg(ord_and_perm.second != stk::mesh::INVALID_PERMUTATION, "yikes!");
 }
 
 void ensure_fresh_modifiable_state(stk::mesh::BulkData& bulkData)
@@ -820,7 +853,7 @@ bool process_killed_elements(stk::mesh::BulkData& bulkData,
                     if(impl::does_element_have_side(bulkData, other_element_via_side.element))
                     {
                         int side_id = other_element_via_side.side;
-                        ThrowRequireWithSierraHelpMsg(side_id != -1);
+                        STK_ThrowRequireWithSierraHelpMsg(side_id != -1);
 
                         bool is_other_element_alive = bulkData.bucket(other_element).member(active);
                         if(is_other_element_alive)
@@ -845,7 +878,7 @@ bool process_killed_elements(stk::mesh::BulkData& bulkData,
 
                                 int side_id_needed = elementGraph.get_connected_elements_side(this_element, j);
 
-                                ThrowRequireMsg(side_id_needed >= 0, "ERROR: proc " << bulkData.parallel_rank() << " found side_id_needed=" << side_id_needed
+                                STK_ThrowRequireMsg(side_id_needed >= 0, "ERROR: proc " << bulkData.parallel_rank() << " found side_id_needed=" << side_id_needed
                                                 << " between elem " << bulkData.identifier(element_with_perm_0)<< " and " << bulkData.identifier(element_with_perm_4)
                                                 << " in elem-elem-graph");
 
@@ -875,7 +908,7 @@ bool process_killed_elements(stk::mesh::BulkData& bulkData,
                     else
                     {
                         int side_id = remote_id_side_pair.side;
-                        ThrowRequireWithSierraHelpMsg(side_id != -1);
+                        STK_ThrowRequireWithSierraHelpMsg(side_id != -1);
                         impl::remove_side_from_death_boundary(bulkData, this_element, active, deletedEntities, side_id);
                     }
                 }
@@ -992,7 +1025,7 @@ void ElemElemGraph::collect_local_shell_connectivity_data(const stk::mesh::impl:
         stk::mesh::Entity elem_to_delete = deletedElementInfo.entity;
 
         if (deletedElementInfo.isShell) {
-            ThrowRequireWithSierraHelpMsg(is_valid_graph_element(elem_to_delete));
+            STK_ThrowRequireWithSierraHelpMsg(is_valid_graph_element(elem_to_delete));
             impl::LocalId shell_to_delete_id = get_local_element_id( elem_to_delete);
             size_t num_connected_elems = m_graph.get_num_edges_for_element(shell_to_delete_id);
             for (int near_elem_index = num_connected_elems - 1; near_elem_index >= 0; --near_elem_index) {
@@ -1052,8 +1085,15 @@ void ElemElemGraph::collect_local_shell_connectivity_data(const stk::mesh::impl:
     }
 }
 
-void ElemElemGraph::communicate_shell_connectivity(std::vector<impl::ShellConnectivityData>& shellConnectivityList,
+bool ElemElemGraph::communicate_if_shell_connectivity(std::vector<impl::ShellConnectivityData>& shellConnectivityList,
                                                    const std::vector<impl::ElementSidePair> &deletedShells) {
+
+    unsigned localNumShells = shellConnectivityList.size();
+    unsigned globalMaxShells = 0;
+    stk::all_reduce_max(m_bulk_data.parallel(), &localNumShells, &globalMaxShells, 1);
+    if (globalMaxShells == 0) {
+        return false;
+    }
 
     stk::CommSparse shellComm(m_bulk_data.parallel());
     pack_shell_connectivity(shellComm, shellConnectivityList, deletedShells);
@@ -1075,11 +1115,14 @@ void ElemElemGraph::communicate_shell_connectivity(std::vector<impl::ShellConnec
             shellConnectivityList.push_back(shellConnectivityData);
         }
     }
+
+    return globalMaxShells > 0;
 }
 
 void ElemElemGraph::delete_local_connections_and_collect_remote(const stk::mesh::impl::DeletedElementInfoVector &elements_to_delete,
                                                                 std::vector<impl::DeletedElementData>& local_elem_and_remote_connected_elem)
 {
+    std::vector<GraphEdge> pllEdgesToDelete;
     for (const stk::mesh::impl::DeletedElementInfo &deletedElementInfo : elements_to_delete) {
         stk::mesh::Entity elem_to_delete = deletedElementInfo.entity;
         impl::LocalId elem_to_delete_id = get_local_element_id(elem_to_delete);
@@ -1091,7 +1134,7 @@ void ElemElemGraph::delete_local_connections_and_collect_remote(const stk::mesh:
 
             bool local_connection = connected_elem_id >= 0;
             if (local_connection) {
-                m_graph.delete_edge(create_symmetric_edge(graphEdge));
+                m_edgesToDelete.push_back(create_symmetric_edge(graphEdge));
             } else {
                 impl::ParallelInfo& parallelInfo = m_parallelInfoForGraphEdges.get_parallel_info_for_graph_edge(graphEdge);
                 int remote_proc = parallelInfo.get_proc_rank_of_neighbor();
@@ -1102,17 +1145,21 @@ void ElemElemGraph::delete_local_connections_and_collect_remote(const stk::mesh:
                 deletedElementData.m_remoteElement = connected_global_id;
                 deletedElementData.m_remoteProc = remote_proc;
                 local_elem_and_remote_connected_elem.push_back(deletedElementData);
-                m_parallelInfoForGraphEdges.erase_parallel_info_for_graph_edge(graphEdge);
+                pllEdgesToDelete.push_back(graphEdge);
             }
         }
         for(const stk::mesh::GraphEdge &graphEdge : m_coincidentGraph.get_edges_for_element(elem_to_delete_id))
         {
             m_coincidentGraph.delete_edge(create_symmetric_edge(graphEdge));
         }
-
-        m_graph.delete_all_edges(elem_to_delete_id);
         m_coincidentGraph.delete_all_edges(elem_to_delete_id);
+
+        GraphEdgesForElement graphEdgesForElement = m_graph.get_edges_for_element(elem_to_delete_id);
+        for(const GraphEdge& edge : graphEdgesForElement) {
+          m_edgesToDelete.push_back(edge);
+        }
     }
+    m_parallelInfoForGraphEdges.erase_edges(pllEdgesToDelete);
 }
 
 void ElemElemGraph::communicate_remote_connections_to_delete(const std::vector<impl::DeletedElementData>& local_elem_and_remote_connected_elem,
@@ -1147,7 +1194,9 @@ void ElemElemGraph::clear_deleted_element_connections(const stk::mesh::impl::Del
     }
 }
 
-void ElemElemGraph::delete_remote_connection(stk::mesh::Entity connected_elem, stk::mesh::EntityId deleted_elem_global_id)
+void ElemElemGraph::delete_remote_connection(stk::mesh::Entity connected_elem,
+                                             stk::mesh::EntityId deleted_elem_global_id,
+                                             std::vector<GraphEdge>& pllEdgesToDelete)
 {
   impl::LocalId connected_elem_id = m_idMapper.entity_to_local(connected_elem);
   size_t num_conn_elem = m_graph.get_num_edges_for_element(connected_elem_id);
@@ -1155,17 +1204,18 @@ void ElemElemGraph::delete_remote_connection(stk::mesh::Entity connected_elem, s
   for (size_t conn_elem_index = 0; conn_elem_index < num_conn_elem; ++conn_elem_index) {
       const GraphEdge & graphEdge = m_graph.get_edge_for_element(connected_elem_id, conn_elem_index);
       if (graphEdge.elem2() == static_cast<int64_t>(-deleted_elem_global_id)) {
-          m_parallelInfoForGraphEdges.erase_parallel_info_for_graph_edge(graphEdge);
-          m_graph.delete_edge_from_graph(connected_elem_id, conn_elem_index);
+          pllEdgesToDelete.push_back(graphEdge);
+          m_edgesToDelete.push_back(graphEdge);
           found_deleted_elem = true;
           break;
       }
   }
-  ThrowRequireWithSierraHelpMsg(found_deleted_elem);
+  STK_ThrowRequireWithSierraHelpMsg(found_deleted_elem);
 }
 
 void ElemElemGraph::delete_remote_connections(const std::vector<std::pair<stk::mesh::EntityId, stk::mesh::EntityId> >& remote_edges)
 {
+    std::vector<GraphEdge> pllEdgesToDelete;
     for (const std::pair<stk::mesh::EntityId, stk::mesh::EntityId> & edge : remote_edges) {
         stk::mesh::EntityId deleted_elem_global_id = edge.first;
         stk::mesh::EntityId connected_elem_global_id = edge.second;
@@ -1175,8 +1225,9 @@ void ElemElemGraph::delete_remote_connections(const std::vector<std::pair<stk::m
             continue;
         }
 
-        delete_remote_connection(connected_elem, deleted_elem_global_id);
+        delete_remote_connection(connected_elem, deleted_elem_global_id, pllEdgesToDelete);
     }
+    m_parallelInfoForGraphEdges.erase_edges(pllEdgesToDelete);
 }
 
 bool ElemElemGraph::is_connected_to_shell_on_side(stk::mesh::impl::LocalId localId, int side)
@@ -1200,7 +1251,8 @@ void ElemElemGraph::reconnect_volume_elements_across_deleted_shells(std::vector<
         }
     }
 
-    impl::ElemSideToProcAndFaceId shellNeighborsToReconnect;
+    impl::ElemSideProcVector shellNeighborsToReconnect;
+    shellNeighborsToReconnect.reserve(shellConnectivityList.size());
     for (const impl::ShellConnectivityData& data : shellConnectivityList) {
         stk::mesh::Entity localElement = m_bulk_data.get_entity(stk::topology::ELEM_RANK, data.m_nearElementId);
         if (m_bulk_data.is_valid(localElement))
@@ -1213,19 +1265,19 @@ void ElemElemGraph::reconnect_volume_elements_across_deleted_shells(std::vector<
                     stk::mesh::Entity remoteElement = m_bulk_data.get_entity(stk::topology::ELEM_RANK, data.m_farElementId);
                     if (m_bulk_data.is_valid(remoteElement)) {
                         impl::LocalId remoteElementId = get_local_element_id(remoteElement);
-                        m_graph.add_edge(stk::mesh::GraphEdge(localElementId, data.m_nearElementSide, remoteElementId, data.m_farElementSide));
+                        m_edgesToAdd.push_back(stk::mesh::GraphEdge(localElementId, data.m_nearElementSide, remoteElementId, data.m_farElementSide));
                     }
                 }
                 else {
-                    shellNeighborsToReconnect.insert(
-                            std::pair<impl::EntitySidePair, impl::ProcFaceIdPair>(impl::EntitySidePair(localElement, data.m_nearElementSide),
-                                    impl::ProcFaceIdPair(data.m_farElementProc, 0)));
+                    shellNeighborsToReconnect.push_back(impl::ElemSideProc(localElement, data.m_nearElementSide, data.m_farElementProc));
                 }
             }
         }
     }
 
-    SideNodeToReceivedElementDataMap elementSidesReceived = communicate_shared_sides(shellNeighborsToReconnect);
+    std::sort(shellNeighborsToReconnect.begin(), shellNeighborsToReconnect.end());
+    impl::ParallelElementDataVector elementSidesReceived;
+    communicate_shared_sides(shellNeighborsToReconnect, elementSidesReceived);
     fill_parallel_graph(shellNeighborsToReconnect, elementSidesReceived);
     m_modCycleWhenGraphModified = m_bulk_data.synchronized_count();
 }
@@ -1244,13 +1296,15 @@ stk::mesh::impl::DeletedElementInfoVector ElemElemGraph::filter_delete_elements_
 
 void ElemElemGraph::delete_elements(const stk::mesh::impl::DeletedElementInfoVector &elements_to_delete_argument)
 {
+    m_edgesToAdd.clear();
+    m_edgesToDelete.clear();
     stk::mesh::impl::DeletedElementInfoVector elements_to_delete = filter_delete_elements_argument(elements_to_delete_argument);
 
     std::vector<impl::ShellConnectivityData> shellConnectivityList;
     std::vector<impl::ElementSidePair> deletedNonCoincidentShells;
     collect_local_shell_connectivity_data(elements_to_delete, shellConnectivityList, deletedNonCoincidentShells);
 
-    communicate_shell_connectivity(shellConnectivityList, deletedNonCoincidentShells);
+    const bool shellsExist = communicate_if_shell_connectivity(shellConnectivityList, deletedNonCoincidentShells);
 
     std::vector<impl::DeletedElementData> local_elem_and_remote_connected_elem;
     delete_local_connections_and_collect_remote(elements_to_delete, local_elem_and_remote_connected_elem);
@@ -1262,21 +1316,25 @@ void ElemElemGraph::delete_elements(const stk::mesh::impl::DeletedElementInfoVec
 
     delete_remote_connections(remote_edges);
 
-    unsigned localNumShells = shellConnectivityList.size();
-    unsigned globalMaxShells = 0;
-    stk::all_reduce_max(m_bulk_data.parallel(), &localNumShells, &globalMaxShells, 1);
-    if (globalMaxShells > 0) {
+    stk::util::sort_and_unique(m_edgesToDelete, GraphEdgeLessByElem1());
+    m_graph.delete_sorted_edges(m_edgesToDelete);
+    {
+      std::vector<GraphEdge> emptyDelete;
+      m_edgesToDelete.swap(emptyDelete);
+    }
+
+    if (shellsExist) {
         reconnect_volume_elements_across_deleted_shells(shellConnectivityList);
     }
 
-    m_modCycleWhenGraphModified = m_bulk_data.synchronized_count();
-}
+    stk::util::sort_and_unique(m_edgesToAdd, GraphEdgeLessByElem1());
+    m_graph.add_sorted_edges(m_edgesToAdd);
+    {
+      std::vector<GraphEdge> emptyAdd;
+      m_edgesToAdd.swap(emptyAdd);
+    }
 
-template <typename GraphType>
-void add_both_edges_between_local_elements(const GraphEdge& graphEdge, GraphType &graph)
-{
-    graph.add_edge(graphEdge);
-    graph.add_edge(create_symmetric_edge(graphEdge));
+    m_modCycleWhenGraphModified = m_bulk_data.synchronized_count();
 }
 
 template <typename GraphType>
@@ -1285,22 +1343,11 @@ void ElemElemGraph::add_new_local_edges_to_graph(GraphType &graph, const std::ve
     for (const stk::mesh::GraphEdge& graphEdge : newGraphEdges)
     {
         stk::mesh::Entity neighbor = m_idMapper.local_to_entity(graphEdge.elem2());
-        if (is_valid_graph_element(neighbor))
-            add_both_edges_between_local_elements(graphEdge, graph);
+        if (is_valid_graph_element(neighbor)) {
+          graph.add_edge(graphEdge);
+          graph.add_edge(create_symmetric_edge(graphEdge));
+        }
     }
-}
-
-void ElemElemGraph::add_local_edges(stk::mesh::Entity elem_to_add, impl::LocalId new_elem_id,
-                                    stk::mesh::EntityVector& scratchEntityVector,
-                                    stk::mesh::EntityVector& side_nodes,
-                                    impl::SerialElementDataVector& connectedElementDataVector)
-{
-    std::vector<stk::mesh::GraphEdge> newGraphEdges;
-    std::vector<stk::mesh::GraphEdge> coincidentGraphEdges;
-    bool only_consider_upper_symmetry = false;
-    add_local_graph_edges_for_elem(m_bulk_data.mesh_index(elem_to_add), new_elem_id, newGraphEdges, coincidentGraphEdges, scratchEntityVector, side_nodes, connectedElementDataVector, only_consider_upper_symmetry);
-    add_new_local_edges_to_graph(m_graph, newGraphEdges);
-    add_new_local_edges_to_graph(m_coincidentGraph, coincidentGraphEdges);
 }
 
 void ElemElemGraph::add_vertex(impl::LocalId newElemLocalId, stk::mesh::Entity elem)
@@ -1314,119 +1361,120 @@ void ElemElemGraph::add_vertex(impl::LocalId newElemLocalId, stk::mesh::Entity e
     }
 }
 
-stk::mesh::EntityVector ElemElemGraph::filter_add_elements_arguments(const stk::mesh::EntityVector& allUnfilteredElementsNotAlreadyInGraph) const
+std::pair<stk::mesh::EntityVector,stk::mesh::EntityVector> ElemElemGraph::filter_add_elements_arguments(const stk::mesh::EntityVector& allUnfilteredElementsNotAlreadyInGraph) const
 {
-    stk::mesh::EntityVector allElementsNotAlreadyInGraph;
-    allElementsNotAlreadyInGraph.reserve(allUnfilteredElementsNotAlreadyInGraph.size());
-    for(stk::mesh::Entity element : allUnfilteredElementsNotAlreadyInGraph)
-    {
-        if(m_bulk_data.is_valid(element) && m_bulk_data.bucket(element).owned())
-        {
-            ThrowRequire(!is_valid_graph_element(element));
-            allElementsNotAlreadyInGraph.push_back(element);
-        }
+  stk::mesh::EntityVector allElementsNotAlreadyInGraph;
+  stk::mesh::EntityVector shellElementsNotAlreadyInGraph;
+  allElementsNotAlreadyInGraph.reserve(allUnfilteredElementsNotAlreadyInGraph.size());
+  for(stk::mesh::Entity element : allUnfilteredElementsNotAlreadyInGraph) {
+    if(m_bulk_data.is_valid(element) && m_bulk_data.bucket(element).owned()) {
+      STK_ThrowRequire(!is_valid_graph_element(element));
+      allElementsNotAlreadyInGraph.push_back(element);
+      if (m_bulk_data.bucket(element).topology().is_shell()) {
+        shellElementsNotAlreadyInGraph.push_back(element);
+      }
     }
-    return allElementsNotAlreadyInGraph;
+  }
+  return std::make_pair(allElementsNotAlreadyInGraph,shellElementsNotAlreadyInGraph);
 }
 
 void ElemElemGraph::add_elements_locally(const stk::mesh::EntityVector& allElementsNotAlreadyInGraph)
 {
     m_idMapper.make_space_for_new_elements(allElementsNotAlreadyInGraph);
-    stk::mesh::EntityVector scratchEntityVector;
     stk::mesh::EntityVector side_nodes;
     impl::SerialElementDataVector connectedElementDataVector;
+    const bool only_consider_upper_symmetry = false;
     for(stk::mesh::Entity newElem : allElementsNotAlreadyInGraph)
     {
         impl::LocalId newElemLocalId = get_new_local_element_id_from_pool();
         add_vertex(newElemLocalId, newElem);
-        add_local_edges(newElem, newElemLocalId, scratchEntityVector, side_nodes, connectedElementDataVector);
+        add_local_graph_edges_for_elem(m_bulk_data.mesh_index(newElem), newElemLocalId, m_newGraphEdges, m_coincidentGraphEdges, side_nodes, connectedElementDataVector, only_consider_upper_symmetry);
+        GraphEdgeAdder graphEdgeAdder(m_edgesToAdd);
+        add_new_local_edges_to_graph(graphEdgeAdder, m_newGraphEdges);
+        add_new_local_edges_to_graph(m_coincidentGraph, m_coincidentGraphEdges);
     }
 }
 
 void ElemElemGraph::add_elements(const stk::mesh::EntityVector &allUnfilteredElementsNotAlreadyInGraph)
 {
-    stk::mesh::EntityVector allElementsNotAlreadyInGraph = filter_add_elements_arguments(allUnfilteredElementsNotAlreadyInGraph);
+  stk::mesh::EntityVector allElementsNotAlreadyInGraph;
+  stk::mesh::EntityVector addedShellsVector;
+  std::tie(allElementsNotAlreadyInGraph,addedShellsVector) = filter_add_elements_arguments(allUnfilteredElementsNotAlreadyInGraph);
 
-    const size_t numEdgesBefore = num_edges();
-    add_elements_locally(allElementsNotAlreadyInGraph);
-    size_t numNewSideIdsNeeded = num_edges() - numEdgesBefore;
-    numNewSideIdsNeeded += get_max_num_sides_per_element() * allUnfilteredElementsNotAlreadyInGraph.size();
+  add_elements_locally(allElementsNotAlreadyInGraph);
 
-    impl::ElemSideToProcAndFaceId elem_side_comm = impl::gather_element_side_ids_to_send(m_bulk_data);
+  impl::ElemSideProcVector only_added_elements = impl::build_element_side_ids_to_proc_map(m_bulk_data, allElementsNotAlreadyInGraph);
+  std::sort(allElementsNotAlreadyInGraph.begin(), allElementsNotAlreadyInGraph.end());
 
-    stk::mesh::EntityVector allElementsNotAlreadyInGraph_copy = allElementsNotAlreadyInGraph;
-    std::sort(allElementsNotAlreadyInGraph_copy.begin(), allElementsNotAlreadyInGraph_copy.end());
+  std::vector<int> sharingProcs;
+  stk::mesh::EntityVector elemNodes;
+  for(stk::mesh::Entity addedShell : addedShellsVector) {
+    elemNodes.assign(m_bulk_data.begin_nodes(addedShell), m_bulk_data.end_nodes(addedShell));
+    m_bulk_data.shared_procs_intersection(elemNodes, sharingProcs);
 
-    std::set< stk::mesh::Entity > addedShells;
-    impl::ElemSideToProcAndFaceId only_added_elements;
-    for(impl::ElemSideToProcAndFaceId::value_type &elemSideToProcAndFaceId : elem_side_comm)
-    {
-        stk::mesh::Entity element = elemSideToProcAndFaceId.first.entity;
-        unsigned side = elemSideToProcAndFaceId.first.side_id;
+    if (!sharingProcs.empty()) {
+      stk::mesh::EntityVector solidElems = impl::gather_solid_elements_connected_to_shell(m_bulk_data, addedShell); 
 
-        stk::mesh::EntityVector::iterator elem_iter = std::lower_bound(allElementsNotAlreadyInGraph_copy.begin(), allElementsNotAlreadyInGraph_copy.end(), element);
-        if(elem_iter!=allElementsNotAlreadyInGraph_copy.end() && *elem_iter==element)
-        {
-            only_added_elements.insert(elemSideToProcAndFaceId);
-            if (m_bulk_data.bucket(element).topology().is_shell())
-            {
-                addedShells.insert(element);
-            }
-        } else {
-          stk::mesh::EntityVector connectedShells = impl::gather_shells_connected_to_solid_element_on_given_side(m_bulk_data, element, side);
-
-          bool shouldAddThisElementSide = false;
-          for(stk::mesh::Entity connectedShell : connectedShells) {
-            stk::mesh::EntityVector::iterator shell_iter = std::lower_bound(allElementsNotAlreadyInGraph_copy.begin(), allElementsNotAlreadyInGraph_copy.end(), connectedShell);
-            if(shell_iter!=allElementsNotAlreadyInGraph_copy.end() && *shell_iter==connectedShell)
-            {
-              shouldAddThisElementSide = true;
-              break;
-            }
-          }
-
-          if(shouldAddThisElementSide) {
-            only_added_elements.insert(elemSideToProcAndFaceId);
+      for(stk::mesh::Entity elem : solidElems) {
+        stk::mesh::EntityVector::iterator elem_iter = std::lower_bound(allElementsNotAlreadyInGraph.begin(), allElementsNotAlreadyInGraph.end(), elem);
+        if (elem_iter == allElementsNotAlreadyInGraph.end()) {
+          unsigned side = stk::mesh::get_ordinal_and_permutation(m_bulk_data, elem, m_bulk_data.mesh_meta_data().side_rank(), elemNodes).first;
+          for(int p : sharingProcs) {
+            only_added_elements.push_back(impl::ElemSideProc(elem, side, p));
           }
         }
+      }
+    }
+  }
+
+  std::sort(only_added_elements.begin(), only_added_elements.end());
+
+  bool anyShellsExist = m_any_shell_elements_exist;
+  if (m_bulk_data.parallel_size() > 1) {
+    anyShellsExist = stk::is_true_on_any_proc(m_bulk_data.parallel(), m_any_shell_elements_exist);
+  }
+
+  impl::ParallelElementDataVector elementSidesReceived;
+  communicate_shared_sides(only_added_elements, elementSidesReceived);
+  fill_parallel_graph(only_added_elements, elementSidesReceived);
+
+  stk::util::sort_and_unique(m_edgesToAdd, GraphEdgeLessByElem1());
+  m_graph.add_sorted_edges(m_edgesToAdd);
+
+  {
+    std::vector<GraphEdge> emptyAdd;
+    m_edgesToAdd.swap(emptyAdd);
+  }
+
+  if (anyShellsExist) {
+    std::sort(addedShellsVector.begin(), addedShellsVector.end());
+    STK_ThrowRequire(m_edgesToDelete.empty());
+    GraphInfo graphInfo(m_graph, m_parallelInfoForGraphEdges, m_element_topologies);
+    remove_graph_edges_blocked_by_shell(graphInfo);
+
+    stk::CommSparse comm(m_bulk_data.parallel());
+    for (int phase = 0; phase < 2; ++phase) {
+      pack_remote_edge_across_shell(comm, addedShellsVector, phase);
+      if (0 == phase) {
+          comm.allocate_buffers();
+      }
+      if (1 == phase) {
+          comm.communicate();
+      }
     }
 
-    SideNodeToReceivedElementDataMap elementSidesReceived = communicate_shared_sides(only_added_elements);
-    fill_parallel_graph(only_added_elements, elementSidesReceived);
+    unpack_remote_edge_across_shell(comm);
+  }
 
-    bool anyShellsExist = m_any_shell_elements_exist;
-    if (m_bulk_data.parallel_size() > 1) {
-      anyShellsExist = stk::is_true_on_any_proc(m_bulk_data.parallel(), m_any_shell_elements_exist);
-    }
+  stk::util::sort_and_unique(m_edgesToDelete, GraphEdgeLessByElem1());
+  m_graph.delete_sorted_edges(m_edgesToDelete);
 
-    if (anyShellsExist) {
-        stk::mesh::EntityVector addedShellsVector;
-        GraphInfo graphInfo(m_graph, m_parallelInfoForGraphEdges, m_element_topologies);
-        remove_graph_edges_blocked_by_shell(graphInfo);
+  {
+    std::vector<GraphEdge> emptyDelete;
+    m_edgesToDelete.swap(emptyDelete);
+  }
 
-        for (auto &shell : addedShells)
-        {
-            addedShellsVector.push_back(shell);
-        }
-
-        stk::CommSparse comm(m_bulk_data.parallel());
-        for (int phase = 0; phase < 2; ++phase)
-        {
-            pack_remote_edge_across_shell(comm, addedShellsVector, phase);
-            if (0 == phase)
-            {
-                comm.allocate_buffers();
-            }
-            if (1 == phase)
-            {
-                comm.communicate();
-            }
-        }
-
-        unpack_remote_edge_across_shell(comm);
-    }
-
-    m_modCycleWhenGraphModified = m_bulk_data.synchronized_count();
+  m_modCycleWhenGraphModified = m_bulk_data.synchronized_count();
 }
 
 void ElemElemGraph::break_remote_shell_connectivity_and_pack(stk::CommSparse &comm, impl::LocalId leftId, impl::LocalId rightId, int phase)
@@ -1442,7 +1490,7 @@ void ElemElemGraph::break_remote_shell_connectivity_and_pack(stk::CommSparse &co
             int sharingProc = get_owning_proc_id_of_remote_element(localElem, index);
             if (phase == 1)
             {
-                m_graph.delete_edge_from_graph(leftId, index);
+                m_edgesToDelete.push_back(graphEdge);
             }
             else
             {
@@ -1500,12 +1548,13 @@ void ElemElemGraph::pack_remote_edge_across_shell(stk::CommSparse &comm, stk::me
         for(size_t i=0; i<numConnected; i++)
         {
             const GraphEdge & graphEdge = m_graph.get_edge_for_element(shellId, i);
-            if (leftId == impl::INVALID_LOCAL_ID)
+            bool connectedElemIsShell = get_topology_of_connected_element(graphEdge).is_shell();
+            if (leftId == impl::INVALID_LOCAL_ID && !connectedElemIsShell)
             {
                 leftId = graphEdge.elem2();
                 continue;
             }
-            if (rightId == impl::INVALID_LOCAL_ID)
+            if (rightId == impl::INVALID_LOCAL_ID && !connectedElemIsShell)
             {
                 rightId = graphEdge.elem2();
                 continue;
@@ -1556,7 +1605,7 @@ void ElemElemGraph::unpack_remote_edge_across_shell(stk::CommSparse &comm)
                 const GraphEdge & graphEdge = m_graph.get_edge_for_element(localId, index);
                 if(graphEdge.elem2() == (-1 * static_cast<impl::LocalId>(remoteElemId)))
                 {
-                    delete_graph_edge(graphEdge);
+                    m_edgesToDelete.push_back(graphEdge);
                     break;
                 }
                 else
@@ -1583,7 +1632,7 @@ void add_shared_side_to_element(stk::mesh::BulkData& bulkData,
                                 std::vector<stk::mesh::sharing_info> &shared_modified)
 {
     int sideOrd = graphEdge.side1();
-    ThrowRequireWithSierraHelpMsg(sideOrd != -1);
+    STK_ThrowRequireWithSierraHelpMsg(sideOrd != -1);
 
     stk::mesh::Entity side = bulkData.declare_element_side(local_element,
                                                            sideOrd,
@@ -1675,16 +1724,9 @@ bool ElemElemGraph::is_valid_graph_edge(const GraphEdge &graphEdge) const
   return true;
 }
 
-void ElemElemGraph::delete_graph_edge(const GraphEdge &graphEdge)
-{
-  m_parallelInfoForGraphEdges.erase_parallel_info_for_graph_edge(graphEdge);
-  m_coincidentGraph.delete_edge(graphEdge);
-  m_graph.delete_edge(graphEdge);
-}
-
 namespace impl {
 
-impl::ElemSideToProcAndFaceId gather_element_side_ids_to_send(const stk::mesh::BulkData& bulkData)
+impl::ElemSideProcVector gather_element_side_ids_to_send(const stk::mesh::BulkData& bulkData)
 {
     stk::mesh::EntityVector elements_to_communicate;
     std::vector<bool> visitedElem(bulkData.get_size_of_entity_index_space(), false);
@@ -1699,11 +1741,11 @@ impl::ElemSideToProcAndFaceId gather_element_side_ids_to_send(const stk::mesh::B
             const unsigned num_elements = bulkData.num_elements(node);
             for(unsigned elemIdx=0; elemIdx<num_elements; ++elemIdx)
             {
-                if (!visitedElem[elements[elemIdx].local_offset()] &&
-                    bulkData.bucket(elements[elemIdx]).owned())
-                {
+                if (!visitedElem[elements[elemIdx].local_offset()]) {
                     visitedElem[elements[elemIdx].local_offset()] = true;
-                    elements_to_communicate.push_back(elements[elemIdx]);
+                    if (bulkData.bucket(elements[elemIdx]).owned()) {
+                        elements_to_communicate.push_back(elements[elemIdx]);
+                    }
                 }
             }
         }
@@ -1712,37 +1754,29 @@ impl::ElemSideToProcAndFaceId gather_element_side_ids_to_send(const stk::mesh::B
     return impl::build_element_side_ids_to_proc_map(bulkData, elements_to_communicate);
 }
 
-stk::mesh::EntityVector gather_shells_connected_to_solid_element_on_given_side(const stk::mesh::BulkData& bulkData, stk::mesh::Entity element, unsigned side)
+stk::mesh::EntityVector gather_solid_elements_connected_to_shell(const stk::mesh::BulkData& bulkData, stk::mesh::Entity shellElement)
 {
-  stk::mesh::EntityVector shellsConnectedToSolidElement;
+  stk::mesh::EntityVector solidElementsConnectedToShell;
 
-  if(bulkData.is_valid(element) && !bulkData.bucket(element).topology().is_shell()) {
+  stk::topology elemTopo = bulkData.bucket(shellElement).topology();
+  if(bulkData.is_valid(shellElement) && elemTopo.is_shell()) {
 
-    stk::mesh::EntityVector sideNodes;
-    fill_element_side_nodes_from_topology(bulkData, element, side, sideNodes);
-
+    const stk::mesh::Entity* elemNodes = bulkData.begin_nodes(shellElement);
     stk::mesh::EntityVector connectedElements;
-    find_entities_these_nodes_have_in_common(bulkData, stk::topology::ELEMENT_RANK, sideNodes.size(), sideNodes.data(), connectedElements);
+    find_entities_these_nodes_have_in_common_and(bulkData, stk::topology::ELEMENT_RANK, elemTopo.num_nodes(), elemNodes, connectedElements,
+      [&](const Entity& entity){
+        return !bulkData.bucket(entity).topology().is_shell();
+      }
+    );
 
     for (stk::mesh::Entity connectedElement : connectedElements) {
-      if (connectedElement != element && bulkData.bucket(connectedElement).owned() && bulkData.bucket(connectedElement).topology().is_shell()) {
-        shellsConnectedToSolidElement.push_back(connectedElement);
+      if (connectedElement != shellElement && bulkData.bucket(connectedElement).owned()) {
+        solidElementsConnectedToShell.push_back(connectedElement);
       }
     }
   }
 
-  return shellsConnectedToSolidElement;
-}
-
-void fill_suggested_side_ids(stk::mesh::BulkData &bulkData, impl::ElemSideToProcAndFaceId& elements_to_communicate)
-{
-    impl::ElemSideToProcAndFaceId::iterator iter = elements_to_communicate.begin();
-    impl::ElemSideToProcAndFaceId::const_iterator end = elements_to_communicate.end();
-    for(; iter != end; ++iter)
-    {   
-        stk::mesh::EntityId suggested_side_id = stk::mesh::impl::side_id_formula(bulkData.identifier(iter->first.entity), iter->first.side_id); 
-        iter->second.side_id = suggested_side_id;
-    }   
+  return solidElementsConnectedToShell;
 }
 
 }//namespace impl

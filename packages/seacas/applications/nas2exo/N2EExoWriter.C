@@ -68,14 +68,7 @@ namespace ExoModules {
     return true;
   }
 
-  void N2EExoWriter::setModelTitle(const std::string &title)
-  {
-    std::string tmp = title;
-    if (title.length() >= MAX_LINE_LENGTH - 1) {
-      tmp = title.substr(0, MAX_LINE_LENGTH - 1);
-    }
-    strncat(this->modelTitle, tmp.c_str(), MAX_LINE_LENGTH - 1);
-  }
+  void N2EExoWriter::setModelTitle(const std::string &title) { this->modelTitle = title; }
 
   bool N2EExoWriter::writeFile()
   {
@@ -138,9 +131,10 @@ namespace ExoModules {
   {
     bool result{true};
 
-    int ret = ex_put_init(this->exoFileID, this->modelTitle, 3 /* 3D models only*/,
-                          this->gridList.size(), this->elementList.size(), this->sections.size(), 0,
-                          0); // Make your fancy pants nodes and side sets elsewherem, laddy.
+    auto tmp = this->modelTitle.substr(0, MAX_LINE_LENGTH - 1);
+    int  ret = ex_put_init(this->exoFileID, tmp.c_str(), 3 /* 3D models only*/,
+                           this->gridList.size(), this->elementList.size(), this->sections.size(), 0,
+                           0); // Make your fancy pants nodes and side sets elsewherem, laddy.
 
     if (ret != 0) {
       std::cerr << "Problem initializing model params in N2EExoWriter::writeFile(). punching out\n";
@@ -160,18 +154,18 @@ namespace ExoModules {
     for (const sectionType &sect : this->sections) {
 
       std::vector<elementType> thisBlock;
-      int64_t                  block = (int)std::get<0>(sect);
+      auto                     block = std::get<0>(sect);
 
       int retvalue{0};
 
       for (const elementType &elem : this->elementList) {
 
-        if ((int)std::get<1>(elem) == block) {
+        if (std::get<1>(elem) == block) {
           thisBlock.emplace_back(elem);
         }
       }
 
-      int64_t nodes_per_elem = (int)std::get<2>(thisBlock[0]);
+      auto nodes_per_elem = std::get<2>(thisBlock[0]);
 
       int n = nodes_per_elem == 4 ? 0 : 1;
 

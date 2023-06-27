@@ -1,10 +1,9 @@
-// Copyright(C) 2021 National Technology & Engineering Solutions
+// Copyright(C) 2021, 2022 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
 // See packages/seacas/LICENSE for details
-#ifndef ZE_UnitCell_H
-#define ZE_UnitCell_H
+#pragma once
 
 #include <array>
 #include <map>
@@ -43,7 +42,7 @@ struct GeneratedSideBlock
 class UnitCell
 {
 public:
-  UnitCell(std::shared_ptr<Ioss::Region> region);
+  explicit UnitCell(std::shared_ptr<Ioss::Region> region);
   UnitCell(const UnitCell &) = delete;
 
   //! Create a vector of `node_count` length which has the following values:
@@ -102,4 +101,3 @@ public:
 };
 
 using UnitCellMap = std::map<std::string, std::shared_ptr<UnitCell>>;
-#endif

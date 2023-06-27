@@ -116,11 +116,11 @@ TEUCHOS_UNIT_TEST(IMEX_RK, ConstructingFromDefaults)
   RCP<Thyra::VectorBase<double> > x = integrator->getX();
 
   // Check the order and intercept
-  std::cout << "  Stepper = " << stepper->description() << std::endl;
-  std::cout << "  =========================" << std::endl;
-  std::cout << "  Computed solution: " << get_ele(*(x      ), 0) << "   "
-                                       << get_ele(*(x      ), 1) << std::endl;
-  std::cout << "  =========================" << std::endl;
+  out << "  Stepper = " << stepper->description() << std::endl;
+  out << "  =========================" << std::endl;
+  out << "  Computed solution: " << get_ele(*(x      ), 0) << "   "
+                                 << get_ele(*(x      ), 1) << std::endl;
+  out << "  =========================" << std::endl;
   TEST_FLOATING_EQUALITY(get_ele(*(x), 0),  1.810210, 1.0e-4 );
   TEST_FLOATING_EQUALITY(get_ele(*(x), 1), -0.754602, 1.0e-4 );
 }
@@ -259,6 +259,10 @@ TEUCHOS_UNIT_TEST(IMEX_RK, VanDerPol)
     double xDotSlope = 0.0;
     RCP<Tempus::Stepper<double> > stepper = integrator->getStepper();
     //double order = stepper->getOrder();
+
+    // xDot not yet available for IMEX-RK methods, e.g., are not calc. and zero.
+    solutionsDot.clear();
+
     writeOrderError("Tempus_"+stepperName+"_VanDerPol-Error.dat",
                     stepper, StepSize,
                     solutions,    xErrorNorm,    xSlope,
@@ -266,7 +270,6 @@ TEUCHOS_UNIT_TEST(IMEX_RK, VanDerPol)
 
     TEST_FLOATING_EQUALITY( xSlope,        stepperOrders[m],   0.02 );
     TEST_FLOATING_EQUALITY( xErrorNorm[0], stepperErrors[m], 1.0e-4 );
-    // xDot not yet available for IMEX_RK.
     //TEST_FLOATING_EQUALITY( xDotSlope,        1.74898, 0.10 );
     //TEST_FLOATING_EQUALITY( xDotErrorNorm[0],  1.0038, 1.0e-4 );
 

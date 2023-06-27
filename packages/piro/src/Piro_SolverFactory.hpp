@@ -67,7 +67,6 @@ public:
    *  Currently, the following solver types are available (each accompanied by the corresponding token value):
    *  - Piro::NOXSolver (<tt>"NOX"</tt>)
    *  - Piro::LOCASolver (<tt>"LOCA"</tt>)
-   *  - Piro::RythmosSolver (<tt>"Rythmos"</tt>)
    *  - Piro::VelocityVerletSolver (<tt>"Velocity Verlet"</tt>)
    *  - Piro::TrapezoidRuleSolver (<tt>"Trapezoid Rule"</tt>)
    *  - Piro::TempusSolver (<tt>"Tempus"</tt>)
@@ -75,16 +74,18 @@ public:
    *  For Epetra-based models, additional options are available in Piro::Epetra::SolverFactory.
    */
   template <typename Scalar>
-  Teuchos::RCP<Thyra::ResponseOnlyModelEvaluatorBase<Scalar> > createSolver(
+  Teuchos::RCP<Thyra::ResponseOnlyModelEvaluatorBase<Scalar> > createSolverAdaptive(
       const Teuchos::RCP<Teuchos::ParameterList> &piroParams,
       const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > &model,
-      const Teuchos::RCP<Thyra::AdaptiveSolutionManager> &solMgr,
+      const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > &adjointModel = Teuchos::null,
+      const Teuchos::RCP<Thyra::AdaptiveSolutionManager> &solMgr = Teuchos::null,
       const Teuchos::RCP<Piro::ObserverBase<Scalar> > &observer = Teuchos::null);
 
   template <typename Scalar>
   Teuchos::RCP<Thyra::ResponseOnlyModelEvaluatorBase<Scalar> > createSolver(
       const Teuchos::RCP<Teuchos::ParameterList> &piroParams,
       const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > &model,
+      const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > &adjointModel = Teuchos::null,
       const Teuchos::RCP<Piro::ObserverBase<Scalar> > &observer = Teuchos::null);
 
 };

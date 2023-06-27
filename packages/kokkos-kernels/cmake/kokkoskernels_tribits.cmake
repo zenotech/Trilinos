@@ -23,7 +23,7 @@ MACRO(KOKKOSKERNELS_PACKAGE_POSTPROCESS)
          INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/KokkosKernels)
     write_basic_package_version_file("${KokkosKernels_BINARY_DIR}/KokkosKernelsConfigVersion.cmake"
             VERSION "${KokkosKernels_VERSION_MAJOR}.${KokkosKernels_VERSION_MINOR}.${KokkosKernels_VERSION_PATCH}"
-            COMPATIBILITY SameMajorVersion)
+            COMPATIBILITY AnyNewerVersion)
 
     INSTALL(FILES
       "${KokkosKernels_BINARY_DIR}/KokkosKernelsConfig.cmake"
@@ -152,6 +152,11 @@ IF (IS_ENABLED)
       TESTONLYLIBS ${PARSE_TESTONLYLIBS})
   ELSE()
     ADD_EXECUTABLE(${EXE_NAME} ${PARSE_SOURCES})
+    #AJP, BMK altered:
+    IF(KOKKOSKERNELS_ENABLE_TESTS_AND_PERFSUITE)
+      TARGET_LINK_LIBRARIES(${EXE_NAME} PRIVATE common ${PARSE_TESTONLYLIBS})
+    ENDIF()
+
     IF (PARSE_TESTONLYLIBS)
       TARGET_LINK_LIBRARIES(${EXE_NAME} PRIVATE Kokkos::kokkoskernels ${PARSE_TESTONLYLIBS})
     ELSE ()

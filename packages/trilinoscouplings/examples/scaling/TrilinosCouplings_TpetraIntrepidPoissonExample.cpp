@@ -30,6 +30,7 @@
 
 
 #include <limits>
+#include <set>
 
 // TrilinosCouplings includes
 #include <TrilinosCouplings_config.h>
@@ -56,7 +57,7 @@
 #include <pamgen_extras.h>
 #include "RTC_FunctionRTC.hh"
 
-#ifdef HAVE_INTREPID_KOKKOSCORE
+#ifdef HAVE_INTREPID_KOKKOS
 #include "Sacado.hpp"
 #else
 // Sacado includes
@@ -735,6 +736,8 @@ makeMatrixAndRightHandSide (Teuchos::RCP<sparse_matrix_type>& A,
   /********************* BUILD MAPS FOR GLOBAL SOLUTION *****************************/
   /**********************************************************************************/
 
+  Tpetra::global_size_t GST_INVALID = Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid();
+
   *out << "Building Maps" << endl;
 
   Array<GO> ownedGIDs;
@@ -760,7 +763,7 @@ makeMatrixAndRightHandSide (Teuchos::RCP<sparse_matrix_type>& A,
         ++oidx;
       }
     }
-    globalMapG = rcp (new map_type (-1, ownedGIDs (), 0, comm));
+    globalMapG = rcp (new map_type (GST_INVALID, ownedGIDs (), 0, comm));
   }
 
   /**********************************************************************************/
@@ -781,7 +784,7 @@ makeMatrixAndRightHandSide (Teuchos::RCP<sparse_matrix_type>& A,
     }
 
     //Generate overlapped Map for nodes.
-    overlappedMapG = rcp (new map_type (-1, overlappedGIDs (), 0, comm));
+    overlappedMapG = rcp (new map_type (GST_INVALID, overlappedGIDs (), 0, comm));
 
     // Build Tpetra Export from overlapped to owned Map.
     exporter = rcp (new export_type (overlappedMapG, globalMapG));
@@ -1361,7 +1364,7 @@ makeMatrixAndRightHandSide (Teuchos::RCP<sparse_matrix_type>& A,
     // Zero the columns corresponding to Dirichlet BCs.
     typename sparse_matrix_type::nonconst_local_inds_host_view_type indices("indices", 1);
     typename sparse_matrix_type::nonconst_values_host_view_type values("values", 1);
-    for (LO i = 0; i < as<int> (gl_StiffMatrix->getNodeNumRows ()); ++i) {
+    for (LO i = 0; i < as<int> (gl_StiffMatrix->getLocalNumRows ()); ++i) {
       NumEntries = gl_StiffMatrix->getNumEntriesInLocalRow (i);
       Kokkos::resize(indices, NumEntries);
       Kokkos::resize(values, NumEntries);
@@ -1457,8 +1460,6 @@ exactSolution (const Scalar& x, const Scalar& y, const Scalar& z)
 }
 
 
-using ::TrilinosCouplings::IntrepidPoissonExample::getMaterialTensorOffDiagonalValue;
-
 /** \brief  User-defined material tensor.
 
     Evaluate the tensor using operator().  Its arguments are:
@@ -1473,9 +1474,16 @@ using ::TrilinosCouplings::IntrepidPoissonExample::getMaterialTensorOffDiagonalV
 template<typename Scalar>
 class MaterialTensor {
 public:
-  MaterialTensor (const double offDiagVal) :
-    offDiagVal_ (Scalar (offDiagVal))
-  {}
+  // Default Construction
+  MaterialTensor():offDiagVal_(Scalar(0.0)),v_() {
+
+    if(::TrilinosCouplings::IntrepidPoissonExample::useDiffusionMatrix()) {
+      v_ = ::TrilinosCouplings::IntrepidPoissonExample::getDiffusionMatrix();
+    }
+    else {
+      offDiagVal_ = Scalar (::TrilinosCouplings::IntrepidPoissonExample::getMaterialTensorOffDiagonalValue());
+    }
+  }
 
   void
   operator () (Scalar material[][3],
@@ -1485,46 +1493,55 @@ public:
   {
     typedef Teuchos::ScalarTraits<Scalar> STS;
 
-    // We go through this trouble to make numbers, because Scalar
-    // isn't necessarily double.  It could be some automatic
-    // differentiation type.
-    const Scalar zero = STS::zero ();
-    const Scalar one = STS::one ();
-
-    // You can use the value of offDiagVal_ to control the iteration
-    // count.  The iteration counts below are for Belos' GMRES with no
-    // preconditioning, using the default problem size.
-    // setMaterialTensorOffDiagonalValue() sets the value of this
-    // parameter.
-    //
-    // Classical elasticity assumes a symmetric material tensor.  I
-    // suppose one could solve Poisson's equation with an unsymmetric
-    // material tensor, but I'm not sure what that would mean.
-
-    // offDiagVal_ = -5/4: 209 iterations (CG breaks!)
-    // offDiagVal_ = -1/2: 47 iterations
-    // offDiagVal_ = 0: 40 iterations (CG works)
-    // offDiagVal_ = 1/2: 46 iterations
-    // offDiagVal_ = 3/4: 47 iterations
-    // offDiagVal_ = 1: 59 iterations
-    // offDiagVal_ = 5/4: 183 iterations
-    // offDiagVal_ = 3/2: 491 iterations
-    // offDiagVal_ = 2: 939 iterations (CG breaks!)
-    material[0][0] = one;
-    material[0][1] = zero;
-    material[0][2] = offDiagVal_;
-
-    material[1][0] = zero;
-    material[1][1] = one;
-    material[1][2] = zero;
-
-    material[2][0] = offDiagVal_;
-    material[2][1] = zero;
-    material[2][2] = one;
+    if(v_.size() == 0) {
+      // We go through this trouble to make numbers, because Scalar
+      // isn't necessarily double.  It could be some automatic
+      // differentiation type.
+      const Scalar zero = STS::zero ();
+      const Scalar one = STS::one ();
+      
+      // You can use the value of offDiagVal_ to control the iteration
+      // count.  The iteration counts below are for Belos' GMRES with no
+      // preconditioning, using the default problem size.
+      // setMaterialTensorOffDiagonalValue() sets the value of this
+      // parameter.
+      //
+      // Classical elasticity assumes a symmetric material tensor.  I
+      // suppose one could solve Poisson's equation with an unsymmetric
+      // material tensor, but I'm not sure what that would mean.
+      
+      // offDiagVal_ = -5/4: 209 iterations (CG breaks!)
+      // offDiagVal_ = -1/2: 47 iterations
+      // offDiagVal_ = 0: 40 iterations (CG works)
+      // offDiagVal_ = 1/2: 46 iterations
+      // offDiagVal_ = 3/4: 47 iterations
+      // offDiagVal_ = 1: 59 iterations
+      // offDiagVal_ = 5/4: 183 iterations
+      // offDiagVal_ = 3/2: 491 iterations
+      // offDiagVal_ = 2: 939 iterations (CG breaks!)
+      material[0][0] = one;
+      material[0][1] = zero;
+      material[0][2] = offDiagVal_;
+      
+      material[1][0] = zero;
+      material[1][1] = one;
+      material[1][2] = zero;
+      
+      material[2][0] = offDiagVal_;
+      material[2][1] = zero;
+      material[2][2] = one;
+    }
+    else {
+      // Use the user tensor
+      for(int i=0; i<3; i++)
+        for(int j=0; j<3; j++)
+          material[i][j] = v_[i*3+j];
+    }
   }
 
 private:
-  const Scalar offDiagVal_;
+  Scalar offDiagVal_;
+  std::vector<double> v_;
 };
 
 /**********************************************************************************/
@@ -1588,7 +1605,7 @@ sourceTerm (Scalar& x, Scalar& y, Scalar& z)
   exactSolutionGrad (grad_u, x, y, z);
 
   // Get material tensor
-  MaterialTensor<Scalar> matTens (getMaterialTensorOffDiagonalValue ());
+  MaterialTensor<Scalar> matTens;
   matTens (material, x, y, z);
 
   // Compute total flux = (A.grad u)
@@ -1623,7 +1640,7 @@ evaluateMaterialTensor (ArrayOut&      matTensorValues,
 
   scalar_type material[3][3];
 
-  MaterialTensor<scalar_type> matTens (getMaterialTensorOffDiagonalValue ());
+  MaterialTensor<scalar_type> matTens;
   for (int cell = 0; cell < numWorksetCells; ++cell) {
     for (int pt = 0; pt < numPoints; ++pt) {
       scalar_type x = evaluationPoints(cell, pt, 0);

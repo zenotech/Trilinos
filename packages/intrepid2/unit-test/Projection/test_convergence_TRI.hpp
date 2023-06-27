@@ -71,6 +71,7 @@
 #include "Intrepid2_PointTools.hpp"
 #include "Intrepid2_CellTools.hpp"
 #include "Intrepid2_FunctionSpaceTools.hpp"
+#include "struct_mesh_utils.hpp"
 
 #define Intrepid2_Experimental
 
@@ -117,10 +118,10 @@ int ConvergenceTri(const bool verbose) {
   oldFormatState.copyfmt(std::cout);
 
   using ExecSpaceType = typename DeviceType::execution_space;
-  using HostSpaceType = typename Kokkos::Impl::is_space<DeviceType>::host_mirror_space::execution_space;
+  using HostSpaceType = Kokkos::DefaultHostExecutionSpace;
 
-  *outStream << "DeviceSpace::  ";   ExecSpaceType::print_configuration(*outStream, false);
-  *outStream << "HostSpace::    ";   HostSpaceType::print_configuration(*outStream, false);
+  *outStream << "DeviceSpace::  ";   ExecSpaceType().print_configuration(*outStream, false);
+  *outStream << "HostSpace::    ";   HostSpaceType().print_configuration(*outStream, false);
   *outStream << "\n";
 
   int errorFlag = 0;
@@ -255,80 +256,12 @@ int ConvergenceTri(const bool verbose) {
 
     // *********************************** GENERATE MESH ************************************
 
-    *outStream << "Generating mesh ... \n\n";
-
-    *outStream << "    NX" << "   NY\n";
-    *outStream << std::setw(5) << NX <<
-        std::setw(5) << NY << "\n\n";
-
-    // Print mesh information
-    int numElems = NX*NY*2;
-    int numNodes = (NX+1)*(NY+1);
-    *outStream << " Number of Elements: " << numElems << " \n";
-    *outStream << "    Number of Nodes: " << numNodes << " \n";
-
-    // Cube
-    double leftX = -1.0, rightX = 1.0;
-    double leftY = -1.0, rightY = 1.0;
-    // Mesh spacing
-    double hx = (rightX-leftX)/((double)NX);
-    double hy = (rightY-leftY)/((double)NY);
-
-    // Get nodal coordinates
-    DynRankView ConstructWithLabel(nodeCoord, numNodes, dim);
-    auto hNodeCoord = Kokkos::create_mirror_view(nodeCoord);
-    int inode = 0;
-    for (int j=0; j<NY+1; j++) {
-      for (int i=0; i<NX+1; i++) {
-        hNodeCoord(inode,0) = leftX + (double)i*hx;
-        hNodeCoord(inode,1) = leftY + (double)j*hy;
-        inode++;
-      }
-    }
-
-    // Perturb mesh coordinates (only interior nodes)
-    if (randomMesh){
-      for (int j=1; j<NY; j++) {
-        for (int i=1; i<NX; i++) {
-          int inode = i + j * (NX + 1);
-          // random numbers between -1.0 and 1.0
-          double rx = 2.0 * (double)rand()/RAND_MAX - 1.0;
-          double ry = 2.0 * (double)rand()/RAND_MAX - 1.0;
-          // limit variation to 1/4 edge length
-          hNodeCoord(inode,0) = hNodeCoord(inode,0) + 0.125 * hx * rx;
-          hNodeCoord(inode,1) = hNodeCoord(inode,1) + 0.125 * hy * ry;
-        }
-      }
-    }
-    deep_copy(nodeCoord,hNodeCoord);
-
-    // Element to Node map
-    DynRankViewInt ConstructWithLabel(elemNodes, numElems, numNodesPerElem);
-    auto hElemNodes = Kokkos::create_mirror_view(elemNodes);
-    int ielem = 0;
-
-    for (int j=0; j<NY; j++) {
-      for (int i=0; i<NX; i++) {
-        auto v0 = (NX + 1)*j + i;
-        auto v1 = (NX + 1)*j + i + 1;
-        auto v2 = (NX + 1)*(j + 1) + i + 1;
-        auto v3 = (NX + 1)*(j + 1) + i;
-
-        hElemNodes(ielem,0) = v0;
-        hElemNodes(ielem,1) = v1;
-        hElemNodes(ielem,2) = v3;
-        ielem++;
-
-        hElemNodes(ielem,0) = v1;
-        hElemNodes(ielem,1) = v2;
-        hElemNodes(ielem,2) = v3;
-        ielem++;
-      }
-    }
-    deep_copy(elemNodes,hElemNodes);
-
+    DynRankView nodeCoord;
+    DynRankViewInt elemNodes;
+    createStructMesh(nodeCoord, elemNodes, cellTopo, NX, NY, -1, randomMesh, *outStream);
 
     //computing vertices coords
+    ordinal_type numElems = elemNodes.extent(0);
     DynRankView ConstructWithLabel(physVertexes, numElems, numNodesPerElem, dim);
     Kokkos::parallel_for(Kokkos::RangePolicy<ExecSpaceType>(0,numElems),
     KOKKOS_LAMBDA (const int &i) {
@@ -389,7 +322,6 @@ int ConvergenceTri(const bool verbose) {
           DynRankView ConstructWithLabel(linearBasisValuesAtRefCoords, numNodesPerElem, numRefCoords);
           linearBasis.getValues(linearBasisValuesAtRefCoords, refPoints);
           ExecSpaceType().fence();
-          DynRankView ConstructWithLabel(physVertexes, numElems, numNodesPerElem, dim);
           Kokkos::parallel_for(Kokkos::RangePolicy<ExecSpaceType>(0,numElems),
           KOKKOS_LAMBDA (const int &i) {
             for(ordinal_type d=0; d<dim; ++d)
@@ -625,7 +557,7 @@ int ConvergenceTri(const bool verbose) {
       std::vector<basisType*> basis_set;
       basis_set.push_back(new typename  CG_NBasis::HCURL_TRI(basisDegree));
       basis_set.push_back(new typename  CG_DNBasis::HCURL_TRI(basisDegree));
-      //basis_set.push_back(new typename  CG_HBasis::HCURL_TRI(basisDegree));
+      basis_set.push_back(new typename  CG_HBasis::HCURL_TRI(basisDegree));
 
       for (auto basisPtr:basis_set) {
         auto& basis = *basisPtr;
@@ -883,7 +815,7 @@ int ConvergenceTri(const bool verbose) {
       std::vector<basisType*> basis_set;
       basis_set.push_back(new typename  CG_NBasis::HDIV_TRI(basisDegree));
       basis_set.push_back(new typename  CG_DNBasis::HDIV_TRI(basisDegree));
-      //basis_set.push_back(new typename  CG_HBasis::HDIV_TRI(basisDegree));
+      basis_set.push_back(new typename  CG_HBasis::HDIV_TRI(basisDegree));
 
       for (auto basisPtr:basis_set) {
         auto& basis = *basisPtr;
@@ -1145,7 +1077,7 @@ int ConvergenceTri(const bool verbose) {
       std::vector<basisType*> basis_set;
       basis_set.push_back(new typename  CG_NBasis::HVOL_TRI(basisDegree-1));
       basis_set.push_back(new typename  CG_DNBasis::HVOL_TRI(basisDegree-1));
-      //basis_set.push_back(new typename  CG_HBasis::HVOL_TRI(basisDegree-1));
+      basis_set.push_back(new typename  CG_HBasis::HVOL_TRI(basisDegree-1));
 
       for (auto basisPtr:basis_set) {
         auto& basis = *basisPtr;

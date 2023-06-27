@@ -51,7 +51,7 @@ SET(SOURCES "")
 # Core headers
 #
 
-INCLUDE_DIRECTORIES(${${PACKAGE_NAME}_SOURCE_DIR})
+TRIBITS_INCLUDE_DIRECTORIES(${${PACKAGE_NAME}_SOURCE_DIR})
 
 FILE(GLOB HEADERS *.hpp *.h)
 #removing references to mpih which is not available in Trilinos
@@ -75,5 +75,5 @@ TRIBITS_ADD_LIBRARY(
 
 
 INSTALL(FILES ${HEADERS} DESTINATION
-    ${CMAKE_INSTALL_PREFIX}/${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_util/diag/)
+    ${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_util/diag/)
 

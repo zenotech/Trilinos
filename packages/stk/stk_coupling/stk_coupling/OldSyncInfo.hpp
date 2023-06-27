@@ -14,13 +14,16 @@
 #include <stk_util/parallel/Parallel.hpp>
 #include <stk_util/parallel/ParallelComm.hpp> // for CommBuffer
 #include <stk_coupling/Constants.hpp>
+#include <stk_util/stk_config.h>
 
+#ifndef STK_HIDE_DEPRECATED_CODE
 namespace stk
 {
 namespace coupling
 {
 
-class OldSyncInfo
+
+class STK_DEPRECATED OldSyncInfo
 {
 public:
   OldSyncInfo()
@@ -49,7 +52,7 @@ private:
   typename MapType::mapped_type get_value_from_map(const MapType& vals, const std::string& parameterName) const
   {
     typename MapType::const_iterator iter = vals.find(parameterName);
-    ThrowRequireMsg(iter != vals.end(), "OldSyncInfo::get_value didn't find parameterName " << parameterName);
+    STK_ThrowRequireMsg(iter != vals.end(), "OldSyncInfo::get_value didn't find parameterName " << parameterName);
     return iter->second;
   }
 
@@ -136,5 +139,7 @@ inline bool OldSyncInfo::has_value<std::string>(const std::string & parameterNam
 
 } // namespace coupling
 } // namespace stk
+
+#endif  /* STK_HIDE_DEPRECATED_CODE */
 
 #endif /* STK_COUPLING_OLDSYNCINFO_HPP */

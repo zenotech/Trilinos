@@ -51,7 +51,7 @@
 #include <Kokkos_UnorderedMap.hpp>
 #include <Kokkos_StaticCrsGraph.hpp>
 #include <KokkosSparse_CrsMatrix.hpp>
-#include <impl/Kokkos_Timer.hpp>
+#include <Kokkos_Timer.hpp>
 #include <Kokkos_ArithTraits.hpp>
 
 #include <Teuchos_CommHelpers.hpp>
@@ -63,7 +63,7 @@
 #include <BoxElemFixture.hpp>
 #include <fenl.hpp>
 #include <fenl_functors.hpp>
-#include <Kokkos_DefaultNode.hpp>
+#include <Tpetra_KokkosCompat_DefaultNode.hpp>
 
 #include <Tpetra_Vector.hpp>
 #include "Tpetra_MultiVector.hpp"
@@ -123,7 +123,7 @@ public:
 
   typedef typename Kokkos::Details::ArithTraits<Scalar>::mag_type  Magnitude;
 
-  typedef Kokkos::Compat::KokkosDeviceWrapperNode< Device >  NodeType;
+  typedef Tpetra::KokkosCompat::KokkosDeviceWrapperNode< Device >  NodeType;
 
   typedef Kokkos::View<     Scalar * , Kokkos::LayoutLeft, Device >  LocalVectorType ;
   typedef Kokkos::View<     Scalar** , Kokkos::LayoutLeft, Device >  LocalMultiVectorType ;
@@ -148,7 +148,7 @@ public:
 
   typedef Teuchos::RCP<const MapType>                        rcpMapType;
   typedef Teuchos::RCP<const Teuchos::Comm<int> >            rcpCommType ;
-  typedef Teuchos::RCP<Kokkos::Compat::KokkosDeviceWrapperNode<Device> > rcpNodeType ;
+  typedef Teuchos::RCP<Tpetra::KokkosCompat::KokkosDeviceWrapperNode<Device> > rcpNodeType ;
 
   typedef Tpetra::Import<
     typename GlobalVectorType::local_ordinal_type,
@@ -253,7 +253,7 @@ public:
     , g_nodal_residual( RowMap, 1 )
     , g_nodal_delta(    RowMap, 1 )
     , g_nodal_solution_no_overlap (g_nodal_solution, RowMap)
-    , g_jacobian( RowMap, ColMap, LocalMatrixType( "jacobian" , mesh_to_graph.graph ) )
+    , g_jacobian( RowMap, ColMap, LocalMatrixType( "jacobian" , mesh_to_graph.graph , maximum_entry(mesh_to_graph.graph) + 1 ) )
     , perf()
     , num_sensitivities(num_sens)
     {
@@ -261,7 +261,7 @@ public:
         throw std::runtime_error(std::string("Problem fixture setup failed"));
       }
 
-      print_flag = use_print && Kokkos::Impl::SpaceAccessibility< Kokkos::HostSpace::execution_space , typename Device::memory_space >::accessible ;
+      print_flag = use_print && Kokkos::SpaceAccessibility< Kokkos::HostSpace::execution_space , typename Device::memory_space >::accessible ;
 
       perf.global_elem_count  = fixture.elem_count_global();
       perf.global_node_count  = fixture.node_count_global();
@@ -356,8 +356,8 @@ public:
       typedef DirichletComputation< FixtureType , LocalMatrixType > DirichletComputationType ;
       typedef ResponseComputation< FixtureType , LocalVectorType > ResponseComputationType ;
 
-      Kokkos::Impl::Timer wall_clock ;
-      Kokkos::Impl::Timer newton_clock ;
+      Kokkos::Timer wall_clock ;
+      Kokkos::Timer newton_clock ;
       newton_clock.reset();
 
       LocalMatrixType jacobian = g_jacobian.getLocalMatrixDevice();
@@ -753,7 +753,7 @@ Perf fenl(
 
   //------------------------------------
 
-  Kokkos::Impl::Timer wall_clock ;
+  Kokkos::Timer wall_clock ;
 
   Perf perf_stats = Perf() ;
 

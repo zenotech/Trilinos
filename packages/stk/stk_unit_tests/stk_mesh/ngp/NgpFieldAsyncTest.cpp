@@ -42,7 +42,6 @@
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Bucket.hpp>
-#include <stk_mesh/base/CoordinateSystems.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/Entity.hpp>
 #include <stk_mesh/base/GetEntities.hpp>
@@ -65,21 +64,21 @@
 #define TEST_ONLY_ON_CUDA(testname) testname
 #endif
 
-class NgpAsyncDeepCopyFixture : public stk::unit_test_util::MeshFixture
+class NgpAsyncDeepCopyFixture : public stk::unit_test_util::simple_fields::MeshFixture
 {
 public:
   NgpAsyncDeepCopyFixture()
-  : m_numComponents(3),
-    m_bucketCapacity(5),
-    m_numBlocks(3),
-    m_numFields(m_numBlocks),
-    m_numStreams(3),
-    m_multiplier(5),
-    m_defaultLaunchBlockingEnvVarSet(false),
-    m_defaultLaunchBlockingEnvVarValue(0)
+    : m_numComponents(3),
+      m_bucketCapacity(5),
+      m_numBlocks(3),
+      m_numFields(m_numBlocks),
+      m_numStreams(3),
+      m_multiplier(5),
+      m_defaultLaunchBlockingEnvVarSet(false),
+      m_defaultLaunchBlockingEnvVarValue(0)
   {
     set_launch_blocking_env_var();
-    setup_empty_mesh(stk::mesh::BulkData::NO_AUTO_AURA, m_bucketCapacity);
+    setup_empty_mesh(stk::mesh::BulkData::NO_AUTO_AURA, m_bucketCapacity, m_bucketCapacity);
   }
 
   ~NgpAsyncDeepCopyFixture()
@@ -100,21 +99,23 @@ public:
 
   void setup_multi_block_mesh_with_field_per_block()
   {
-    std::string meshDesc = stk::unit_test_util::get_many_block_mesh_desc(m_numBlocks);
-    std::vector<double> coordinates = stk::unit_test_util::get_many_block_coordinates(m_numBlocks);
+    std::string meshDesc = stk::unit_test_util::simple_fields::get_many_block_mesh_desc(m_numBlocks);
+    std::vector<double> coordinates = stk::unit_test_util::simple_fields::get_many_block_coordinates(m_numBlocks);
 
     setup_field_per_block();
-    stk::unit_test_util::setup_text_mesh(get_bulk(), meshDesc, coordinates);
+    stk::unit_test_util::simple_fields::setup_text_mesh(
+          get_bulk(), stk::unit_test_util::simple_fields::get_full_text_mesh_desc(meshDesc, coordinates));
     construct_ngp_fields();
   }
 
   void setup_multi_block_mesh_with_fields_on_all_blocks()
   {
-    std::string meshDesc = stk::unit_test_util::get_many_block_mesh_desc(m_numBlocks);
-    std::vector<double> coordinates = stk::unit_test_util::get_many_block_coordinates(m_numBlocks);
+    std::string meshDesc = stk::unit_test_util::simple_fields::get_many_block_mesh_desc(m_numBlocks);
+    std::vector<double> coordinates = stk::unit_test_util::simple_fields::get_many_block_coordinates(m_numBlocks);
 
     setup_fields_on_all_blocks();
-    stk::unit_test_util::setup_text_mesh(get_bulk(), meshDesc, coordinates);
+    stk::unit_test_util::simple_fields::setup_text_mesh(
+          get_bulk(), stk::unit_test_util::simple_fields::get_full_text_mesh_desc(meshDesc, coordinates));
     construct_ngp_fields();
   }
 
@@ -139,7 +140,7 @@ public:
       get_meta().set_part_id(part, i);
       EXPECT_NE(&part, nullptr);
 
-      stk::mesh::Field<int>& field = get_meta().declare_field<stk::mesh::Field<int>>(stk::topology::ELEM_RANK, fieldName, numStates);
+      stk::mesh::Field<int>& field = get_meta().declare_field<int>(stk::topology::ELEM_RANK, fieldName, numStates);
       m_fields.push_back(&field);
       stk::mesh::put_field_on_mesh(field, part, m_numComponents, init.data());
     }
@@ -160,7 +161,7 @@ public:
 
       for(unsigned j = 1; j <= m_numFields; j++) {
         std::string fieldName = "field_on_all_blocks_" + std::to_string(j);
-        stk::mesh::Field<int>& field = get_meta().declare_field<stk::mesh::Field<int>>(stk::topology::ELEM_RANK, fieldName, numStates);
+        stk::mesh::Field<int>& field = get_meta().declare_field<int>(stk::topology::ELEM_RANK, fieldName, numStates);
         stk::mesh::put_field_on_mesh(field, part, m_numComponents, init.data());
         m_fields.push_back(&field);
       }
@@ -170,7 +171,7 @@ public:
   std::vector<stk::mesh::Field<int>*> get_fields()
   {
     return m_fields;
-  } 
+  }
 
   stk::mesh::PartVector get_parts()
   {
@@ -206,26 +207,6 @@ public:
     for(auto field : m_fields) {
       set_element_field_data(*field, selector, m_multiplier);
     }
-  }
-
-  stk::mesh::Selector get_block_selector_for_partial_sync()
-  {
-    unsigned numPartialSyncBlocks = stk::unit_test_util::get_command_line_option("-b", m_numBlocks/2);
-
-    numPartialSyncBlocks = std::min(numPartialSyncBlocks, m_numBlocks);
-
-    stk::mesh::PartVector syncParts;
-    for(unsigned i = 1; i <= numPartialSyncBlocks; i++) {
-      std::string partName = "block_" + std::to_string(i);
-
-      stk::mesh::Part* part = get_meta().get_part(partName);
-      EXPECT_NE(part, nullptr);
-
-      syncParts.push_back(part);
-    }
-
-    stk::mesh::Selector selector = stk::mesh::selectUnion(syncParts);
-    return selector;
   }
 
   void setup_field_data_on_device()
@@ -302,17 +283,6 @@ public:
     }
   }
 
-  void sync_fields_to_device_async(std::vector<stk::mesh::ExecSpaceWrapper<>>& execSpaces,
-                                   stk::mesh::Selector& selector)
-  {
-    for(unsigned i = 0; i < m_fields.size(); i++) {
-      auto field = m_fields[i];
-      auto& ngpField = stk::mesh::get_updated_ngp_field<int>(*field);
-      ngpField.modify_on_host(selector);
-      ngpField.sync_to_device(execSpaces[i % execSpaces.size()]);
-    }
-  }
-
   template<typename FieldType>
   void compare_device_data_to_init_data(FieldType& field)
   {
@@ -322,16 +292,16 @@ public:
     auto& ngpField = stk::mesh::get_updated_ngp_field<int>(*field);
 
     stk::mesh::for_each_entity_run(ngpMesh, stk::topology::ELEM_RANK, stk::mesh::Selector(*field),
-                                  KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex& elem)
-                                  {
-                                    auto entity = ngpMesh.get_entity(stk::topology::ELEM_RANK, elem);
+                                   KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex& elem)
+                                   {
+                                     auto entity = ngpMesh.get_entity(stk::topology::ELEM_RANK, elem);
 
-                                    for(unsigned i = 0; i < numComponents; i++) {
-                                      int expected = ngpMesh.identifier(entity) * multiplier + i;
-                                      int fieldValue = ngpField(elem, i);
-                                      NGP_EXPECT_EQ(expected, fieldValue);
-                                    }
-                                  });
+                                     for(unsigned i = 0; i < numComponents; i++) {
+                                       int expected = ngpMesh.identifier(entity) * multiplier + i;
+                                       int fieldValue = ngpField(elem, i);
+                                       NGP_EXPECT_EQ(expected, fieldValue);
+                                     }
+                                   });
     Kokkos::fence();
   }
 
@@ -344,16 +314,16 @@ public:
     auto& ngpField = stk::mesh::get_updated_ngp_field<int>(*field);
 
     stk::mesh::for_each_entity_run(ngpMesh, stk::topology::ELEM_RANK, selector,
-                                  KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex& elem)
-                                  {
-                                    auto entity = ngpMesh.get_entity(stk::topology::ELEM_RANK, elem);
+                                   KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex& elem)
+                                   {
+                                     auto entity = ngpMesh.get_entity(stk::topology::ELEM_RANK, elem);
 
-                                    for(unsigned i = 0; i < numComponents; i++) {
-                                      int expected = ngpMesh.identifier(entity) * multiplier + i;
-                                      int fieldValue = ngpField(elem, i);
-                                      NGP_EXPECT_EQ(expected, fieldValue);
-                                    }
-                                  });
+                                     for(unsigned i = 0; i < numComponents; i++) {
+                                       int expected = ngpMesh.identifier(entity) * multiplier + i;
+                                       int fieldValue = ngpField(elem, i);
+                                       NGP_EXPECT_EQ(expected, fieldValue);
+                                     }
+                                   });
     Kokkos::fence();
 
     stk::NgpVector<int> ngpVector;
@@ -366,14 +336,14 @@ public:
     ngpVector.copy_host_to_device();
 
     stk::mesh::for_each_entity_run(ngpMesh, stk::topology::ELEM_RANK, !selector,
-                                  KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex& elem)
-                                  {
-                                    for(unsigned i = 0; i < numComponents; i++) {
-                                      int expected = ngpVector.device_get(i);
-                                      int fieldValue = ngpField(elem, i);
-                                      NGP_EXPECT_EQ(expected, fieldValue);
-                                    }
-                                  });
+                                   KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex& elem)
+                                   {
+                                     for(unsigned i = 0; i < numComponents; i++) {
+                                       int expected = ngpVector.device_get(i);
+                                       int fieldValue = ngpField(elem, i);
+                                       NGP_EXPECT_EQ(expected, fieldValue);
+                                     }
+                                   });
     Kokkos::fence();
   }
 
@@ -430,13 +400,13 @@ public:
     stk::mesh::NgpField<int>& ngpField = stk::mesh::get_updated_ngp_field<int>(stkIntField);
 
     stk::mesh::for_each_entity_run(ngpMesh, stk::topology::ELEM_RANK, selector,
-                                  KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex& entityIndex) {
-                                    const int numScalarsPerEntity = ngpField.get_num_components_per_entity(entityIndex);
-                                    for (int component=0; component<numScalarsPerEntity; component++) {
-                                      stk::mesh::Entity entity = ngpMesh.get_entity(stk::topology::ELEM_RANK, entityIndex);
-                                      ngpField(entityIndex, component) = ngpMesh.identifier(entity) * multiplier + component;
-                                    }
-                                  });
+                                   KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex& entityIndex) {
+                                     const int numScalarsPerEntity = ngpField.get_num_components_per_entity(entityIndex);
+                                     for (int component=0; component<numScalarsPerEntity; component++) {
+                                       stk::mesh::Entity entity = ngpMesh.get_entity(stk::topology::ELEM_RANK, entityIndex);
+                                       ngpField(entityIndex, component) = ngpMesh.identifier(entity) * multiplier + component;
+                                     }
+                                   });
   }
 
 private:
@@ -456,10 +426,10 @@ private:
   void check_result_on_host_expect_init_data(FieldType field, stk::mesh::EntityVector& elems)
   {
     auto expectInitData = [](int* data, stk::mesh::Entity entity, unsigned component)
-                          {
-                            int expectedValue = component;
-                            EXPECT_EQ(data[component], expectedValue);
-                          };
+    {
+      int expectedValue = component;
+      EXPECT_EQ(data[component], expectedValue);
+    };
 
     check_result_on_host(field, elems, expectInitData);
   }
@@ -468,10 +438,10 @@ private:
   void check_result_on_host_expect_multiplied_data(FieldType field, stk::mesh::EntityVector& elems, unsigned multiplier)
   {
     auto expectInitData = [this, multiplier](int* data, stk::mesh::Entity elem, unsigned component)
-                          {
-                            int expectedValue = get_bulk().identifier(elem) * multiplier + component;
-                            EXPECT_EQ(data[component], expectedValue);
-                          };
+    {
+      int expectedValue = get_bulk().identifier(elem) * multiplier + component;
+      EXPECT_EQ(data[component], expectedValue);
+    };
 
     check_result_on_host(field, elems, expectInitData);
   }
@@ -785,181 +755,6 @@ TEST_F(NgpAsyncDeepCopyFixture, AsyncSyncToHostFollowedByDataModOnHostThenGetUpd
   }
 }
 
-TEST_F(NgpAsyncDeepCopyFixture, TEST_ONLY_ON_CUDA(ThreeStreamsAsyncPartialSyncToDevice))
-{
-  if (get_parallel_size() != 1) GTEST_SKIP();
-
-  unsigned numBlocks = 3;
-  unsigned numStreams = 3;
-  unsigned multiplier = 5;
-
-  setup_test(numBlocks, numStreams, multiplier);
-  setup_multi_block_mesh_with_fields_on_all_blocks();
-  std::vector<stk::mesh::ExecSpaceWrapper<>> execSpaces = get_execution_spaces_with_streams(numStreams);
-  auto selector = get_block_selector_for_partial_sync();
-
-  stk::mesh::Selector allBlockSelector = get_meta().universal_part();
-  setup_selected_field_data_on_host(allBlockSelector);
-
-  sync_fields_to_device_async(execSpaces, selector);
-
-  stk::mesh::ngp_field_fence(get_meta());
-
-  for(auto field : get_fields()) {
-    test_partial_copy_to_device_result(field, selector);
-  }
-}
-
-TEST_F(NgpAsyncDeepCopyFixture, TEST_ONLY_ON_CUDA(FourStreamsAsyncPartialSyncToDevice_MeshModAfterPartialSync))
-{
-  if (get_parallel_size() != 1) GTEST_SKIP();
-
-  unsigned numBlocks = 4;
-  unsigned numStreams = 4;
-  unsigned multiplier = 5;
-
-  setup_test(numBlocks, numStreams, multiplier);
-  setup_multi_block_mesh_with_fields_on_all_blocks();
-  std::vector<stk::mesh::ExecSpaceWrapper<>> execSpaces = get_execution_spaces_with_streams(numStreams);
-  const stk::mesh::PartVector& parts = get_parts();
-  auto block1Selector = stk::mesh::Selector(*parts[0]);
-  auto block2Selector = stk::mesh::Selector(*parts[1]);
-  auto block3Selector = stk::mesh::Selector(*parts[2]);
-  auto block4Selector = stk::mesh::Selector(*parts[3]);
-  auto allBlockSelector = stk::mesh::Selector(get_meta().universal_part());
-
-  setup_selected_field_data_on_host(allBlockSelector);
-
-  sync_fields_to_device_async(execSpaces, block1Selector);
-
-  stk::mesh::ngp_field_fence(get_meta());
-
-  for(auto field : get_fields()) {
-    test_partial_copy_to_device_result(field, block1Selector);
-  }
-
-  stk::mesh::PartVector addParts(1, parts[1]);
-  stk::mesh::PartVector removeParts(1, parts[3]);
-
-  stk::mesh::Selector block1And2Selector = block1Selector | block2Selector;
-  change_parts_on_selected_blocks(addParts, removeParts, block4Selector);
-
-  for(auto field : get_fields()) {
-    stk::mesh::get_updated_ngp_field<int>(*field);
-  }
-
-  for(auto field : get_fields()) {
-    test_partial_copy_to_device_result(field, block1And2Selector);
-  }
-}
-
-TEST_F(NgpAsyncDeepCopyFixture, TEST_ONLY_ON_CUDA(ThreeStreamsAsyncPartialSyncToHost))
-{
-  if (get_parallel_size() != 1) GTEST_SKIP();
-
-  unsigned numBlocks = 3;
-  unsigned numStreams = 3;
-  unsigned multiplier = 5;
-
-  setup_test(numBlocks, numStreams, multiplier);
-  setup_multi_block_mesh_with_fields_on_all_blocks();
-  std::vector<stk::mesh::ExecSpaceWrapper<>> execSpaces = get_execution_spaces_with_streams(numStreams);
-  auto selector = get_block_selector_for_partial_sync();
-
-  stk::mesh::Selector allBlockSelector = get_meta().universal_part();
-  setup_selected_field_data_on_device(allBlockSelector);
-
-  sync_fields_to_host_async(execSpaces, selector);
-
-  stk::mesh::ngp_field_fence(get_meta());
-
-  for(auto field : get_fields()) {
-    test_partial_copy_to_host_result(field, selector);
-  }
-}
-
-TEST_F(NgpAsyncDeepCopyFixture, TEST_ONLY_ON_CUDA(FourStreamsAsyncPartialSyncToHost_MeshModAfterPartialSync))
-{
-  if (get_parallel_size() != 1) GTEST_SKIP();
-
-  unsigned numBlocks = 4;
-  unsigned numStreams = 4;
-  unsigned multiplier = 5;
-
-  setup_test(numBlocks, numStreams, multiplier);
-  setup_multi_block_mesh_with_fields_on_all_blocks();
-  std::vector<stk::mesh::ExecSpaceWrapper<>> execSpaces = get_execution_spaces_with_streams(numStreams);
-  const stk::mesh::PartVector& parts = get_parts();
-  auto block1Selector = stk::mesh::Selector(*parts[0]);
-  auto block2Selector = stk::mesh::Selector(*parts[1]);
-  auto block3Selector = stk::mesh::Selector(*parts[2]);
-  auto block4Selector = stk::mesh::Selector(*parts[3]);
-  auto allBlockSelector = stk::mesh::Selector(get_meta().universal_part());
-
-  setup_selected_field_data_on_device(allBlockSelector);
-
-  sync_fields_to_host_async(execSpaces, block1Selector);
-
-  stk::mesh::ngp_field_fence(get_meta());
-
-  for(auto field : get_fields()) {
-    test_partial_copy_to_host_result(field, block1Selector);
-  }
-
-  stk::mesh::PartVector addParts(1, parts[1]);
-  stk::mesh::PartVector removeParts(1, parts[3]);
-
-  stk::mesh::Selector block1And2Selector = block1Selector | block2Selector;
-  change_parts_on_selected_blocks(addParts, removeParts, block4Selector);
-
-  for(auto field : get_fields()) {
-    stk::mesh::get_updated_ngp_field<int>(*field);
-  }
-
-  for(auto field : get_fields()) {
-    test_partial_copy_to_host_result(field, block1Selector);
-  }
-}
-
-TEST_F(NgpAsyncDeepCopyFixture, TEST_ONLY_ON_CUDA(FourStreamsAsyncPartialSyncToDeviceThenPartialSyncToHost))
-{
-  if (get_parallel_size() != 1) GTEST_SKIP();
-
-  unsigned numBlocks = 4;
-  unsigned numStreams = 4;
-  unsigned multiplier = 5;
-
-  setup_test(numBlocks, numStreams, multiplier);
-  setup_multi_block_mesh_with_fields_on_all_blocks();
-  std::vector<stk::mesh::ExecSpaceWrapper<>> execSpaces = get_execution_spaces_with_streams(numStreams);
-  const stk::mesh::PartVector& parts = get_parts();
-  auto block1Selector = stk::mesh::Selector(*parts[0]);
-  auto block2Selector = stk::mesh::Selector(*parts[1]);
-  auto block3Selector = stk::mesh::Selector(*parts[2]);
-  auto block4Selector = stk::mesh::Selector(*parts[3]);
-  auto allBlockSelector = stk::mesh::Selector(get_meta().universal_part());
-
-  setup_selected_field_data_on_host(allBlockSelector);
-
-  auto block1And3Selector = block1Selector | block3Selector;
-  sync_fields_to_device_async(execSpaces, block1And3Selector);
-
-  stk::mesh::ngp_field_fence(get_meta());
-
-  for(auto field : get_fields()) {
-    test_partial_copy_to_device_result(field, block1And3Selector);
-  }
-
-  auto block2And4Selector = block2Selector | block4Selector;
-  sync_fields_to_host_async(execSpaces, block2And4Selector);
-
-  stk::mesh::ngp_field_fence(get_meta());
-
-  for(auto field : get_fields()) {
-    test_partial_copy_to_host_result(field, block1And3Selector);
-  }
-}
-
 TEST_F(NgpAsyncDeepCopyFixture, AsyncGetUpdatedNgpField)
 {
   if (get_parallel_size() != 1) GTEST_SKIP();
@@ -969,30 +764,24 @@ TEST_F(NgpAsyncDeepCopyFixture, AsyncGetUpdatedNgpField)
   unsigned multiplier = 5;
 
   setup_test(numBlocks, numStreams, multiplier);
-  setup_multi_block_mesh_with_fields_on_all_blocks();
+  setup_multi_block_mesh_with_field_per_block();
   std::vector<stk::mesh::ExecSpaceWrapper<>> execSpaces = get_execution_spaces_with_streams(numStreams);
-  const stk::mesh::PartVector& parts = get_parts();
-  auto block1Selector = stk::mesh::Selector(*parts[0]);
-  auto block2Selector = stk::mesh::Selector(*parts[1]);
-  auto allBlockSelector = stk::mesh::Selector(get_meta().universal_part());
-
-  stk::mesh::PartVector addParts(1, parts[0]);
-  stk::mesh::PartVector removeParts(1, parts[1]);
-
-  change_parts_on_selected_blocks(addParts, removeParts, block2Selector);
 
   setup_field_data_on_host();
 
-  auto fields = get_fields();
-  for(unsigned i = 0; i < fields.size(); i++) {
-    auto& ngpField = stk::mesh::get_updated_ngp_field_async<int>(*fields[i], execSpaces[i % execSpaces.size()]);
+  sync_fields_to_device_async(execSpaces);
+
+  for(unsigned i = 0; i < get_fields().size(); i++) {
+    auto field = get_fields()[i];
+    auto execSpace = execSpaces[i % execSpaces.size()];
+    auto& ngpField = stk::mesh::get_updated_ngp_field_async<int>(*field, execSpace);
     ngpField.modify_on_host();
-    ngpField.sync_to_device(execSpaces[i % execSpaces.size()]);
+    ngpField.sync_to_device(execSpace);
   }
 
   stk::mesh::ngp_field_fence(get_meta());
 
-  for(auto field : fields) {
-    test_partial_copy_to_device_result(field, allBlockSelector);
+  for(auto field : get_fields()) {
+    compare_device_data_to_init_data(field);
   }
 }

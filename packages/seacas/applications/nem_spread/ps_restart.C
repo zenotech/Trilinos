@@ -1,5 +1,5 @@
 /*
- * Copyright(C) 1999-2020 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2021, 2023 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
  *
@@ -7,7 +7,8 @@
  */
 #include "exodusII.h" // for ex_close, etc
 #include "fmt/ostream.h"
-#include "nem_spread.h"     // for NemSpread, etc
+#include "nem_spread.h" // for NemSpread, etc
+#include "open_file_limit.h"
 #include "ps_pario_const.h" // for PIO_Info, etc
 #include "rf_allo.h"        // for array_alloc, safe_free
 #include "rf_io_const.h"    // for Exo_Res_File, ExoFile, etc
@@ -17,16 +18,7 @@
 #include <cstdio>           // for stderr, nullptr, etc
 #include <cstdlib>          // for exit, free, malloc
 #include <string>
-#include <unistd.h>
 #include <vector> // for vector
-
-namespace {
-  int get_free_descriptor_count();
-
-  template <typename INT>
-  size_t find_gnode_inter(INT *intersect, size_t num_g_nodes, INT *glob_vec, size_t num_int_nodes,
-                          size_t num_bor_nodes, size_t num_ext_nodes, INT *loc_vec);
-} // namespace
 
 /*****************************************************************************/
 /*****************************************************************************/
@@ -56,21 +48,17 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_restart_params(
  */
 
 {
-  int   exoid;
-  int   cpu_ws = 0;
-  float vers;
-  int   max_name_length = 0;
-
   /* Open the ExodusII file */
-  cpu_ws   = io_ws;
-  int mode = EX_READ | int64api;
+  int   exoid;
+  float vers;
+  int   cpu_ws = io_ws;
+  int   mode   = EX_READ | int64api;
   if ((exoid = ex_open(Exo_Res_File.c_str(), mode, &cpu_ws, &io_ws, &vers)) < 0) {
-    fmt::print(stderr, "{}: Could not open file {} for restart info\n", __func__,
-               Exo_Res_File.c_str());
+    fmt::print(stderr, "{}: Could not open file {} for restart info\n", __func__, Exo_Res_File);
     exit(1);
   }
 
-  max_name_length = ex_inquire_int(exoid, EX_INQ_DB_MAX_USED_NAME_LENGTH);
+  int max_name_length = ex_inquire_int(exoid, EX_INQ_DB_MAX_USED_NAME_LENGTH);
   ex_set_max_name_length(exoid, max_name_length);
 
   /*
@@ -133,9 +121,8 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_restart_data()
   std::vector<INT> ns_cnts_global(globals.Num_Node_Set);
 
   INT ***eb_map_ptr    = nullptr;
-  INT ** eb_cnts_local = nullptr;
+  INT  **eb_cnts_local = nullptr;
   int    exoid         = 0;
-  int *  par_exoid     = nullptr;
 
   float       vers;
   std::string cTemp;
@@ -156,11 +143,9 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_restart_data()
 
   /* Open the ExodusII file */
   {
-    cpu_ws   = io_ws;
     int mode = EX_READ | int64api;
     if ((exoid = ex_open(Exo_Res_File.c_str(), mode, &cpu_ws, &io_ws, &vers)) < 0) {
-      fmt::print(stderr, "{}: Could not open file {} for restart info\n", __func__,
-                 Exo_Res_File.c_str());
+      fmt::print(stderr, "{}: Could not open file {} for restart info\n", __func__, Exo_Res_File);
       exit(1);
     }
   }
@@ -179,18 +164,6 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_restart_data()
                           (globals.Num_Internal_Elems[iproc] + globals.Num_Border_Elems[iproc]);
       Restart_Info.Elem_Vals[iproc].resize(array_size);
     }
-
-    /*
-     * at this point, I need to broadcast the global element block ids
-     * and counts to the processors. I know that this is redundant data
-     * since they will all receive this information in read_mesh, but
-     * the variables which contain that information are static in
-     * el_exoII_io.c, and cannot be used here. So, take a second and
-     * broadcast all of this out.
-     *
-     * I want to do this here so that it is done only once no matter
-     * how many time steps are retrieved
-     */
 
     /* Get the Element Block IDs from the input file */
     if (ex_get_ids(exoid, EX_ELEM_BLOCK, eb_ids_global.data()) < 0) {
@@ -283,18 +256,6 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_restart_data()
       Restart_Info.Sset_Vals[iproc].resize(array_size);
     }
 
-    /*
-     * at this point, I need to broadcast the ids and counts to the
-     * processors. I know that this is redundant data since they will
-     * all receive this information in read_mesh, but the variables
-     * which contain that information are static in el_exoII_io.c, and
-     * cannot be used here. So, take a second and broadcast all of
-     * this out.
-     *
-     * I want to do this here so that it is done only once no matter
-     * how many time steps are retrieved
-     */
-
     /* Get the Sideset IDs from the input file */
     if (ex_get_ids(exoid, EX_SIDE_SET, ss_ids_global.data()) < 0) {
       fmt::print(stderr, "{}: unable to get sideset IDs", __func__);
@@ -323,18 +284,6 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_restart_data()
       Restart_Info.Nset_Vals[iproc].resize(array_size);
     }
 
-    /*
-     * at this point, I need to broadcast the ids and counts to the
-     * processors. I know that this is redundant data since they will
-     * all receive this information in read_mesh, but the variables
-     * which contain that information are static in el_exoII_io.c, and
-     * cannot be used here. So, take a second and broadcast all of
-     * this out.
-     *
-     * I want to do this here so that it is done only once no matter
-     * how many time steps are retrieved
-     */
-
     /* Get the Nodeset IDs from the input file */
     if (ex_get_ids(exoid, EX_NODE_SET, ns_ids_global.data()) < 0) {
       fmt::print(stderr, "{}: unable to get nodeset IDs", __func__);
@@ -352,17 +301,7 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_restart_data()
     }
   } /* End: "if (Restart_Info.NVar_Nset > 0 )" */
 
-  /*
-   * NOTE: A possible place to speed this up would be to
-   * get the global node and element lists here, and broadcast
-   * them out only once.
-   */
-
-  par_exoid = (int *)malloc(Proc_Info[2] * sizeof(int));
-  if (par_exoid == nullptr) {
-    fmt::print(stderr, "[{}]: ERROR, insufficient memory!\n", __func__);
-    exit(1);
-  }
+  std::vector<int> par_exoid(Proc_Info[2]);
 
   /* See if any '/' in the name.  IF present, isolate the basename of the file */
   size_t found = Output_File_Base_Name.find_last_of('/');
@@ -384,7 +323,7 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_restart_data()
     cTemp += PIO_Info.Exo_Extension;
   }
 
-  int open_file_count = get_free_descriptor_count();
+  int open_file_count = open_file_limit() - 1;
   if (open_file_count > Proc_Info[5]) {
     fmt::print("All output files opened simultaneously.\n");
     for (int iproc = Proc_Info[4]; iproc < Proc_Info[4] + Proc_Info[5]; iproc++) {
@@ -396,7 +335,7 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_restart_data()
       if ((par_exoid[iproc] = ex_open(Parallel_File_Name.c_str(), mode, &cpu_ws, &io_ws, &vers)) <
           0) {
         fmt::print(stderr, "[{}] {} Could not open parallel Exodus II file: {}\n", iproc, __func__,
-                   Parallel_File_Name.c_str());
+                   Parallel_File_Name);
         exit(1);
       }
     }
@@ -432,7 +371,7 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_restart_data()
         if ((par_exoid[iproc] = ex_open(Parallel_File_Name.c_str(), mode, &cpu_ws, &io_ws, &vers)) <
             0) {
           fmt::print(stderr, "[{}] {} Could not open parallel Exodus II file: {}\n", iproc,
-                     __func__, Parallel_File_Name.c_str());
+                     __func__, Parallel_File_Name);
           exit(1);
         }
       }
@@ -484,22 +423,20 @@ template <typename T, typename INT> void NemSpread<T, INT>::read_restart_data()
       }
     }
   }
-  free(par_exoid);
-  par_exoid = nullptr;
 }
 
 template <typename T, typename INT>
 int NemSpread<T, INT>::read_var_param(int exoid, int max_name_length)
 {
   /* Get the number of time indices contained in the file */
-  int ret_int = ex_inquire_int(exoid, EX_INQ_TIME);
+  int num_times = ex_inquire_int(exoid, EX_INQ_TIME);
 
   /* see if the user want to get all of the time indices */
   if (Restart_Info.Num_Times == -1) {
 
-    Restart_Info.Num_Times = ret_int;
+    Restart_Info.Num_Times = num_times;
 
-    if (ret_int > 0) {
+    if (num_times > 0) {
       /* allocate array space */
       Restart_Info.Time_Idx.resize(Restart_Info.Num_Times);
 
@@ -514,14 +451,14 @@ int NemSpread<T, INT>::read_var_param(int exoid, int max_name_length)
 
       /* if the user wants the last time, then set it */
       if (Restart_Info.Time_Idx[cnt] == 0) {
-        Restart_Info.Time_Idx[cnt] = ret_int;
+        Restart_Info.Time_Idx[cnt] = num_times;
       }
 
-      if (Restart_Info.Time_Idx[cnt] > ret_int) {
+      if (Restart_Info.Time_Idx[cnt] > num_times) {
         fmt::print(stderr, "{}: Requested time index, {}, out of range.\n", __func__,
                    Restart_Info.Time_Idx[cnt]);
         fmt::print(stderr, "{}: Valid time indices in {} are from 1 to {}.\n", __func__,
-                   Exo_Res_File.c_str(), ret_int);
+                   Exo_Res_File, num_times);
         return -1;
       }
     }
@@ -791,7 +728,7 @@ int NemSpread<T, INT>::read_elem_vars_1(int exoid, int index, INT *eb_ids, INT *
           size_t var_offset =
               ivar * (globals.Num_Internal_Elems[iproc] + globals.Num_Border_Elems[iproc]);
 
-          INT *  elem_map = eb_map_ptr[iproc][iblk];
+          INT   *elem_map = eb_map_ptr[iproc][iblk];
           size_t num_elem = eb_cnts_local[iproc][iblk];
 
           for (size_t i1 = 0; i1 < num_elem; i1++) {
@@ -972,128 +909,3 @@ template <typename T, typename INT> int NemSpread<T, INT>::compare_mesh_param(in
 
   return (ret);
 }
-
-/*****************************************************************************/
-namespace {
-  template <typename INT>
-  size_t find_gnode_inter(INT *intersect, size_t num_g_nodes, INT *glob_vec, size_t num_int_nodes,
-                          size_t num_bor_nodes, size_t num_ext_nodes, INT *loc_vec)
-
-  /*
-   * This function assumes that glob_vec is monotonic and that loc_vec is
-   * monotonic for each of the internal, border and external node IDs it
-   * contains.
-   */
-  {
-    size_t count = 0;
-
-    /* Initialize the intersect vector */
-    for (size_t i1 = 0; i1 < num_g_nodes; i1++) {
-      intersect[i1] = -1;
-    }
-
-    /* Check for the possibility of an intersection */
-    size_t min_set1 = glob_vec[0];
-    size_t max_set1 = glob_vec[num_g_nodes - 1];
-
-    /* Search through the internal nodes */
-    if (num_int_nodes > 0) {
-      size_t min_set2 = loc_vec[0];
-      size_t max_set2 = loc_vec[num_int_nodes - 1];
-
-      if ((max_set2 >= min_set1) && (min_set2 <= max_set1)) {
-        for (size_t i1 = 0, i2 = 0; i1 < num_g_nodes; i1++) {
-          while ((i2 < (num_int_nodes - 1)) && (glob_vec[i1] > loc_vec[i2])) {
-            i2++;
-          }
-          if (glob_vec[i1] == loc_vec[i2]) {
-            intersect[i1] = i2;
-            count++;
-          }
-        }
-      }
-    }
-
-    /* Search through the border nodes */
-    if (num_bor_nodes > 0) {
-      size_t min_set2 = loc_vec[num_int_nodes];
-      size_t max_set2 = loc_vec[num_int_nodes + num_bor_nodes - 1];
-
-      size_t offset = num_int_nodes;
-
-      if ((max_set2 >= min_set1) && (min_set2 <= max_set1)) {
-        for (size_t i1 = 0, i2 = 0; i1 < num_g_nodes; i1++) {
-          while ((i2 < (num_bor_nodes - 1)) && (glob_vec[i1] > loc_vec[offset + i2])) {
-            i2++;
-          }
-
-          if (glob_vec[i1] == loc_vec[offset + i2]) {
-            intersect[i1] = offset + i2;
-            count++;
-          }
-        }
-      }
-    }
-
-    /* Search through the external nodes */
-    if (num_ext_nodes > 0) {
-      size_t min_set2 = loc_vec[num_int_nodes + num_bor_nodes];
-      size_t max_set2 = loc_vec[num_int_nodes + num_bor_nodes + num_ext_nodes - 1];
-
-      size_t offset = num_int_nodes + num_bor_nodes;
-
-      if ((max_set2 >= min_set1) && (min_set2 <= max_set1)) {
-        for (size_t i1 = 0, i2 = 0; i1 < num_g_nodes; i1++) {
-          while ((i2 < (num_ext_nodes - 1)) && (glob_vec[i1] > loc_vec[offset + i2])) {
-            i2++;
-          }
-
-          if (glob_vec[i1] == loc_vec[offset + i2]) {
-            intersect[i1] = offset + i2;
-            count++;
-          }
-        }
-      }
-    }
-
-#ifdef DEBUG
-    assert(count < num_g_nodes &&
-           "find_gnode_inter ERROR: Catastrophic error in node structure observed\n");
-#endif
-
-    return count;
-  }
-
-  int get_free_descriptor_count()
-  {
-/* Returns maximum number of files that one process can have open
- * at one time. (POSIX)
- */
-#ifndef _MSC_VER
-    int fdmax = sysconf(_SC_OPEN_MAX);
-    if (fdmax == -1) {
-      /* POSIX indication that there is no limit on open files... */
-      fdmax = INT_MAX;
-    }
-#else
-    int fdmax = _getmaxstdio();
-#endif
-    /* File descriptors are assigned in order (0,1,2,3,...) on a per-process
-     * basis.
-     *
-     * Assume that we have stdin, stdout, stderr, and input exodus
-     * file (4 total).
-     */
-
-    return fdmax - 4;
-
-    /* Could iterate from 0..fdmax and check for the first EBADF (bad
-     * file descriptor) error return from fcntl, but that takes too long
-     * and may cause other problems.  There is a isastream(filedes) call
-     * on Solaris that can be used for system-dependent code.
-     *
-     * Another possibility is to do an open and see which descriptor is
-     * returned -- take that as 1 more than the current count of open files.
-     */
-  }
-} // namespace

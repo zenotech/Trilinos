@@ -3,19 +3,29 @@
 # the installation of the headers
 
 FILE(GLOB HEADERS *.hpp)
+FILE(GLOB SOURCES *.cpp)
+
+IF(NOT STK_ENABLE_STKMiddle_mesh)
+message(STATUS "STKTransfer: STKMiddle_mesh not enabled")
+LIST(REMOVE_ITEM HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/ConservativeTransfer.hpp")
+LIST(REMOVE_ITEM HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/ConservativeTransferUser.hpp")
+LIST(REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/ConservativeTransfer.cpp")
+ELSE()
+message(STATUS "STKTransfer: STKMiddle_mesh is enabled, ConservativeTransfer is available")
+ENDIF()
 
 INSTALL(FILES ${HEADERS} DESTINATION
-${CMAKE_INSTALL_PREFIX}/${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_transfer/)
+${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_transfer/)
 
 FILE(GLOB HEADERS_IMPL ${CMAKE_CURRENT_SOURCE_DIR}/copy_by_id/*.hpp)
 FILE(GLOB SOURCES_IMPL  ${CMAKE_CURRENT_SOURCE_DIR}/copy_by_id/*.cpp)
 
 INSTALL(FILES ${HEADERS_IMPL} DESTINATION
-${CMAKE_INSTALL_PREFIX}/${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_transfer/copy_by_id)
+${${PROJECT_NAME}_INSTALL_INCLUDE_DIR}/stk_transfer/copy_by_id)
 
 TRIBITS_ADD_LIBRARY(
-  stk_transfer_impl
-  NOINSTALLHEADERS ${HEADERS_IMPL}
-  SOURCES  ${SOURCES_IMPL}
+  stk_transfer
+  NOINSTALLHEADERS ${HEADERS} ${HEADERS_IMPL}
+  SOURCES  ${SOURCES} ${SOURCES_IMPL}
   )
 

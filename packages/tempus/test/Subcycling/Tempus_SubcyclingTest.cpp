@@ -75,9 +75,9 @@ TEUCHOS_UNIT_TEST(Subcycling, ParameterList)
 
     bool pass = haveSameValuesSorted(*stepperPL, *defaultPL, true);
     if (!pass) {
-      std::cout << std::endl;
-      std::cout << "stepperPL -------------- \n" << *stepperPL << std::endl;
-      std::cout << "defaultPL -------------- \n" << *defaultPL << std::endl;
+      out << std::endl;
+      out << "stepperPL -------------- \n" << *stepperPL << std::endl;
+      out << "defaultPL -------------- \n" << *defaultPL << std::endl;
     }
     TEST_ASSERT(pass)
   }
@@ -85,7 +85,7 @@ TEUCHOS_UNIT_TEST(Subcycling, ParameterList)
   // Test constructor IntegratorBasic(model, stepperType)
   {
     RCP<Tempus::IntegratorBasic<double> > integrator =
-      Tempus::createIntegratorBasic<double>(model, "Forward Euler");
+      Tempus::createIntegratorBasic<double>(model, std::string("Forward Euler"));
 
     RCP<ParameterList> stepperPL = sublist(tempusPL, "Demo Stepper", true);
     RCP<const ParameterList> defaultPL =

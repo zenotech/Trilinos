@@ -1,15 +1,16 @@
 /*
- * Copyright(C) 1999-2021 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2023 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
  *
  * See packages/seacas/LICENSE for details
  */
-#ifndef IOPX_DECOMPOSITONDATA_H
-#define IOPX_DECOMPOSITONDATA_H
+#pragma once
 
 #include <exodusII.h>
 #if defined PARALLEL_AWARE_EXODUS
+
+#include "ioex_export.h"
 
 #include <Ioss_CodeTypes.h>
 #include <vector>
@@ -30,10 +31,12 @@ namespace Ioss {
 }
 namespace Ioex {
 
-  class DecompositionDataBase
+  class IOEX_EXPORT DecompositionDataBase
   {
   public:
-    DecompositionDataBase(MPI_Comm comm) : comm_(comm) {}
+    DecompositionDataBase(Ioss_MPI_Comm comm) : comm_(comm) {}
+    DecompositionDataBase(const DecompositionDataBase &)            = delete;
+    DecompositionDataBase &operator=(const DecompositionDataBase &) = delete;
 
     virtual ~DecompositionDataBase()            = default;
     virtual int    int_size() const             = 0;
@@ -52,7 +55,7 @@ namespace Ioex {
 
     virtual std::vector<double> &centroids() = 0;
 
-    MPI_Comm comm_;
+    Ioss_MPI_Comm comm_;
 
     int m_processor{0};
     int m_processorCount{0};
@@ -86,19 +89,21 @@ namespace Ioex {
     virtual size_t get_commset_node_size() const = 0;
 
     virtual int get_node_coordinates(int filePtr, double *ioss_data,
-                                     const Ioss::Field &field) const         = 0;
+                                     const Ioss::Field &field) const                 = 0;
     virtual int get_one_attr(int exoid, ex_entity_type obj_type, ex_entity_id obj_id,
-                             int attrib_index, double *attrib) const         = 0;
+                             int attrib_index, double *attrib) const                 = 0;
     virtual int get_attr(int exoid, ex_entity_type obj_type, ex_entity_id obj_id, size_t attr_count,
-                         double *attrib) const                               = 0;
+                         double *attrib) const                                       = 0;
     virtual int get_var(int filePtr, int step, ex_entity_type type, int var_index, ex_entity_id id,
-                        int64_t num_entity, std::vector<double> &data) const = 0;
+                        int64_t num_entity, std::vector<double> &data) const         = 0;
+    virtual int get_user_map(int exoid, ex_entity_type obj_type, ex_entity_id id, int map_index,
+                             size_t offset, size_t num_entity, void *map_data) const = 0;
   };
 
   template <typename INT> class DecompositionData : public DecompositionDataBase
   {
   public:
-    DecompositionData(const Ioss::PropertyManager &props, MPI_Comm communicator);
+    DecompositionData(const Ioss::PropertyManager &props, Ioss_MPI_Comm communicator);
     ~DecompositionData() = default;
 
     int int_size() const { return sizeof(INT); }
@@ -151,6 +156,9 @@ namespace Ioex {
     int get_var(int filePtr, int step, ex_entity_type type, int var_index, ex_entity_id id,
                 int64_t num_entity, std::vector<double> &data) const;
 
+    int get_user_map(int exoid, ex_entity_type obj_type, ex_entity_id id, int map_index,
+                     size_t offset, size_t num_entity, void *map_data) const;
+
     template <typename T>
     int get_set_mesh_var(int filePtr, ex_entity_type type, ex_entity_id id,
                          const Ioss::Field &field, T *ioss_data) const;
@@ -195,6 +203,11 @@ namespace Ioex {
     int get_node_attr(int filePtr, ex_entity_id id, size_t comp_count, double *ioss_data) const;
     int get_elem_attr(int filePtr, ex_entity_id id, size_t comp_count, double *ioss_data) const;
 
+    int get_elem_map(int filePtr, ex_entity_id blk_id, int map_index, size_t offset, size_t count,
+                     void *ioss_data) const;
+    int get_node_map(int filePtr, int map_index, size_t offset, size_t count,
+                     void *ioss_data) const;
+
     int get_node_var(int filePtr, int step, int var_index, ex_entity_id id, int64_t num_entity,
                      std::vector<double> &ioss_data) const;
 
@@ -204,14 +217,14 @@ namespace Ioex {
     int get_set_var(int filePtr, int step, int var_index, ex_entity_type type, ex_entity_id id,
                     int64_t num_entity, std::vector<double> &ioss_data) const;
 
-    bool i_own_node(size_t node)
-        const // T/F if node with global index node owned by this processors ioss-decomp.
+    bool i_own_node(size_t node) const
     {
+      // T/F if the node with global index `node` is owned by this processors ioss-decomp.
       return m_decomposition.i_own_node(node);
     }
 
-    bool i_own_elem(size_t elem)
-        const // T/F if node with global index elem owned by this processors ioss-decomp.
+    bool i_own_elem(size_t elem) const
+    // T/F if the element with global index `elem` is owned by this processors ioss-decomp.
     {
       return m_decomposition.i_own_elem(elem);
     }
@@ -243,7 +256,7 @@ namespace Ioex {
 
     void get_common_set_data(int filePtr, ex_entity_type set_type,
                              std::vector<Ioss::SetDecompositionData> &sets,
-                             const std::string &                      set_type_name);
+                             const std::string                       &set_type_name);
 
     void get_nodeset_data(int filePtr, size_t set_count);
 
@@ -264,5 +277,4 @@ namespace Ioex {
     Ioss::Decomposition<INT> m_decomposition;
   };
 } // namespace Ioex
-#endif
 #endif

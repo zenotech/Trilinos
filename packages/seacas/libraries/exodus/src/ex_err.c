@@ -70,8 +70,8 @@ if (exoid = ex_open ("test.exo", EX_READ, &CPU_word_size,
 
 #if defined(EXODUS_THREADSAFE)
 EX_errval_t *ex_errval = NULL;
-#define EX_PNAME ex_errval->last_pname
-#define EX_ERRMSG ex_errval->last_errmsg
+#define EX_PNAME   ex_errval->last_pname
+#define EX_ERRMSG  ex_errval->last_errmsg
 #define EX_ERR_NUM ex_errval->last_err_num
 #else
 int exerrval = 0; /* clear initial global error code value */
@@ -80,8 +80,8 @@ static char last_pname[MAX_ERR_LENGTH + 1];
 static char last_errmsg[MAX_ERR_LENGTH + 1];
 static int  last_err_num;
 
-#define EX_PNAME last_pname
-#define EX_ERRMSG last_errmsg
+#define EX_PNAME   last_pname
+#define EX_ERRMSG  last_errmsg
 #define EX_ERR_NUM last_err_num
 #endif
 
@@ -217,7 +217,7 @@ void ex_err_fn(int exoid, const char *module_name, const char *message, int err_
   }
 
   else if (exoptval & EX_VERBOSE) { /* check see if we really want to hear this */
-    char *                path = NULL;
+    char                 *path = NULL;
     struct ex__file_item *file = ex__find_file_item(exoid);
     if (file) {
       size_t pathlen = 0;
@@ -312,13 +312,14 @@ const char *ex_strerror(int err_num)
   case EX_WRONGFILETYPE: return "Integer sizes must match for input and output file in ex_copy.";
   case EX_LOOKUPFAIL:
     return "Id lookup failed for specified entity type. Could not find entity with specified id.";
+  case EX_BADFILENAME: return "Empty or null filename specified.";
+  case EX_DUPLICATEID: return "Duplicate entity id found.";
+  case EX_DUPLICATEOPEN: return "File is open multiple times for both read and write.";
   case EX_BADPARAM: return "Bad parameter.";
   case -EX_BADPARAM: return "Bad parameter.";
   case EX_INTERNAL: return "Internal logic error in exodus library.";
   case EX_NOTROOTID: return "File id is not the root id; it is a subgroup id.";
   case EX_NULLENTITY: return "Null entity found.";
-  case EX_DUPLICATEID: return "Duplicate entity id found.";
-  case EX_DUPLICATEOPEN: return "File is open multiple times for both read and write.";
   case EX_MSG: return "Message printed; no error implied.";
   default: return nc_strerror(err_num);
   }

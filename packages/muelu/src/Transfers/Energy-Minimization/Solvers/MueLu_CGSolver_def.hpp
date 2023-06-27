@@ -54,7 +54,7 @@
 #include "MueLu_Monitor.hpp"
 
 
-#include "MueLu_CGSolver.hpp"
+#include "MueLu_CGSolver_decl.hpp"
 
 
 
@@ -77,7 +77,7 @@ namespace MueLu {
     }
 
     RCP<const Matrix>  A         = rcpFromRef(Aref);
-    ArrayRCP<const SC> D         = Utilities::GetMatrixDiagonal(*A);
+    ArrayRCP<const SC> D         = Utilities::GetMatrixDiagonal_arcp(*A);
     bool               useTpetra = (A->getRowMap()->lib() == Xpetra::UseTpetra);
 
     Teuchos::FancyOStream& mmfancy = this->GetOStream(Statistics2);
@@ -106,9 +106,7 @@ namespace MueLu {
     // R_0 = -A*X_0
     R = Xpetra::MatrixFactory2<Scalar, LocalOrdinal, GlobalOrdinal, Node>::BuildCopy(T);
 
-    R->resumeFill();
     R->scale(-one);
-    R->fillComplete(R->getDomainMap(), R->getRangeMap());
 
     // Z_0 = M^{-1}R_0
     Z = Xpetra::MatrixFactory2<Scalar, LocalOrdinal, GlobalOrdinal, Node>::BuildCopy(R);

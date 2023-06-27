@@ -129,7 +129,7 @@ class TrilinosPRConfigurationInstallationTest(TestCase):
                                                  side_effect=mock_subprocess_check_output)
         self.mock_subprocess_check_output = self.patch_subprocess_check_output.start()
 
-        self.patch_modulehelper_module = patch('LoadEnv.setenvironment.ModuleHelper.module',
+        self.patch_modulehelper_module = patch('setenvironment.ModuleHelper.module',
                                                side_effect=mock_module_apply)
         self.mock_modulehelper_module  = self.patch_modulehelper_module.start()
 
@@ -162,12 +162,17 @@ class TrilinosPRConfigurationInstallationTest(TestCase):
             pullrequest_env_config_file=self._env_config_file,
             pullrequest_gen_config_file=self._gen_config_file,
             workspace_dir=".",
+            build_dir="build",
+            source_dir="source",
+            ctest_driver="ctest_driver.cmake",
+            ctest_drop_site="testint.sandia.gov",
             filename_packageenables="../packageEnables.cmake",
             filename_subprojects="../package_subproject_list.cmake",
             mode="standard",
             req_mem_per_core=3.0,
             max_cores_allowed=12,
             num_concurrent_tests=-1,
+            ccache_enable=False,
             dry_run = False
         )
         return output
@@ -216,22 +221,19 @@ class TrilinosPRConfigurationInstallationTest(TestCase):
         self.mock_cpu_count.assert_called()
 
         # execute step
-        ret = pr_config.execute_test()
-        self.mock_chdir.assert_called_once()
-        self.mock_subprocess_check_call.assert_called_once()
-        self.assertEqual(ret, 0)
-        self.assertTrue(Path(os.path.join(args.workspace_dir,
-                                          "generatedPRFragment.cmake")).is_file())
-        os.unlink(os.path.join(args.workspace_dir,
-                               "generatedPRFragment.cmake"))
-        self.assertTrue(Path(os.path.join(args.workspace_dir,
-                                          "packageEnables.cmake")).is_file())
-        os.unlink(os.path.join(args.workspace_dir,
-                               "packageEnables.cmake"))
-        self.assertTrue(Path(os.path.join(args.workspace_dir,
-                                          "package_subproject_list.cmake")).is_file())
-        os.unlink(os.path.join(args.workspace_dir,
-                               "package_subproject_list.cmake"))
+        with self.assertRaises(NotImplementedError):
+            ret = pr_config.execute_test()
+        #self.mock_chdir.assert_called_once()
+        #self.mock_subprocess_check_call.assert_called_once()
+        #self.assertEqual(ret, 0)
+        #self.assertTrue(Path(os.path.join(args.workspace_dir, "generatedPRFragment.cmake")).is_file())
+        #os.unlink(os.path.join(args.workspace_dir, "generatedPRFragment.cmake"))
+
+        #self.assertTrue(Path(os.path.join(args.workspace_dir, "packageEnables.cmake")).is_file())
+        #os.unlink(os.path.join(args.workspace_dir, "packageEnables.cmake"))
+
+        #self.assertTrue(Path(os.path.join(args.workspace_dir, "package_subproject_list.cmake")).is_file())
+        #os.unlink(os.path.join(args.workspace_dir, "package_subproject_list.cmake"))
 
 
     def test_TrilinosPRConfigurationInstallationDryRun(self):

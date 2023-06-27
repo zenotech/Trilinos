@@ -1,13 +1,13 @@
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2020, 2022, 2023 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
 // See packages/seacas/LICENSE for details
-#ifndef SEACAS_ExodusEntity_H
-#define SEACAS_ExodusEntity_H
+#pragma once
 
 #define NO_NETCDF_2
 #include "CJ_ObjectType.h"
+#include <array>
 #include <copy_string_cpp.h>
 #include <cstring>
 #include <exodusII.h>
@@ -56,17 +56,10 @@ namespace Excn {
 
   struct Block
   {
-    Block() { copy_string(elType, ""); }
-
-    Block(const Block &other)
-        : truthTable(other.truthTable), attributeNames(other.attributeNames), name_(other.name_),
-          id(other.id), elementCount(other.elementCount), nodesPerElement(other.nodesPerElement),
-          attributeCount(other.attributeCount), offset_(other.offset_), position_(other.position_)
-    {
-      copy_string(elType, other.elType);
-    }
-
-    ~Block() = default;
+    Block()                              = default;
+    Block(const Block &other)            = default;
+    ~Block()                             = default;
+    Block &operator=(const Block &other) = default;
 
     size_t entity_count() const { return elementCount; }
 
@@ -79,23 +72,7 @@ namespace Excn {
     size_t                   attributeCount{0};
     size_t                   offset_{0};
     size_t                   position_{0};
-    char                     elType[MAX_STR_LENGTH + 1]{};
-
-    Block &operator=(const Block &other)
-    {
-      truthTable      = other.truthTable;
-      attributeNames  = other.attributeNames;
-      id              = other.id;
-      elementCount    = other.elementCount;
-      nodesPerElement = other.nodesPerElement;
-      attributeCount  = other.attributeCount;
-      attributeNames  = other.attributeNames;
-      offset_         = other.offset_;
-      position_       = other.position_;
-      copy_string(elType, other.elType);
-      name_ = other.name_;
-      return *this;
-    }
+    std::string              elType{};
   };
 
   template <typename INT> struct NodeSet
@@ -118,8 +95,8 @@ namespace Excn {
 
     void dump() const
     {
-      fmt::print("NodeSet {}, Name: '{}', {:L} nodes, {:L} df,\torder = {}\n", id, name_, nodeCount,
-                 dfCount, position_);
+      fmt::print("NodeSet {}, Name: '{}', {} nodes, {} df,\torder = {}\n", id, name_,
+                 fmt::group_digits(nodeCount), fmt::group_digits(dfCount), position_);
     }
 
     void dump_order() const
@@ -157,8 +134,8 @@ namespace Excn {
 
     void dump() const
     {
-      fmt::print("SideSet {}, Name: '{}', {:L} sides, {:L} df\toffset = {}, order = {}\n", id,
-                 name_, sideCount, dfCount, offset_, position_);
+      fmt::print("SideSet {}, Name: '{}', {} sides, {} df\toffset = {}, order = {}\n", id, name_,
+                 fmt::group_digits(sideCount), fmt::group_digits(dfCount), offset_, position_);
     }
   };
 
@@ -193,4 +170,3 @@ namespace Excn {
     size_t elementsBorder{0};
   };
 } // namespace Excn
-#endif /* SEACAS_ExodusEntity_H */

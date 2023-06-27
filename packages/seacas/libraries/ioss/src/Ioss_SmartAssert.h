@@ -1,14 +1,11 @@
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2020, 2022 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
 // See packages/seacas/LICENSE for details
-#if !defined(IOSS_SMART_ASSERT_H)
-#define IOSS_SMART_ASSERT_H
-
-#if _MSC_VER > 1000
 #pragma once
-#endif // _MSC_VER > 1000
+
+#include "ioss_export.h"
 
 #if _MSC_VER > 1000
 
@@ -30,6 +27,7 @@
 #include <utility>
 #include <vector>
 
+namespace Ioss {
 enum {
 
   // default behavior - just loges this assert
@@ -51,7 +49,7 @@ enum {
 /*
     contains details about a failed assertion
 */
-class assert_context
+class IOSS_EXPORT assert_context
 {
   using string = std::string;
 
@@ -114,47 +112,45 @@ namespace SmartAssert {
   using assert_func = void (*)(const assert_context &);
 
   // helpers
-  std::string get_typeof_level(int nLevel);
-  void        dump_context_summary(const assert_context &context, std::ostream &out);
-  void        dump_context_detail(const assert_context &context, std::ostream &out);
+  IOSS_EXPORT std::string get_typeof_level(int nLevel);
+  IOSS_EXPORT void        dump_context_summary(const assert_context &context, std::ostream &out);
+  IOSS_EXPORT void        dump_context_detail(const assert_context &context, std::ostream &out);
 
   // defaults
-  void default_warn_handler(const assert_context &context);
-  void default_debug_handler(const assert_context &context);
-  void default_error_handler(const assert_context &context);
-  void default_fatal_handler(const assert_context &context);
-  void default_logger(const assert_context &context);
+  IOSS_EXPORT void default_warn_handler(const assert_context &context);
+  IOSS_EXPORT void default_debug_handler(const assert_context &context);
+  IOSS_EXPORT void default_error_handler(const assert_context &context);
+  IOSS_EXPORT void default_fatal_handler(const assert_context &context);
+  IOSS_EXPORT void default_logger(const assert_context &context);
 
 } // namespace SmartAssert
 
-namespace Ioss {
-  namespace Private {
-    void init_assert();
-    void set_default_log_stream(std::ostream &out);
-    void set_default_log_name(const char *str);
+namespace Private {
+  IOSS_EXPORT void init_assert();
+  IOSS_EXPORT void set_default_log_stream(std::ostream &out);
+  IOSS_EXPORT void set_default_log_name(const char *str);
 
-    // allows finding if a value is of type 'const char *'
-    // and is null; if so, we cannot print it to an ostream
-    // directly!!!
-    template <class T> struct is_null_finder
-    {
-      bool is(const T & /*unused*/) const { return false; }
-    };
+// allows finding if a value is of type 'const char *'
+// and is null; if so, we cannot print it to an ostream
+// directly!!!
+template <class T> struct is_null_finder
+{
+  bool is(const T & /*unused*/) const { return false; }
+};
 
-    template <> struct is_null_finder<char *>
-    {
-      bool is(char *const &val) { return val == nullptr; }
-    };
+template <> struct is_null_finder<char *>
+{
+  bool is(char *const &val) { return val == nullptr; }
+};
 
-    template <> struct is_null_finder<const char *>
-    {
-      bool is(const char *const &val) { return val == nullptr; }
-    };
+template <> struct is_null_finder<const char *>
+{
+  bool is(const char *const &val) { return val == nullptr; }
+};
 
-  } // namespace Private
-} // namespace Ioss
+} // namespace Private
 
-struct Assert
+struct IOSS_EXPORT Assert
 {
   using assert_func = SmartAssert::assert_func;
 
@@ -335,7 +331,7 @@ namespace SmartAssert {
   if ((expr))                                                                                      \
     ;                                                                                              \
   else                                                                                             \
-    (void)::SmartAssert::make_assert(#expr).print_context(__FILE__, __LINE__).SMART_ASSERT_A /**/
+    (void)::Ioss::SmartAssert::make_assert(#expr).print_context(__FILE__, __LINE__).SMART_ASSERT_A /**/
 
 #else
 // "release" mode
@@ -343,7 +339,7 @@ namespace SmartAssert {
   if (true)                                                                                        \
     ;                                                                                              \
   else                                                                                             \
-    (void)::SmartAssert::make_assert("").SMART_ASSERT_A /**/
+    (void)::Ioss::SmartAssert::make_assert("").SMART_ASSERT_A /**/
 
 #endif // ifdef SMART_ASSERT_DEBUG
 
@@ -351,7 +347,7 @@ namespace SmartAssert {
   if ((expr))                                                                                      \
     ;                                                                                              \
   else                                                                                             \
-    (void)::SmartAssert::make_assert(#expr)                                                        \
+    (void)::Ioss::SmartAssert::make_assert(#expr)                                                  \
         .error()                                                                                   \
         .print_context(__FILE__, __LINE__)                                                         \
         .SMART_ASSERT_A /**/
@@ -360,9 +356,8 @@ namespace SmartAssert {
 #define SMART_ASSERT_B(x) SMART_ASSERT_OP(x, A)
 
 #define SMART_ASSERT_OP(x, next) SMART_ASSERT_A.print_current_val((x), #x).SMART_ASSERT_##next /**/
+} // namespace Ioss
 
 #if _MSC_VER > 1000
 #pragma warning(pop)
-#endif
-
 #endif

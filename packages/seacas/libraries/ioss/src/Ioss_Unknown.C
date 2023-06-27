@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2021 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -47,8 +47,6 @@ Ioss::Unknown::Unknown() : Ioss::ElementTopology(Ioss::Unknown::name, Ioss::Unkn
   Ioss::ElementTopology::alias(Ioss::Unknown::name, "invalid_topology");
 }
 
-Ioss::Unknown::~Unknown() = default;
-
 int Ioss::Unknown::parametric_dimension() const { return 0; }
 int Ioss::Unknown::spatial_dimension() const { return 3; }
 int Ioss::Unknown::order() const { return 0; }
@@ -64,6 +62,7 @@ int Ioss::Unknown::number_nodes_face(int face) const
 {
   // face is 1-based.  0 passed in for all faces.
   assert(face >= 0 && face <= number_faces());
+  IOSS_ASSERT_USED(face);
   return Constants::nfacenode;
 }
 
@@ -71,6 +70,7 @@ int Ioss::Unknown::number_edges_face(int face) const
 {
   // face is 1-based.  0 passed in for all faces.
   assert(face >= 0 && face <= number_faces());
+  IOSS_ASSERT_USED(face);
   return Constants::nfacenode;
 }
 
@@ -78,12 +78,14 @@ Ioss::IntVector Ioss::Unknown::edge_connectivity(int edge_number) const
 {
   Ioss::IntVector connectivity;
   assert(edge_number >= 0 && edge_number <= Constants::nedge);
+  IOSS_ASSERT_USED(edge_number);
   return connectivity;
 }
 
 Ioss::IntVector Ioss::Unknown::face_connectivity(int face_number) const
 {
   assert(face_number >= 0 && face_number <= number_faces());
+  IOSS_ASSERT_USED(face_number);
   Ioss::IntVector connectivity;
   return connectivity;
 }
@@ -101,6 +103,7 @@ Ioss::ElementTopology *Ioss::Unknown::face_type(int face_number) const
   // face_number is 1-based.
 
   assert(face_number >= 0 && face_number <= number_faces());
+  IOSS_ASSERT_USED(face_number);
   return Ioss::ElementTopology::factory(Ioss::Unknown::name);
 }
 
@@ -111,5 +114,6 @@ Ioss::ElementTopology *Ioss::Unknown::edge_type(int edge_number) const
   // edge_number is 1-based.
 
   assert(edge_number >= 0 && edge_number <= number_edges());
+  IOSS_ASSERT_USED(edge_number);
   return Ioss::ElementTopology::factory(Ioss::Unknown::name);
 }

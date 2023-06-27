@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 #ifndef KOKKOSBLAS3_COMMON_H_
 #define KOKKOSBLAS3_COMMON_H_
 #include "KokkosKernels_default_types.hpp"
@@ -64,6 +36,8 @@
 #define DEFAULT_USE_AUTO 0
 #define DEFAULT_BATCH_SIZE_LAST_DIM 0
 #define DEFAULT_VERIFY 1
+#define DEFAULT_NINTER 4
+#define DEFAULT_USE_SIMD 0
 
 /************************ blas routine structure definitions **********/
 struct perf_test_trmm_args {
@@ -138,6 +112,7 @@ static std::string loop_e_str[LOOP_N] = {"serial", "parallel"};
  */
 typedef enum TEST {
   BLAS,
+  BATCHED_HEURISTIC,
   BATCHED_SERIAL,
   BATCHED_SERIAL_BLOCKED,
   BATCHED_SERIAL_SIMD,
@@ -155,10 +130,10 @@ typedef enum TEST {
 } test_e;
 
 static std::string test_e_str[TEST_N]{
-    "blas", "batched_serial", "batched_serial_blocked", "batched_serial_simd",
-    "batched_serial_simd_blocked", "batched_serial_compact_mkl", "batched_team",
-    "batched_team_blocked", "batched_team_vector",
-    "batched_team_vector_blocked", "batched_team_simd",
+    "blas", "batched_heuristic", "batched_serial", "batched_serial_blocked",
+    "batched_serial_simd", "batched_serial_simd_blocked",
+    "batched_serial_compact_mkl", "batched_team", "batched_team_blocked",
+    "batched_team_vector", "batched_team_vector_blocked", "batched_team_simd",
     "batched_team_simd_blocked",
     // ADD MORE TEST TYPES HERE
     "experiment"};
@@ -195,6 +170,7 @@ typedef struct matrix_dims matrix_dims_t;
  * @var blas_routines: Selects which supported blas routines to test.
  * @var verify:        Performs verification of the blas routine for each input
  *                     before timing it.
+ * @var ninter:        The number of interleaved matrices for armpl.
  */
 struct perf_test_options {
   test_e test;
@@ -209,6 +185,8 @@ struct perf_test_options {
   blas_args_t blas_args;
   std::string blas_routines;
   bool verify;
+  int ninter;
+  bool use_simd;
 };
 typedef struct perf_test_options options_t;
 

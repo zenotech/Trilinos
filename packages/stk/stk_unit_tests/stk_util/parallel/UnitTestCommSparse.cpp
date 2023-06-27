@@ -33,17 +33,18 @@
 // 
 
 #include "gtest/gtest.h"
+#include "stk_util/stk_config.h"               // for STK_HAS_MPI
+#if defined ( STK_HAS_MPI )
+
 #include "stk_util/parallel/CommSparse.hpp"    // for CommSparse, comm_recv_msg_sizes, comm_recv...
 #include "stk_util/parallel/Parallel.hpp"      // for parallel_machine_rank, parallel_machine_size
 #include "stk_util/parallel/ParallelComm.hpp"  // for CommBuffer
-#include "stk_util/stk_config.h"               // for STK_HAS_MPI
 #include "stk_util/util/ReportHandler.hpp"     // for ThrowRequireMsg
 #include <memory>                              // for allocator_traits<>::value_type
 #include <ostream>                             // for basic_ostream::operator<<, operator<<, bas...
 #include <vector>                              // for vector
 
-#if defined ( STK_HAS_MPI )
-
+#ifndef STK_HIDE_DEPRECATED_CODE // delete after August 2022
 TEST(ParallelComm, comm_recv_msg_sizes)
 {
   MPI_Comm comm = MPI_COMM_WORLD;
@@ -102,11 +103,12 @@ TEST(ParallelComm, comm_recv_procs_and_msg_sizes)
     }
     else {
       unsigned expected = p+1;
-      ThrowRequireMsg( recv_bufs[p].size() == expected, "proc "<<myProc<<", recv_bufs["<<p<<"].size()="<<recv_bufs[p].size()<<std::endl);
+      STK_ThrowRequireMsg( recv_bufs[p].size() == expected, "proc "<<myProc<<", recv_bufs["<<p<<"].size()="<<recv_bufs[p].size()<<std::endl);
       EXPECT_EQ(expected, recv_bufs[p].size());
     }
   }
 }
+#endif
 
 TEST(ParallelComm, CommSparse_pair_with_string)
 {
@@ -215,21 +217,6 @@ TEST(ParallelComm, CommSparse_all_including_self)
     int msg;
     srcBuf.unpack(msg);
     EXPECT_EQ(msg, srcProc);
-  }
-
-  commSparse.swap_send_recv();
-  commSparse.reset_buffers();
-
-  for(int destProc=0; destProc<numProcs; ++destProc) {
-    commSparse.send_buffer(destProc).pack(destProc);
-  }
-
-  for(int srcProc=0; srcProc<numProcs; ++srcProc) {
-    stk::CommBuffer& srcBuf = commSparse.recv_buffer(srcProc);
-    EXPECT_EQ(sizeof(int), static_cast<unsigned>(srcBuf.remaining()));
-    int msg;
-    srcBuf.unpack(msg);
-    EXPECT_EQ(msg, myProc);
   }
 }
 
@@ -350,6 +337,20 @@ TEST(ParallelComm, CommSparse_communicate_with_unpack)
       EXPECT_EQ(srcProc, recvData);
     }
   });
+}
+
+TEST(ParallelComm, serialConstructCommSparse_forMemoryLeakCheck)
+{
+  if (stk::parallel_machine_size(MPI_COMM_WORLD) != 1) { GTEST_SKIP(); }
+
+  {
+    stk::CommSparse comm(MPI_COMM_WORLD);
+    EXPECT_EQ(1, comm.parallel_size());
+  }
+  {
+    stk::CommSparse comm(MPI_COMM_WORLD);
+    EXPECT_EQ(1, comm.parallel_size());
+  }
 }
 
 #endif

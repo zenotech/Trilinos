@@ -248,6 +248,8 @@ namespace Xpetra {
     //! Set multi-vector values to random numbers.
     void randomize(bool bUseXpetraImplementation = false);
 
+    void randomize(const Scalar& minVal, const Scalar& maxVal, bool bUseXpetraImplementation = false);
+
     //{@
     // Implements DistObject interface
 
@@ -295,7 +297,6 @@ namespace Xpetra {
     void setSeed(unsigned int seed);
 
 
-#ifdef HAVE_XPETRA_KOKKOS_REFACTOR
     typedef typename Xpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node>::dual_view_type dual_view_type;
 
     virtual typename dual_view_type::t_host_const_um getHostLocalView (Access::ReadOnlyStruct) const;
@@ -309,9 +310,6 @@ namespace Xpetra {
     virtual typename dual_view_type::t_host_um getHostLocalView (Access::ReadWriteStruct) const;
 
     virtual typename dual_view_type::t_dev_um getDeviceLocalView(Access::ReadWriteStruct) const;
-
-
-#endif
 
 
   protected:

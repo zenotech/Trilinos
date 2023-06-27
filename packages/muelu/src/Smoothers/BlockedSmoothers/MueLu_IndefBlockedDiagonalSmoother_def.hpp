@@ -67,16 +67,12 @@
 
 #include "MueLu_IndefBlockedDiagonalSmoother_decl.hpp"
 #include "MueLu_Level.hpp"
-#include "MueLu_Utilities.hpp"
 #include "MueLu_Monitor.hpp"
 #include "MueLu_HierarchyUtils.hpp"
 #include "MueLu_SmootherBase.hpp"
-#include "MueLu_SubBlockAFactory.hpp"
 
 // include files for default FactoryManager
 #include "MueLu_SchurComplementFactory.hpp"
-#include "MueLu_DirectSolver.hpp"
-#include "MueLu_SmootherFactory.hpp"
 #include "MueLu_FactoryManager.hpp"
 
 namespace MueLu {
@@ -177,7 +173,7 @@ namespace MueLu {
       diagFVector->reciprocal(*diagFVector);    // build reciprocal
     } else {
       const RCP<const Map> rowmap = F_->getRowMap();
-      size_t locSize = rowmap->getNodeNumElements();
+      size_t locSize = rowmap->getLocalNumElements();
       Teuchos::ArrayRCP<SC> diag = diagFVector->getDataNonConst(0);
       Teuchos::ArrayView<const LO> cols;
       Teuchos::ArrayView<const SC> vals;

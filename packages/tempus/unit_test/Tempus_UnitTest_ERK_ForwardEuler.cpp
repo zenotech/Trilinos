@@ -6,11 +6,8 @@
 // ****************************************************************************
 // @HEADER
 
-#include "Teuchos_UnitTestHarness.hpp"
+#include "Tempus_UnitTest_RK_Utils.hpp"
 
-#include "Tempus_UnitTest_Utils.hpp"
-
-#include "../TestModels/SinCosModel.hpp"
 #include "../TestModels/DahlquistTestModel.hpp"
 
 
@@ -96,7 +93,7 @@ TEUCHOS_UNIT_TEST(ERK_ForwardEuler, FSAL)
   auto workingState   = solutionHistory->getWorkingState();
   const double x_1    = get_ele(*(workingState->getX()), 0);
   const double xDot_1 = get_ele(*(workingState->getXDot()), 0);
-  //std::cout << "xDot_1 = " << xDot_1 << std::endl;
+  //out << "xDot_1 = " << xDot_1 << std::endl;
   TEST_ASSERT(std::abs(x_1   ) < relTol);
   TEST_ASSERT(std::abs(xDot_1) < relTol);
   TEST_FLOATING_EQUALITY(workingState->getTime(), 1.0, relTol);

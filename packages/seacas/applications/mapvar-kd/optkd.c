@@ -25,11 +25,11 @@
 
 #if defined ADDC_
 #define KDRECTQUERY kdrectquery_
-#define KDKILLTREE kdkilltree_
+#define KDKILLTREE  kdkilltree_
 #define KDBUILDTREE kdbuildtree_
 #else
 #define KDRECTQUERY kdrectquery
-#define KDKILLTREE kdkilltree
+#define KDKILLTREE  kdkilltree
 #define KDBUILDTREE kdbuildtree
 #endif
 
@@ -59,9 +59,7 @@
   }
 
 static optkdNode *Root = NULL;
-static int *      perm = NULL; /* permutation array */
-
-extern double fabs();
+static int       *perm = NULL; /* permutation array */
 
 /***************************************************************************/
 /* Makes the perm partition the array Values along the element k.          */
@@ -69,16 +67,13 @@ extern double fabs();
 /***************************************************************************/
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
-#define sign(x) ((x) >= 0 ? 1 : -1)
+#define sign(x)   ((x) >= 0 ? 1 : -1)
 
 /*
  * Floyd and Rivest SELECT Algorithm (CACM Algorithm 489)
  */
 void rf_select(real *a, int count, int l, int r, int k, int discrim)
 {
-  real z, t;
-  int  n, i, j, s, sd, ll, rr, tmp;
-
   while (r > l) {
     if (r - l > 600) {
       /*
@@ -87,28 +82,28 @@ void rf_select(real *a, int count, int l, int r, int k, int discrim)
        * that the (K-L+1)-th element is expected to lie in the smaller set
        * after partitioning
        */
-      n  = r - l + 1;
-      i  = k - l + 1;
-      z  = log(n);
-      s  = 0.5 * exp(2.0 * z / 3.0);
-      sd = 0.1 * sqrt(z * s * (n - s) / n) * sign(i - n / 2.0);
+      int  n  = r - l + 1;
+      int  i  = k - l + 1;
+      real z  = log(n);
+      int  s  = 0.5 * exp(2.0 * z / 3.0);
+      int  sd = 0.1 * sqrt(z * s * (n - s) / n) * sign(i - n / 2.0);
 
-      tmp = k - (i * s / n) + sd;
-      ll  = max(l, tmp);
-      tmp = k + (n - i) * s / n + sd;
-      rr  = min(r, tmp);
+      int tmp = k - (i * s / n) + sd;
+      int ll  = max(l, tmp);
+      tmp     = k + (n - i) * s / n + sd;
+      int rr  = min(r, tmp);
       rf_select(a, count, ll, rr, k, discrim);
     }
-    t = a[discrim * count + perm[k]];
+    real t = a[discrim * count + perm[k]];
 
     /* The following code partitions a[L:R] about T. It is similar to
        PARTITION, but will run faster on most machines since subscript
        range checking on I and J has been eliminated.
     */
-    i = l;
-    j = r;
+    int i = l;
+    int j = r;
     /* exchange(x[l], x[k]); */
-    tmp     = perm[l];
+    int tmp = perm[l];
     perm[l] = perm[k];
     perm[k] = tmp;
     if (a[discrim * count + perm[r]] > t) {
@@ -182,14 +177,13 @@ int findmaxvariance(int l, int u, int dimension, real *points, int N)
   real max_var = 0.0;
 
   for (int i = 0; i < dimension; i++) {
-    real prev_mean = 0.0;
-    real mean      = 0.0;
-    real variance  = 0.0;
-    real count     = 0.0;
+    real mean     = 0.0;
+    real variance = 0.0;
+    real count    = 0.0;
 
     for (int j = l; j <= u; j++) {
-      real val  = points[N * i + perm[j]];
-      prev_mean = mean;
+      real val       = points[N * i + perm[j]];
+      real prev_mean = mean;
       count += 1.0;
       mean += (val - prev_mean) / count;
       variance += (val - prev_mean) * (val - mean);
@@ -281,7 +275,7 @@ void KillOptTree(optkdNode *P)
   free(P);
 }
 
-void KDKILLTREE()
+void KDKILLTREE(void)
 {
   if (perm != NULL) {
     free(perm);
@@ -447,14 +441,7 @@ void optRangeSearch(optkdNode *P, real *Points, int N, int Dimension, real *xmin
 void KDRECTQUERY(real *Points, int *N, int *Dimension, real *xmin, real *xmax, int *found,
                  int *count)
 {
-  static real B[6];
-
-  switch (*Dimension) {
-  case 3: B[5] = FLT_MAX; B[4] = -FLT_MAX; /* fall through */
-  case 2: B[3] = FLT_MAX; B[2] = -FLT_MAX; /* fall through */
-  case 1: B[1] = FLT_MAX; B[0] = -FLT_MAX;
-  }
-
-  *count = 0;
+  real B[6] = {-FLT_MAX, FLT_MAX, -FLT_MAX, FLT_MAX, -FLT_MAX, FLT_MAX};
+  *count    = 0;
   optRangeSearch(Root, Points, *N, *Dimension, xmin, xmax, B, found, count, 0);
 }

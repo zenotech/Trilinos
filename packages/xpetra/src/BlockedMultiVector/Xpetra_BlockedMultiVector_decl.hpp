@@ -71,7 +71,7 @@ namespace Xpetra {
   template <class Scalar,
             class LocalOrdinal,
             class GlobalOrdinal,
-            class Node = KokkosClassic::DefaultNode::DefaultNodeType>
+            class Node = Tpetra::KokkosClassic::DefaultNode::DefaultNodeType>
   class BlockedMultiVector
     : public MultiVector< Scalar, LocalOrdinal, GlobalOrdinal, Node >
   {
@@ -322,9 +322,14 @@ namespace Xpetra {
 
     virtual void randomize(bool bUseXpetraImplementation = false);
 
+    virtual void randomize(const Scalar& minVal, const Scalar& maxVal, bool bUseXpetraImplementation = false);
+
 
     //! Set multi-vector values to random numbers. XPetra implementation
     virtual void Xpetra_randomize();
+
+    //! Set multi-vector values to random numbers. XPetra implementation
+    virtual void Xpetra_randomize(const Scalar& minVal, const Scalar& maxVal);
 
 
     //@}

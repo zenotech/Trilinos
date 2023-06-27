@@ -66,7 +66,7 @@ namespace Intrepid2 {
       |   DoF   |----------------------------------------------------------|      DoF definition       |
       | ordinal |  subc dim    | subc ordinal | subc DoF ord |subc num DoF |                           |
       |=========|==============|==============|==============|=============|===========================|
-      |    0    |       0      |       0      |       0      |      1      |   L_0(u) = u(0)           |
+      |    0    |       0      |       0      |       0      |      1      |   L_0(u) = u(-1)          |
       |---------|--------------|--------------|--------------|-------------|---------------------------|
       |    1    |       0      |       1      |       0      |      1      |   L_1(u) = u(1)           |
       |=========|==============|==============|==============|=============|===========================|
@@ -225,6 +225,11 @@ namespace Intrepid2 {
     const char*
     getName() const override {
       return "Intrepid2_HGRAD_LINE_C1_FEM";
+    }
+
+    BasisPtr<typename Kokkos::HostSpace::device_type,outputValueType,pointValueType>
+    getHostBasis() const override{
+      return Teuchos::rcp(new Basis_HGRAD_LINE_C1_FEM<typename Kokkos::HostSpace::device_type,outputValueType,pointValueType>());
     }
 
   };

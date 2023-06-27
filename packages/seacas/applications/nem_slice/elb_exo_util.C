@@ -1,5 +1,5 @@
 /*
- * Copyright(C) 1999-2020 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2023 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
  *
@@ -19,9 +19,9 @@
 #include <string>
 #include <vector>
 
-#include "elb.h"      // for Weight_Description<INT>, etc
-#include "elb_elem.h" // for get_elem_type, E_Type, etc
-#include "elb_err.h"  // for Gen_Error, MAX_ERR_MSG
+#include "elb.h"        // for Weight_Description<INT>, etc
+#include "elb_elem.h"   // for get_elem_type, E_Type, etc
+#include "elb_err.h"    // for Gen_Error, MAX_ERR_MSG
 #include "elb_exo.h"
 #include "elb_groups.h" // for parse_groups
 #include "elb_util.h"   // for in_list, roundfloat
@@ -40,20 +40,16 @@ template int read_exo_weights(Problem_Description *prob, Weight_Description<int6
 template <typename INT>
 int read_exo_weights(Problem_Description *prob, Weight_Description<INT> *weight)
 {
-  int         exoid;
-  int         cpu_ws = 0;
-  int         io_ws  = 0;
-  int         neblks;
-  float       version;
-  float       minval = 1.0f;
-  char        elem_type[MAX_STR_LENGTH + 1];
-  std::string ctemp;
+  int exoid;
   /*---------------------------Execution Begins--------------------------------*/
 
   /* Open the ExodusII file containing the weights */
-  int mode = EX_READ | prob->int64api;
+  int   mode   = EX_READ | prob->int64api;
+  int   cpu_ws = 0;
+  int   io_ws  = 0;
+  float version;
   if ((exoid = ex_open(weight->exo_filename.c_str(), mode, &cpu_ws, &io_ws, &version)) < 0) {
-    ctemp = fmt::format("fatal: could not open ExodusII file {}", weight->exo_filename.c_str());
+    std::string ctemp = fmt::format("fatal: could not open ExodusII file {}", weight->exo_filename);
     Gen_Error(0, ctemp);
     return 0;
   }
@@ -87,7 +83,7 @@ int read_exo_weights(Problem_Description *prob, Weight_Description<INT> *weight)
     }
 
     /* Get the number of element blocks */
-    neblks = ex_inquire_int(exoid, EX_INQ_ELEM_BLK);
+    int              neblks = ex_inquire_int(exoid, EX_INQ_ELEM_BLK);
     std::vector<INT> eblk_ids(neblks);
     std::vector<INT> eblk_ecnts(neblks);
 
@@ -99,8 +95,9 @@ int read_exo_weights(Problem_Description *prob, Weight_Description<INT> *weight)
 
     /* Get the count of elements in each element block */
     for (int cnt = 0; cnt < neblks; cnt++) {
-      INT dum1;
-      INT dum2;
+      INT  dum1;
+      INT  dum2;
+      char elem_type[MAX_STR_LENGTH + 1];
       if (ex_get_block(exoid, EX_ELEM_BLOCK, eblk_ids[cnt], elem_type, &(eblk_ecnts[cnt]), &dum1,
                        nullptr, nullptr, &dum2) < 0) {
         Gen_Error(0, "fatal: unable to get element block");
@@ -124,14 +121,15 @@ int read_exo_weights(Problem_Description *prob, Weight_Description<INT> *weight)
 
   /* Close the ExodusII weighting file */
   if (ex_close(exoid) < 0) {
-    ctemp = fmt::format("warning: failed to close ExodusII file {}", weight->exo_filename.c_str());
+    std::string ctemp =
+        fmt::format("warning: failed to close ExodusII file {}", weight->exo_filename);
     Gen_Error(0, ctemp);
   }
 
   /* now I need to translate the values to positive integers */
 
   /* first find the minimum value */
-  minval = *std::min_element(values.begin(), values.end());
+  float minval = *std::min_element(values.begin(), values.end());
 
   /* now translate the values to be greater than 1 and convert to ints */
   for (int cnt = 0; cnt < weight->nvals; cnt++) {
@@ -207,20 +205,9 @@ int read_mesh_params(const std::string &exo_file, Problem_Description *problem,
   }
 
   /* Allocate and initialize memory for the sphere adjustment */
-  sphere->adjust = (int *)malloc(sizeof(int) * 3 * (mesh->num_el_blks));
-  if (!(sphere->adjust)) {
-    Gen_Error(0, "fatal: insufficient memory");
-    ex_close(exoid);
-    return 0;
-  }
-
-  sphere->begin = sphere->adjust + mesh->num_el_blks;
-  sphere->end   = sphere->begin + mesh->num_el_blks;
-  for (size_t cnt = 0; cnt < mesh->num_el_blks; cnt++) {
-    sphere->adjust[cnt] = 0;
-    sphere->begin[cnt]  = 0;
-    sphere->end[cnt]    = 0;
-  }
+  sphere->adjust.resize(mesh->num_el_blks);
+  sphere->begin.resize(mesh->num_el_blks);
+  sphere->end.resize(mesh->num_el_blks);
 
   /* Determine the maximum number of nodes per element */
   mesh->max_np_elem = 0;
@@ -271,8 +258,8 @@ int read_mesh_params(const std::string &exo_file, Problem_Description *problem,
     fmt::print("\ttitle: {}\n", mesh->title);
   }
   fmt::print("\tgeometry dimension: {}\n", mesh->num_dims);
-  fmt::print("\tnumber of nodes: {:L}\tnumber of elements: {:L}\n", mesh->num_nodes,
-             mesh->num_elems);
+  fmt::print("\tnumber of nodes: {}\tnumber of elements: {}\n", fmt::group_digits(mesh->num_nodes),
+             fmt::group_digits(mesh->num_elems));
   fmt::print("\tnumber of element blocks: {}\n", mesh->num_el_blks);
   fmt::print("\tnumber of node sets: {}\tnumber of side sets: {}\n", mesh->num_node_sets,
              mesh->num_side_sets);
@@ -318,9 +305,9 @@ int read_mesh(const std::string &exo_file, Problem_Description *problem,
 
   if (problem->read_coords == ELB_TRUE) {
     switch (mesh->num_dims) {
-    case 3: zptr = (mesh->coords) + 2 * (mesh->num_nodes); FALL_THROUGH;
-    case 2: yptr = (mesh->coords) + (mesh->num_nodes); FALL_THROUGH;
-    case 1: xptr = mesh->coords;
+    case 3: zptr = mesh->coords.data() + 2 * (mesh->num_nodes); FALL_THROUGH;
+    case 2: yptr = mesh->coords.data() + (mesh->num_nodes); FALL_THROUGH;
+    case 1: xptr = mesh->coords.data();
     }
 
     if (ex_get_coord(exoid, xptr, yptr, zptr) < 0) {
@@ -337,14 +324,11 @@ int read_mesh(const std::string &exo_file, Problem_Description *problem,
       continue;
     }
 
-    INT *blk_connect = (INT *)malloc(sizeof(INT) * mesh->eb_cnts[cnt] * mesh->eb_npe[cnt]);
-    if (!blk_connect) {
-      Gen_Error(0, "fatal: insufficient memory");
-      return 0;
-    }
+    std::vector<INT> blk_connect(mesh->eb_cnts[cnt] * mesh->eb_npe[cnt]);
 
     /* Get the connectivity for this element block */
-    if (ex_get_conn(exoid, EX_ELEM_BLOCK, mesh->eb_ids[cnt], blk_connect, nullptr, nullptr) < 0) {
+    if (ex_get_conn(exoid, EX_ELEM_BLOCK, mesh->eb_ids[cnt], blk_connect.data(), nullptr, nullptr) <
+        0) {
       Gen_Error(0, "fatal: failed to get element connectivity");
       return 0;
     }
@@ -436,9 +420,6 @@ int read_mesh(const std::string &exo_file, Problem_Description *problem,
         gelem_cnt++;
       }
     }
-    /* Free up memory */
-    free(blk_connect);
-
   } /* End "for(cnt=0; cnt < mesh->num_el_blks; cnt++)" */
 
   /* if there is a group designator, then parse it here */

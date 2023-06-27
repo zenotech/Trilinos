@@ -33,8 +33,6 @@
 #include <stk_util/environment/CPUTime.hpp>
 #include <stk_topology/topology.hpp>
 
-#include <stk_mesh/base/MemoryUsage.hpp>
-
 #include <adapt/RefinerUtil.hpp>
 
 #include <adapt/UniformRefiner.hpp>
@@ -1520,14 +1518,14 @@
         SubDimCellToDataMap& map = nodeRegistry.getMap();
         //std::cout << msg << " tmp serialize_write map size: " << map.size() << std::endl;
 
-        if (0) emitter << YAML::Anchor("NodeRegistry::map");   YAML_ERRCHECK;
+        //if (0) emitter << YAML::Anchor("NodeRegistry::map");   YAML_ERRCHECK;
         //emitter << YAML::Flow;      YAML_ERRCHECK;
         emitter << YAML::BeginMap;      YAML_ERRCHECK;
 
         // key.serialized = { nodeid_0,... : set<EntityId> }
         // value.serialized = { {new_nid0, new_nid1,...}:vector<EntityId>, {elem_own[rank, ele_id]:EntityKey} }
 
-        int jj=0;
+        //int jj=0;
         for (iter = map.begin(); iter != map.end(); ++iter)
           {
             const SubDimCell_SDCEntityType& subDimEntity = (*iter).first;
@@ -1560,7 +1558,7 @@
             emitter << YAML::Key;       YAML_ERRCHECK;
             emitter << YAML::Flow;      YAML_ERRCHECK;
             emitter << YAML::BeginSeq;  YAML_ERRCHECK;
-            if (0) emitter << YAML::Anchor(std::string("seq")+std::to_string(jj++));   YAML_ERRCHECK;
+            //if (0) emitter << YAML::Anchor(std::string("seq")+std::to_string(jj++));   YAML_ERRCHECK;
             for (unsigned k=0; k < subDimEntity.size(); k++)
               {
                 //std::cout << " " << subDimEntity[k]->identifier() << " ";

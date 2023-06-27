@@ -62,11 +62,6 @@
 
 #include "Piro_InvertMassMatrixDecorator.hpp"
 
-#ifdef HAVE_PIRO_IFPACK2
-#include "Thyra_Ifpack2PreconditionerFactory.hpp"
-#include "Tpetra_CrsMatrix.hpp"
-#endif
-
 #ifdef HAVE_PIRO_MUELU
 #include <Thyra_MueLuPreconditionerFactory.hpp>
 #include "Stratimikos_MueLuHelpers.hpp"
@@ -86,8 +81,9 @@ template <typename Scalar>
 Piro::TempusSolver<Scalar>::TempusSolver(
     const Teuchos::RCP<Teuchos::ParameterList> &appParams,
     const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > &in_model,
+    const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > &in_adjointModel,
     const Teuchos::RCP<Piro::ObserverBase<Scalar> > &piroObserver):
-  TransientSolver<Scalar>(in_model), 
+  TransientSolver<Scalar>(in_model, appParams, piroObserver), 
   out_(Teuchos::VerboseObjectBase::getDefaultOStream()),
   isInitialized_(false),
   piroObserver_(piroObserver),
@@ -100,22 +96,31 @@ Piro::TempusSolver<Scalar>::TempusSolver(
   std::string jacobianSource = appParams->get("Jacobian Operator", "Have Jacobian");
   if (jacobianSource == "Matrix-Free") {
     Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > model;
+    //IKT 8/25/2021: Warning - the matrix-free stuff with the adjointModel (relevant
+    //only for adjoint transient sensitivities) has not been tested
+    Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > adjointModel;
     if (appParams->isParameter("Matrix-Free Perturbation")) {
       model = Teuchos::rcp(new Piro::MatrixFreeDecorator<Scalar>(in_model,
                            appParams->get<double>("Matrix-Free Perturbation")));
+      adjointModel = Teuchos::rcp(new Piro::MatrixFreeDecorator<Scalar>(in_adjointModel,
+                           appParams->get<double>("Matrix-Free Perturbation")));
     }
-    else model = Teuchos::rcp(new Piro::MatrixFreeDecorator<Scalar>(in_model));
-    initialize(appParams, model);
+    else {
+      model = Teuchos::rcp(new Piro::MatrixFreeDecorator<Scalar>(in_model));
+      adjointModel = Teuchos::rcp(new Piro::MatrixFreeDecorator<Scalar>(in_adjointModel));
+    }
+    initialize(appParams, model, adjointModel);
   }
   else {
-    initialize(appParams, in_model);
+    initialize(appParams, in_model, in_adjointModel);
   }
 }
 
 template <typename Scalar>
 void Piro::TempusSolver<Scalar>::initialize(
     const Teuchos::RCP<Teuchos::ParameterList> &appParams,
-    const Teuchos::RCP< Thyra::ModelEvaluator<Scalar> > &in_model) 
+    const Teuchos::RCP< Thyra::ModelEvaluator<Scalar> > &in_model, 
+    const Teuchos::RCP< Thyra::ModelEvaluator<Scalar> > &in_adjointModel) 
 {
   using Teuchos::ParameterList;
   using Teuchos::parameterList;
@@ -123,6 +128,7 @@ void Piro::TempusSolver<Scalar>::initialize(
   using Teuchos::rcp;
 
   model_ = in_model;  
+  adjointModel_ = in_adjointModel;  
   num_p_ = in_model->Np();
   num_g_ = in_model->Ng();
 
@@ -141,12 +147,10 @@ void Piro::TempusSolver<Scalar>::initialize(
     //based on that sublist, rather than hard-coding it here.
     solnVerbLevel_ = Teuchos::VERB_DEFAULT;
 
-    RCP<Teuchos::ParameterList> timeStepControlPL = Teuchos::null; 
-    RCP<Teuchos::ParameterList> albTimeStepControlPL = Teuchos::null; 
     if (tempusPL->isSublist("Albany Time Step Control Options")) {
       *out_ << "\n    Using 'Albany Time Step Control Options'.\n";
       abort_on_fail_at_min_dt_ = true; 
-      albTimeStepControlPL = sublist(tempusPL, "Albany Time Step Control Options"); 
+      RCP<Teuchos::ParameterList> albTimeStepControlPL = sublist(tempusPL, "Albany Time Step Control Options"); 
       if (integratorPL->isSublist("Time Step Control")) {
         TEUCHOS_TEST_FOR_EXCEPTION(true, Teuchos::Exceptions::InvalidParameter, 
             "\n Error!  You are attempting to specify 'Albany Time Step Control Options' and 'Time Step Control Strategy' \n "
@@ -166,7 +170,7 @@ void Piro::TempusSolver<Scalar>::initialize(
       Scalar dt_max = albTimeStepControlPL->get<Scalar>("Maximum Time Step", dt_initial);
       Scalar reduc_factor = albTimeStepControlPL->get<Scalar>("Reduction Factor", 1.0);
       Scalar ampl_factor = albTimeStepControlPL->get<Scalar>("Amplification Factor", 1.0);
-      timeStepControlPL = sublist(integratorPL, "Time Step Control", false);
+      RCP<Teuchos::ParameterList> timeStepControlPL = sublist(integratorPL, "Time Step Control", false);
       timeStepControlPL->set<Scalar>("Initial Time", t_initial_); 
       timeStepControlPL->set<Scalar>("Final Time", t_final_); 
       timeStepControlPL->set<Scalar>("Initial Time Step", dt_initial); 
@@ -204,11 +208,6 @@ void Piro::TempusSolver<Scalar>::initialize(
     //
     Stratimikos::DefaultLinearSolverBuilder linearSolverBuilder;
 
-#ifdef HAVE_PIRO_IFPACK2
-    typedef Thyra::PreconditionerFactoryBase<double> Base;
-    typedef Thyra::Ifpack2PreconditionerFactory<Tpetra::CrsMatrix<double> > Impl;
-    linearSolverBuilder.setPreconditioningStrategyFactory(Teuchos::abstractFactoryStd<Base, Impl>(), "Ifpack2");
-#endif
 #ifdef HAVE_PIRO_MUELU
     Stratimikos::enableMueLu(linearSolverBuilder);
 #endif
@@ -226,6 +225,9 @@ void Piro::TempusSolver<Scalar>::initialize(
     // IKT, 12/8/16: it may be necessary to expand the list of conditions
     // below, as more explicit schemes get added to Tempus
     // Explicit time-integrators for 1st order ODEs 
+    const bool lump_mass_matrix = tempusPL->get("Lump Mass Matrix", false);
+    const bool invert_mass_matrix = tempusPL->get("Invert Mass Matrix", true);
+    const bool constant_mass_matrix = tempusPL->get("Constant Mass Matrix", false);
     if (
       stepperType == "Forward Euler" ||
       stepperType == "RK Forward Euler" ||
@@ -249,36 +251,95 @@ void Piro::TempusSolver<Scalar>::initialize(
       stepperType == "SSPERK54" ||
       stepperType == "General ERK" ) {
 
-      Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > origModel = model_;
-      model_ = Teuchos::rcp(new Piro::InvertMassMatrixDecorator<Scalar>(
-      sublist(tempusPL,"Stratimikos", true), origModel, tempusPL->get("Constant Mass Matrix", false), tempusPL->get("Lump Mass Matrix", false),false));
+      if (invert_mass_matrix) {
+        Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > origModel = model_;
+        model_ = Teuchos::rcp(new Piro::InvertMassMatrixDecorator<Scalar>(
+          sublist(tempusPL,"Stratimikos", true), origModel, constant_mass_matrix, lump_mass_matrix, false));
+        if ((lump_mass_matrix == false) && (adjointModel_ != Teuchos::null)) { //don't need adjointModel_ if doing mass lumping
+	  //IKT 8/25/2021: warning - have not tested this block of code
+          Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > origAdjointModel = adjointModel_;
+          adjointModel_ = Teuchos::rcp(new Piro::InvertMassMatrixDecorator<Scalar>(
+            sublist(tempusPL,"Stratimikos", true), origAdjointModel, constant_mass_matrix, lump_mass_matrix, false));
+        }
+      }
+      else {
+         *out_ << "\n WARNING in Piro::TempusSolver!  You are attempting to run \n"
+               << "Explicit Stepper (" << stepperType << ") with 'Invert Mass Matrix' set to 'false'. \n"
+               << "This option should be set to 'true' unless your mass matrix is the identiy.\n";
+      }
+      is_explicit_ = true; 
     }
 
     //Explicit time-integrators for 2nd order ODEs
     //IKT, FIXME: fill this in as more explicit integrators for 2nd order ODEs are added to Tempus.
     else if (stepperType == "Newmark Explicit a-Form") {
-      Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > origModel = model_;
-      model_ = Teuchos::rcp(new Piro::InvertMassMatrixDecorator<Scalar>(
-        sublist(tempusPL,"Stratimikos", true), origModel, tempusPL->get("Constant Mass Matrix", false), tempusPL->get("Lump Mass Matrix", false),true));
+      if (invert_mass_matrix) {
+        Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > origModel = model_;
+        model_ = Teuchos::rcp(new Piro::InvertMassMatrixDecorator<Scalar>(
+          sublist(tempusPL,"Stratimikos", true), origModel, constant_mass_matrix, lump_mass_matrix, true));
+        if ((lump_mass_matrix == false) && (adjointModel_ != Teuchos::null)) { //don't need adjointModel_ if doing mass lumping
+	  //IKT 8/25/2021: warning - have not tested this block of code
+          Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > origAdjointModel = adjointModel_;
+          adjointModel_ = Teuchos::rcp(new Piro::InvertMassMatrixDecorator<Scalar>(
+            sublist(tempusPL,"Stratimikos", true), origAdjointModel, constant_mass_matrix, lump_mass_matrix, true));
+        }
+      }
+      else {
+         *out_ << "\n WARNING in Piro::TempusSolver!  You are attempting to run \n"
+               << "Explicit Stepper (" << stepperType << ") with 'Invert Mass Matrix' set to 'false'. \n"
+               << "This option should be set to 'true' unless your mass matrix is the identiy.\n";
+      }
+      is_explicit_ = true; 
     }
+    //The adjoint transient sensitivities will not work correctly if 'Mass Matrix Is Identity' is set.
+    //Detect this option, and throw if true.  To make this case work, M*DfDp and DfDx^T*M^{-T} 
+    //need to be implemented in Piro::InvertMassMatrixDecorator for the forward and adjoint ME, respectively.
+    //Please contact Eric Phipps for questions on how this is to be done.
+    ParameterList& tempusSensPL = tempusPL->sublist("Sensitivities");
+    if (tempusSensPL.isParameter("Mass Matrix Is Identity")) {
+      const bool is_const_mass_matrix = tempusSensPL.get<bool>("Mass Matrix Is Identity");
+      if (is_const_mass_matrix == true) { //Throw if setting 'Mass Matrix Is Identity = true' 
+          TEUCHOS_TEST_FOR_EXCEPTION(
+             true,
+             Teuchos::Exceptions::InvalidParameter,
+             "\n Error! Piro::TempusSolver: please set 'Tempus'->'Sensitivities'->'Mass Matrix Is Identity=false'.\n"
+	     << "Transient sensitivities will not work correctly through Piro if 'Mass Matrix Is Identity=true'.\n");
+      }	
+    }
+    
     // C.2) Create the Thyra-wrapped ModelEvaluator
 
     thyraModel_ = rcp(new Thyra::DefaultModelEvaluatorWithSolveFactory<Scalar>(model_, lowsFactory));
-
     const RCP<const Thyra::VectorSpaceBase<double> > x_space = thyraModel_->get_x_space();
 
     //
     *out_ << "\nD) Create the stepper and integrator for the forward problem ...\n";
 
     //Create Tempus integrator with observer using tempusPL, model_ and sensitivity method
-    piroTempusIntegrator_ = Teuchos::rcp(new Piro::TempusIntegrator<Scalar>(tempusPL, model_, sens_method_));
+    bool sens_param_index = tempusSensPL.get<int>("Sensitivity Parameter Index", 0);
+    typedef Thyra::ModelEvaluatorBase MEB;
+    if (sens_method_ != NONE) {
+      const bool is_scalar_param = model_->createOutArgs().supports(MEB::OUT_ARG_DfDp, sens_param_index).supports(MEB::DERIV_MV_JACOBIAN_FORM);
+      if ((sens_method_ == FORWARD) && (is_scalar_param == false)) {
+        TEUCHOS_TEST_FOR_EXCEPTION(
+            true,
+            Teuchos::Exceptions::InvalidParameter,
+            "\n Error! Piro::TempusSolver: forward sensitivities do not work with distributed parameters!\n");
+      }
+    }
+    
+    //Create Piro::TempusIntegrator
+    //if adjointModel_ is null and the problem requires adjoints, Tempus will create and implicitly defined adjoint model.
+    piroTempusIntegrator_ = Teuchos::nonnull(adjointModel_) ?  
+                            Teuchos::rcp(new Piro::TempusIntegrator<Scalar>(tempusPL, model_, adjointModel_, sens_method_)) :
+                            Teuchos::rcp(new Piro::TempusIntegrator<Scalar>(tempusPL, model_, sens_method_));
     this->setPiroTempusIntegrator(piroTempusIntegrator_);  
 
     //Get stepper from integrator
     fwdStateStepper_ = piroTempusIntegrator_->getStepper();
 
-    //Set observer
     supports_x_dotdot_ = model_->createInArgs().supports(Thyra::ModelEvaluatorBase::IN_ARG_x_dot_dot);
+    //Set observer
     setObserver();  
 
   }
@@ -300,9 +361,11 @@ Piro::TempusSolver<Scalar>::TempusSolver(
     const Teuchos::RCP<Thyra::NonlinearSolverBase<Scalar> > &timeStepSolver,
     const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > &underlyingModel,
     Scalar finalTime,
-    const std::string sens_method_string, 
+    const std::string sens_method_string,
+    const int sens_param_index, 
+    const int response_fn_index, 
     Teuchos::EVerbosityLevel verbosityLevel) :
-  TransientSolver<Scalar>(underlyingModel), 
+  TransientSolver<Scalar>(underlyingModel, sens_param_index, response_fn_index), 
   piroTempusIntegrator_(stateIntegrator),
   fwdStateStepper_(stateStepper),
   fwdTimeStepSolver_(timeStepSolver),
@@ -332,8 +395,10 @@ Piro::TempusSolver<Scalar>::TempusSolver(
     Scalar initialTime,
     Scalar finalTime,
     const std::string sens_method_string, 
+    const int sens_param_index,
+    const int response_fn_index,
     Teuchos::EVerbosityLevel verbosityLevel) :
-  TransientSolver<Scalar>(underlyingModel), 
+  TransientSolver<Scalar>(underlyingModel, sens_param_index, response_fn_index), 
   piroTempusIntegrator_(stateIntegrator),
   fwdStateStepper_(stateStepper),
   fwdTimeStepSolver_(timeStepSolver),
@@ -461,15 +526,18 @@ void Piro::TempusSolver<Scalar>::evalModelImpl(
   auto numStates = solutionHistory->getNumStates();
   solutionState = (*solutionHistory)[numStates-1];
   //Get final solution from solutionHistory.
-  typedef Thyra::DefaultMultiVectorProductVector<Scalar> DMVPV;
-  Teuchos::RCP<const Thyra::VectorBase<Scalar>> x = solutionState->getX(); 
-  Teuchos::RCP<const DMVPV> X = Teuchos::rcp_dynamic_cast<const DMVPV>(x);
-  finalSolution = (sens_method_ == NONE) ? x : X->getMultiVector()->col(0);
+  //typedef Thyra::DefaultMultiVectorProductVector<Scalar> DMVPV;
+  //Teuchos::RCP<const Thyra::VectorBase<Scalar>> x = solutionState->getX(); 
+  //Teuchos::RCP<const DMVPV> X = Teuchos::rcp_dynamic_cast<const DMVPV>(x);
+  //It appears only forward sensitivity method returns a Thyra product MV whose 
+  //first column is the solution, not the adjoint sensitivity method.  Might
+  //want to add a check for this.
+  //finalSolution = (X == Teuchos::null) ? x : X->getMultiVector()->col(0);
+  finalSolution = piroTempusIntegrator_->getX(); 
 
   if (Teuchos::VERB_MEDIUM <= solnVerbLevel_) {
     *out_ << "Final Solution\n" << *finalSolution << "\n";
   }
-
 
   // As post-processing step, calculate responses at final solution
   Thyra::ModelEvaluatorBase::InArgs<Scalar> modelInArgs = model_->createInArgs();
@@ -480,7 +548,7 @@ void Piro::TempusSolver<Scalar>::evalModelImpl(
     modelInArgs.set_p(l, p_in);
   }
   //Set time to be final time at which the solve occurs (< t_final_ in the case we don't make it to t_final_).
-  //IKT: get final time from solutionHistory workingSpace, which is different than how it is done in Piro::RythmosSolver class.
+  //IKT: get final time from solutionHistory workingSpace.
   //IKT, 11/1/16, FIXME? workingState pointer is null right now, so the following
   //code is commented out for now.  Use t_final_ and soln_dt in set_t instead for now.
   /*RCP<Tempus::SolutionState<Scalar> > workingState = solutionHistory->getWorkingState();
@@ -516,12 +584,14 @@ Piro::TempusSolver<Scalar>::getValidTempusParameters() const
   validPL->sublist("NonLinear Solver", false, "");
   //validPL->set<std::string>("Verbosity Level", "", "");
   validPL->set<bool>("Lump Mass Matrix", false, "Boolean to tell code whether to lump mass matrix");
+  validPL->set<bool>("Invert Mass Matrix", true, "Boolean to tell code whether or not to invert mass matrix");
   validPL->set<bool>("Constant Mass Matrix", false, "Boolean to tell code if mass matrix is constant in time");
   validPL->set<bool>("Abort on Failure", true, "");
   validPL->set<std::string>("Integrator Name", "Tempus Integrator", "");
   validPL->sublist("Tempus Integrator", false, "");
   validPL->sublist("Tempus Stepper", false, "");
   validPL->sublist("Time Step Control", false, "");
+  validPL->sublist("Sensitivities", false, "");
   return validPL;
 }
 
@@ -672,10 +742,11 @@ Teuchos::RCP<Piro::TempusSolver<Scalar> >
 Piro::tempusSolver(
     const Teuchos::RCP<Teuchos::ParameterList> &appParams,
     const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > &in_model,
+    const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > &in_adjointModel,
     const Teuchos::RCP<Piro::ObserverBase<Scalar> > &piroObserver)
 {
   Teuchos::RCP<Teuchos::FancyOStream> out_(Teuchos::VerboseObjectBase::getDefaultOStream());
-  return Teuchos::rcp(new TempusSolver<Scalar>(appParams, in_model, piroObserver));
+  return Teuchos::rcp(new TempusSolver<Scalar>(appParams, in_model, in_adjointModel, piroObserver));
 }
 
 

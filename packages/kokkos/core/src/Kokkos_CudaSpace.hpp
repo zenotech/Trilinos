@@ -1,47 +1,24 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 
+#ifndef KOKKOS_IMPL_PUBLIC_INCLUDE
+#include <Kokkos_Macros.hpp>
+static_assert(false,
+              "Including non-public Kokkos header files is not allowed.");
+#endif
 #ifndef KOKKOS_CUDASPACE_HPP
 #define KOKKOS_CUDASPACE_HPP
 
@@ -70,6 +47,12 @@ extern "C" void kokkos_impl_cuda_set_pin_uvm_to_host(bool);
 /*--------------------------------------------------------------------------*/
 
 namespace Kokkos {
+namespace Impl {
+
+template <typename T>
+struct is_cuda_type_space : public std::false_type {};
+
+}  // namespace Impl
 
 /** \brief  Cuda on-device memory management */
 
@@ -92,6 +75,10 @@ class CudaSpace {
   ~CudaSpace()                               = default;
 
   /**\brief  Allocate untracked memory in the cuda space */
+  void* allocate(const Cuda& exec_space, const size_t arg_alloc_size) const;
+  void* allocate(const Cuda& exec_space, const char* arg_label,
+                 const size_t arg_alloc_size,
+                 const size_t arg_logical_size = 0) const;
   void* allocate(const size_t arg_alloc_size) const;
   void* allocate(const char* arg_label, const size_t arg_alloc_size,
                  const size_t arg_logical_size = 0) const;
@@ -105,6 +92,11 @@ class CudaSpace {
  private:
   template <class, class, class, class>
   friend class Kokkos::Experimental::LogicalMemorySpace;
+  void* impl_allocate(const Cuda& exec_space, const char* arg_label,
+                      const size_t arg_alloc_size,
+                      const size_t arg_logical_size = 0,
+                      const Kokkos::Tools::SpaceHandle =
+                          Kokkos::Tools::make_space_handle(name())) const;
   void* impl_allocate(const char* arg_label, const size_t arg_alloc_size,
                       const size_t arg_logical_size = 0,
                       const Kokkos::Tools::SpaceHandle =
@@ -119,17 +111,16 @@ class CudaSpace {
   /**\brief Return Name of the MemorySpace */
   static constexpr const char* name() { return m_name; }
 
-  /*--------------------------------*/
-  /** \brief  Error reporting for HostSpace attempt to access CudaSpace */
-  KOKKOS_DEPRECATED static void access_error();
-  KOKKOS_DEPRECATED static void access_error(const void* const);
-
  private:
   int m_device;  ///< Which Cuda device
 
   static constexpr const char* m_name = "Cuda";
   friend class Kokkos::Impl::SharedAllocationRecord<Kokkos::CudaSpace, void>;
 };
+
+template <>
+struct Impl::is_cuda_type_space<CudaSpace> : public std::true_type {};
+
 }  // namespace Kokkos
 
 /*--------------------------------------------------------------------------*/
@@ -148,12 +139,10 @@ class CudaUVMSpace {
   using device_type     = Kokkos::Device<execution_space, memory_space>;
   using size_type       = unsigned int;
 
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_4
   /** \brief  If UVM capability is available */
-  static bool available();
-
-  /*--------------------------------*/
-  /** \brief  CudaUVMSpace specific routine */
-  KOKKOS_DEPRECATED static int number_of_allocations();
+  KOKKOS_DEPRECATED static bool available();
+#endif
 
   /*--------------------------------*/
 
@@ -208,6 +197,9 @@ class CudaUVMSpace {
 #endif
   static constexpr const char* m_name = "CudaUVM";
 };
+
+template <>
+struct Impl::is_cuda_type_space<CudaUVMSpace> : public std::true_type {};
 
 }  // namespace Kokkos
 
@@ -270,6 +262,9 @@ class CudaHostPinnedSpace {
 
   /*--------------------------------*/
 };
+
+template <>
+struct Impl::is_cuda_type_space<CudaHostPinnedSpace> : public std::true_type {};
 
 }  // namespace Kokkos
 
@@ -411,338 +406,107 @@ struct MemorySpaceAccess<Kokkos::CudaHostPinnedSpace, Kokkos::CudaUVMSpace> {
 namespace Kokkos {
 namespace Impl {
 
+void DeepCopyCuda(void* dst, const void* src, size_t n);
+void DeepCopyAsyncCuda(const Cuda& instance, void* dst, const void* src,
+                       size_t n);
 void DeepCopyAsyncCuda(void* dst, const void* src, size_t n);
 
-template <>
-struct DeepCopy<CudaSpace, CudaSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t);
-  DeepCopy(const Cuda&, void* dst, const void* src, size_t);
-};
-
-template <>
-struct DeepCopy<CudaSpace, HostSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t);
-  DeepCopy(const Cuda&, void* dst, const void* src, size_t);
-};
-
-template <>
-struct DeepCopy<HostSpace, CudaSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t);
-  DeepCopy(const Cuda&, void* dst, const void* src, size_t);
-};
-
-template <>
-struct DeepCopy<CudaUVMSpace, CudaUVMSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
-  }
+template <class MemSpace>
+struct DeepCopy<MemSpace, HostSpace, Cuda,
+                std::enable_if_t<is_cuda_type_space<MemSpace>::value>> {
+  DeepCopy(void* dst, const void* src, size_t n) { DeepCopyCuda(dst, src, n); }
   DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(instance, dst, src, n);
+    DeepCopyAsyncCuda(instance, dst, src, n);
   }
 };
 
-template <>
-struct DeepCopy<CudaUVMSpace, HostSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, HostSpace, Cuda>(dst, src, n);
-  }
+template <class MemSpace>
+struct DeepCopy<HostSpace, MemSpace, Cuda,
+                std::enable_if_t<is_cuda_type_space<MemSpace>::value>> {
+  DeepCopy(void* dst, const void* src, size_t n) { DeepCopyCuda(dst, src, n); }
   DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, HostSpace, Cuda>(instance, dst, src, n);
+    DeepCopyAsyncCuda(instance, dst, src, n);
   }
 };
 
-template <>
-struct DeepCopy<HostSpace, CudaUVMSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<HostSpace, CudaSpace, Cuda>(dst, src, n);
-  }
+template <class MemSpace1, class MemSpace2>
+struct DeepCopy<MemSpace1, MemSpace2, Cuda,
+                std::enable_if_t<is_cuda_type_space<MemSpace1>::value &&
+                                 is_cuda_type_space<MemSpace2>::value>> {
+  DeepCopy(void* dst, const void* src, size_t n) { DeepCopyCuda(dst, src, n); }
   DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<HostSpace, CudaSpace, Cuda>(instance, dst, src, n);
+    DeepCopyAsyncCuda(instance, dst, src, n);
   }
 };
 
-template <>
-struct DeepCopy<CudaHostPinnedSpace, CudaHostPinnedSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-  DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(instance, dst, src, n);
-  }
-};
-
-template <>
-struct DeepCopy<CudaHostPinnedSpace, HostSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, HostSpace, Cuda>(dst, src, n);
-  }
-  DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, HostSpace, Cuda>(instance, dst, src, n);
-  }
-};
-
-template <>
-struct DeepCopy<HostSpace, CudaHostPinnedSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<HostSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-  DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<HostSpace, CudaSpace, Cuda>(instance, dst, src, n);
-  }
-};
-
-template <>
-struct DeepCopy<CudaUVMSpace, CudaSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-  DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(instance, dst, src, n);
-  }
-};
-
-template <>
-struct DeepCopy<CudaSpace, CudaUVMSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-  DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(instance, dst, src, n);
-  }
-};
-
-template <>
-struct DeepCopy<CudaUVMSpace, CudaHostPinnedSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-  DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(instance, dst, src, n);
-  }
-};
-
-template <>
-struct DeepCopy<CudaHostPinnedSpace, CudaUVMSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-  DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(instance, dst, src, n);
-  }
-};
-
-template <>
-struct DeepCopy<CudaSpace, CudaHostPinnedSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-  DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(instance, dst, src, n);
-  }
-};
-
-template <>
-struct DeepCopy<CudaHostPinnedSpace, CudaSpace, Cuda> {
-  DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-  DeepCopy(const Cuda& instance, void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(instance, dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<CudaSpace, CudaSpace, ExecutionSpace> {
+template <class MemSpace1, class MemSpace2, class ExecutionSpace>
+struct DeepCopy<MemSpace1, MemSpace2, ExecutionSpace,
+                std::enable_if_t<is_cuda_type_space<MemSpace1>::value &&
+                                 is_cuda_type_space<MemSpace2>::value &&
+                                 !std::is_same<ExecutionSpace, Cuda>::value>> {
   inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
+    DeepCopyCuda(dst, src, n);
   }
 
   inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
                   size_t n) {
-    exec.fence();
+    exec.fence(fence_string());
     DeepCopyAsyncCuda(dst, src, n);
+  }
+
+ private:
+  static const std::string& fence_string() {
+    static const std::string string =
+        std::string("Kokkos::Impl::DeepCopy<") + MemSpace1::name() + "Space, " +
+        MemSpace2::name() +
+        "Space, ExecutionSpace>::DeepCopy: fence before copy";
+    return string;
   }
 };
 
-template <class ExecutionSpace>
-struct DeepCopy<CudaSpace, HostSpace, ExecutionSpace> {
+template <class MemSpace, class ExecutionSpace>
+struct DeepCopy<MemSpace, HostSpace, ExecutionSpace,
+                std::enable_if_t<is_cuda_type_space<MemSpace>::value &&
+                                 !std::is_same<ExecutionSpace, Cuda>::value>> {
   inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, HostSpace, Cuda>(dst, src, n);
+    DeepCopyCuda(dst, src, n);
   }
 
   inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
                   size_t n) {
-    exec.fence();
+    exec.fence(fence_string());
     DeepCopyAsyncCuda(dst, src, n);
+  }
+
+ private:
+  static const std::string& fence_string() {
+    static const std::string string =
+        std::string("Kokkos::Impl::DeepCopy<") + MemSpace::name() +
+        "Space, HostSpace, ExecutionSpace>::DeepCopy: fence before copy";
+    return string;
   }
 };
 
-template <class ExecutionSpace>
-struct DeepCopy<HostSpace, CudaSpace, ExecutionSpace> {
+template <class MemSpace, class ExecutionSpace>
+struct DeepCopy<HostSpace, MemSpace, ExecutionSpace,
+                std::enable_if_t<is_cuda_type_space<MemSpace>::value &&
+                                 !std::is_same<ExecutionSpace, Cuda>::value>> {
   inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<HostSpace, CudaSpace, Cuda>(dst, src, n);
+    DeepCopyCuda(dst, src, n);
   }
 
   inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
                   size_t n) {
-    exec.fence();
+    exec.fence(fence_string());
     DeepCopyAsyncCuda(dst, src, n);
   }
-};
 
-template <class ExecutionSpace>
-struct DeepCopy<CudaSpace, CudaUVMSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<CudaSpace, CudaHostPinnedSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, HostSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<CudaUVMSpace, CudaSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<CudaUVMSpace, CudaUVMSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<CudaUVMSpace, CudaHostPinnedSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, HostSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<CudaUVMSpace, HostSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<CudaSpace, HostSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<CudaHostPinnedSpace, CudaSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<HostSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<CudaHostPinnedSpace, CudaUVMSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<HostSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<CudaHostPinnedSpace, CudaHostPinnedSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<HostSpace, HostSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<CudaHostPinnedSpace, HostSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<HostSpace, HostSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<HostSpace, CudaUVMSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<HostSpace, CudaSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
-  }
-};
-
-template <class ExecutionSpace>
-struct DeepCopy<HostSpace, CudaHostPinnedSpace, ExecutionSpace> {
-  inline DeepCopy(void* dst, const void* src, size_t n) {
-    (void)DeepCopy<HostSpace, HostSpace, Cuda>(dst, src, n);
-  }
-
-  inline DeepCopy(const ExecutionSpace& exec, void* dst, const void* src,
-                  size_t n) {
-    exec.fence();
-    DeepCopyAsyncCuda(dst, src, n);
+ private:
+  static const std::string& fence_string() {
+    static const std::string string =
+        std::string("Kokkos::Impl::DeepCopy<HostSpace, ") + MemSpace::name() +
+        "Space, ExecutionSpace>::DeepCopy: fence before copy";
+    return string;
   }
 };
 
@@ -785,10 +549,49 @@ class SharedAllocationRecord<Kokkos::CudaSpace, void>
   ~SharedAllocationRecord();
   SharedAllocationRecord() = default;
 
+  // This constructor does not forward to the one without exec_space arg
+  // in order to work around https://github.com/kokkos/kokkos/issues/5258
+  // This constructor is templated so I can't just put it into the cpp file
+  // like the other constructor.
+  template <typename ExecutionSpace>
+  SharedAllocationRecord(
+      const ExecutionSpace& /*exec_space*/, const Kokkos::CudaSpace& arg_space,
+      const std::string& arg_label, const size_t arg_alloc_size,
+      const RecordBase::function_type arg_dealloc = &base_t::deallocate)
+      : base_t(
+#ifdef KOKKOS_ENABLE_DEBUG
+            &SharedAllocationRecord<Kokkos::CudaSpace, void>::s_root_record,
+#endif
+            Impl::checked_allocation_with_header(arg_space, arg_label,
+                                                 arg_alloc_size),
+            sizeof(SharedAllocationHeader) + arg_alloc_size, arg_dealloc,
+            arg_label),
+        m_tex_obj(0),
+        m_space(arg_space) {
+
+    SharedAllocationHeader header;
+
+    this->base_t::_fill_host_accessible_header_info(header, arg_label);
+
+    // Copy to device memory
+    // workaround for issue with NVCC and MSVC
+    // https://github.com/kokkos/kokkos/issues/5258
+    deep_copy_header_no_exec(RecordBase::m_alloc_ptr, &header);
+  }
+
+  SharedAllocationRecord(
+      const Kokkos::Cuda& exec_space, const Kokkos::CudaSpace& arg_space,
+      const std::string& arg_label, const size_t arg_alloc_size,
+      const RecordBase::function_type arg_dealloc = &base_t::deallocate);
+
   SharedAllocationRecord(
       const Kokkos::CudaSpace& arg_space, const std::string& arg_label,
       const size_t arg_alloc_size,
       const RecordBase::function_type arg_dealloc = &base_t::deallocate);
+
+  // helper function to work around MSVC+NVCC issue
+  // https://github.com/kokkos/kokkos/issues/5258
+  static void deep_copy_header_no_exec(void*, const void*);
 
  public:
   template <typename AliasType>
@@ -835,6 +638,30 @@ class SharedAllocationRecord<Kokkos::CudaUVMSpace, void>
  protected:
   ~SharedAllocationRecord();
   SharedAllocationRecord() = default;
+
+  // This constructor does not forward to the one without exec_space arg
+  // in order to work around https://github.com/kokkos/kokkos/issues/5258
+  // This constructor is templated so I can't just put it into the cpp file
+  // like the other constructor.
+  template <typename ExecutionSpace>
+  SharedAllocationRecord(
+      const ExecutionSpace& /*exec_space*/,
+      const Kokkos::CudaUVMSpace& arg_space, const std::string& arg_label,
+      const size_t arg_alloc_size,
+      const RecordBase::function_type arg_dealloc = &base_t::deallocate)
+      : base_t(
+#ifdef KOKKOS_ENABLE_DEBUG
+            &SharedAllocationRecord<Kokkos::CudaUVMSpace, void>::s_root_record,
+#endif
+            Impl::checked_allocation_with_header(arg_space, arg_label,
+                                                 arg_alloc_size),
+            sizeof(SharedAllocationHeader) + arg_alloc_size, arg_dealloc,
+            arg_label),
+        m_tex_obj(0),
+        m_space(arg_space) {
+    this->base_t::_fill_host_accessible_header_info(*base_t::m_alloc_ptr,
+                                                    arg_label);
+  }
 
   SharedAllocationRecord(
       const Kokkos::CudaUVMSpace& arg_space, const std::string& arg_label,
@@ -887,10 +714,34 @@ class SharedAllocationRecord<Kokkos::CudaHostPinnedSpace, void>
   ~SharedAllocationRecord();
   SharedAllocationRecord() = default;
 
+  // This constructor does not forward to the one without exec_space arg
+  // in order to work around https://github.com/kokkos/kokkos/issues/5258
+  // This constructor is templated so I can't just put it into the cpp file
+  // like the other constructor.
+  template <typename ExecutionSpace>
+  SharedAllocationRecord(
+      const ExecutionSpace& /*exec_space*/,
+      const Kokkos::CudaHostPinnedSpace& arg_space,
+      const std::string& arg_label, const size_t arg_alloc_size,
+      const RecordBase::function_type arg_dealloc = &base_t::deallocate)
+      : base_t(
+#ifdef KOKKOS_ENABLE_DEBUG
+            &SharedAllocationRecord<Kokkos::CudaHostPinnedSpace,
+                                    void>::s_root_record,
+#endif
+            Impl::checked_allocation_with_header(arg_space, arg_label,
+                                                 arg_alloc_size),
+            sizeof(SharedAllocationHeader) + arg_alloc_size, arg_dealloc,
+            arg_label),
+        m_space(arg_space) {
+    this->base_t::_fill_host_accessible_header_info(*base_t::m_alloc_ptr,
+                                                    arg_label);
+  }
+
   SharedAllocationRecord(
       const Kokkos::CudaHostPinnedSpace& arg_space,
       const std::string& arg_label, const size_t arg_alloc_size,
-      const RecordBase::function_type arg_dealloc = &deallocate);
+      const RecordBase::function_type arg_dealloc = &base_t::deallocate);
 };
 
 }  // namespace Impl

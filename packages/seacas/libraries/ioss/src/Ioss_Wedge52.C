@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2021 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -75,8 +75,6 @@ Ioss::Wedge52::Wedge52() : Ioss::ElementTopology(Ioss::Wedge52::name, "Wedge_52"
   Ioss::ElementTopology::alias(Ioss::Wedge52::name, "Solid_Wedge_52_3D");
 }
 
-Ioss::Wedge52::~Wedge52() = default;
-
 int Ioss::Wedge52::parametric_dimension() const { return 3; }
 int Ioss::Wedge52::spatial_dimension() const { return 3; }
 int Ioss::Wedge52::order() const { return 3; }
@@ -152,6 +150,7 @@ Ioss::ElementTopology *Ioss::Wedge52::face_type(int face_number) const
 Ioss::ElementTopology *Ioss::Wedge52::edge_type(int edge_number) const
 {
   assert(edge_number >= 0 && edge_number <= number_edges());
+  IOSS_ASSERT_USED(edge_number);
   return Ioss::ElementTopology::factory("edge4");
 }
 

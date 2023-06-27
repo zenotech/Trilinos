@@ -1,50 +1,22 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 
 #include <Kokkos_Core.hpp>
 
-#include <impl/Kokkos_Timer.hpp>
+#include <Kokkos_Timer.hpp>
 #include <iostream>
 #include <cstdlib>
 #include <cstdint>
@@ -111,7 +83,7 @@ struct functor_team_for {
 
         if (test != value) {
           KOKKOS_IMPL_DO_NOT_USE_PRINTF(
-              "FAILED team_parallel_for %i %i %f %f\n", team.league_rank(),
+              "FAILED team_parallel_for %i %i %lf %lf\n", team.league_rank(),
               team.team_rank(), static_cast<double>(test),
               static_cast<double>(value));
           flag() = 1;
@@ -321,10 +293,9 @@ struct functor_team_vector_for {
 
         if (test != value) {
           KOKKOS_IMPL_DO_NOT_USE_PRINTF(
-              "FAILED team_vector_parallel_for %i %i %f %f\n",
+              "FAILED team_vector_parallel_for %i %i %lf %lf\n",
               team.league_rank(), team.team_rank(), static_cast<double>(test),
               static_cast<double>(value));
-
           flag() = 1;
         }
       });
@@ -372,7 +343,7 @@ struct functor_team_vector_reduce {
       if (test != value) {
         if (team.league_rank() == 0) {
           KOKKOS_IMPL_DO_NOT_USE_PRINTF(
-              "FAILED team_vector_parallel_reduce %i %i %f %f %lu\n",
+              "FAILED team_vector_parallel_reduce %i %i %lf %lf %lu\n",
               team.league_rank(), team.team_rank(), static_cast<double>(test),
               static_cast<double>(value),
               static_cast<unsigned long>(sizeof(Scalar)));
@@ -424,7 +395,7 @@ struct functor_team_vector_reduce_reducer {
 
       if (test != value) {
         KOKKOS_IMPL_DO_NOT_USE_PRINTF(
-            "FAILED team_vector_parallel_reduce_reducer %i %i %f %f\n",
+            "FAILED team_vector_parallel_reduce_reducer %i %i %lf %lf\n",
             team.league_rank(), team.team_rank(), static_cast<double>(test),
             static_cast<double>(value));
 
@@ -471,8 +442,9 @@ struct functor_vec_single {
 
     if (value2 != (value * Scalar(nEnd - nStart))) {
       KOKKOS_IMPL_DO_NOT_USE_PRINTF(
-          "FAILED vector_single broadcast %i %i %f %f\n", team.league_rank(),
-          team.team_rank(), (double)value2, (double)value);
+          "FAILED vector_single broadcast %i %i %lf %lf\n", team.league_rank(),
+          team.team_rank(), static_cast<double>(value2),
+          static_cast<double>(value));
 
       flag() = 1;
     }
@@ -523,7 +495,7 @@ struct functor_vec_for {
         }
 
         if (test != value) {
-          KOKKOS_IMPL_DO_NOT_USE_PRINTF("FAILED vector_par_for %i %i %f %f\n",
+          KOKKOS_IMPL_DO_NOT_USE_PRINTF("FAILED vector_par_for %i %i %lf %lf\n",
                                         team.league_rank(), team.team_rank(),
                                         static_cast<double>(test),
                                         static_cast<double>(value));
@@ -560,10 +532,9 @@ struct functor_vec_red {
       for (int i = 0; i < 13; i++) test += i;
 
       if (test != value) {
-        KOKKOS_IMPL_DO_NOT_USE_PRINTF("FAILED vector_par_reduce %i %i %f %f\n",
-                                      team.league_rank(), team.team_rank(),
-                                      (double)test, (double)value);
-
+        KOKKOS_IMPL_DO_NOT_USE_PRINTF(
+            "FAILED vector_par_reduce %i %i %lf %lf\n", team.league_rank(),
+            team.team_rank(), (double)test, (double)value);
         flag() = 1;
       }
     });
@@ -600,7 +571,7 @@ struct functor_vec_red_reducer {
 
       if (test != value) {
         KOKKOS_IMPL_DO_NOT_USE_PRINTF(
-            "FAILED vector_par_reduce_reducer %i %i %f %f\n",
+            "FAILED vector_par_reduce_reducer %i %i %lf %lf\n",
             team.league_rank(), team.team_rank(), (double)test, (double)value);
 
         flag() = 1;
@@ -630,9 +601,10 @@ struct functor_vec_scan {
 
                               if (test != val) {
                                 KOKKOS_IMPL_DO_NOT_USE_PRINTF(
-                                    "FAILED vector_par_scan %i %i %f %f\n",
+                                    "FAILED vector_par_scan %i %i %lf %lf\n",
                                     team.league_rank(), team.team_rank(),
-                                    (double)test, (double)val);
+                                    static_cast<double>(test),
+                                    static_cast<double>(val));
 
                                 flag() = 1;
                               }
@@ -723,9 +695,14 @@ template <class ExecutionSpace>
 bool Test(int test) {
   bool passed = true;
 
+// With SYCL 33*8 exceeds the maximum work group size
+#ifdef KOKKOS_ENABLE_SYCL
+  int team_size = 31;
+#else
   int team_size = 33;
-  if (team_size > int(ExecutionSpace::concurrency()))
-    team_size = int(ExecutionSpace::concurrency());
+#endif
+  int const concurrency = ExecutionSpace().concurrency();
+  if (team_size > concurrency) team_size = concurrency;
   passed = passed && test_scalar<int, ExecutionSpace>(317, team_size, test);
   passed = passed &&
            test_scalar<long long int, ExecutionSpace>(317, team_size, test);
@@ -765,8 +742,9 @@ class TestTripleNestedReduce {
 
   void run_test(const size_type &nrows, const size_type &ncols,
                 size_type team_size, const size_type &vector_length) {
-    if (team_size > size_type(DeviceType::execution_space::concurrency()))
-      team_size = size_type(DeviceType::execution_space::concurrency());
+    auto const concurrency =
+        static_cast<size_type>(execution_space().concurrency());
+    if (team_size > concurrency) team_size = concurrency;
 
 #ifdef KOKKOS_ENABLE_HPX
     team_size = 1;
@@ -856,7 +834,7 @@ template <typename ScalarType, class DeviceType>
 class TestTripleNestedReduce {
  public:
   using execution_space = DeviceType;
-  using size_type       = typename execution_space::size_type;
+  using size_type = typename execution_space::size_type;
 
   TestTripleNestedReduce(const size_type &, const size_type, const size_type &,
                          const size_type) {}
@@ -973,7 +951,7 @@ struct checkScan {
       }
     }
     for (int i = 0; i < host_outputs.extent_int(0); ++i)
-      ASSERT_EQ(host_outputs(i), expected(i));
+      ASSERT_EQ(host_outputs(i), expected(i)) << "differ at index " << i;
   }
 };
 }  // namespace VectorScanReducer
@@ -982,7 +960,10 @@ struct checkScan {
 TEST(TEST_CATEGORY, team_vector) {
   ASSERT_TRUE((TestTeamVector::Test<TEST_EXECSPACE>(0)));
   ASSERT_TRUE((TestTeamVector::Test<TEST_EXECSPACE>(1)));
+#if !(defined(KOKKOS_ENABLE_CUDA) && \
+      defined(KOKKOS_COMPILER_NVHPC))  // FIXME_NVHPC
   ASSERT_TRUE((TestTeamVector::Test<TEST_EXECSPACE>(2)));
+#endif
   ASSERT_TRUE((TestTeamVector::Test<TEST_EXECSPACE>(3)));
   ASSERT_TRUE((TestTeamVector::Test<TEST_EXECSPACE>(4)));
   ASSERT_TRUE((TestTeamVector::Test<TEST_EXECSPACE>(5)));
@@ -1000,17 +981,24 @@ TEST(TEST_CATEGORY, triple_nested_parallelism) {
 // With KOKKOS_ENABLE_DEBUG enabled, the functor uses too many registers to run
 // with a team size of 32 on GPUs, 16 is the max possible (at least on a K80
 // GPU) See https://github.com/kokkos/kokkos/issues/1513
+// For Intel GPUs, the requested workgroup size is just too large here.
 #if defined(KOKKOS_ENABLE_DEBUG) && defined(KOKKOS_ENABLE_CUDA)
-  if (!std::is_same<TEST_EXECSPACE, Kokkos::Cuda>::value) {
+  if (!std::is_same<TEST_EXECSPACE, Kokkos::Cuda>::value)
+#elif defined(KOKKOS_ENABLE_SYCL)
+  if (!std::is_same<TEST_EXECSPACE, Kokkos::Experimental::SYCL>::value)
 #endif
+  {
     TestTripleNestedReduce<double, TEST_EXECSPACE>(8192, 2048, 32, 32);
     TestTripleNestedReduce<double, TEST_EXECSPACE>(8192, 2048, 32, 16);
-#if defined(KOKKOS_ENABLE_DEBUG) && defined(KOKKOS_ENABLE_CUDA)
   }
+#if defined(KOKKOS_ENABLE_SYCL)
+  if (!std::is_same<TEST_EXECSPACE, Kokkos::Experimental::SYCL>::value)
 #endif
+  {
+    TestTripleNestedReduce<double, TEST_EXECSPACE>(8192, 2048, 16, 33);
+    TestTripleNestedReduce<double, TEST_EXECSPACE>(8192, 2048, 16, 19);
+  }
   TestTripleNestedReduce<double, TEST_EXECSPACE>(8192, 2048, 16, 16);
-  TestTripleNestedReduce<double, TEST_EXECSPACE>(8192, 2048, 16, 33);
-  TestTripleNestedReduce<double, TEST_EXECSPACE>(8192, 2048, 16, 19);
   TestTripleNestedReduce<double, TEST_EXECSPACE>(8192, 2048, 7, 16);
 }
 #endif
@@ -1019,8 +1007,15 @@ TEST(TEST_CATEGORY, parallel_scan_with_reducers) {
   using T = double;
   using namespace VectorScanReducer;
 
-  static constexpr int n              = 1000000;
-  static constexpr int n_vector_range = 100;
+  constexpr int n              = 1000000;
+  constexpr int n_vector_range = 100;
+
+#if defined(KOKKOS_ENABLE_CUDA) && \
+    defined(KOKKOS_COMPILER_NVHPC)  // FIXME_NVHPC
+  if constexpr (std::is_same_v<TEST_EXECSPACE, Kokkos::Cuda>) {
+    GTEST_SKIP() << "All but max inclusive scan differ at index 101";
+  }
+#endif
 
   checkScan<TEST_EXECSPACE, ScanType::Exclusive, n, n_vector_range,
             Kokkos::Prod<T, TEST_EXECSPACE>>()
@@ -1042,6 +1037,9 @@ TEST(TEST_CATEGORY, parallel_scan_with_reducers) {
   checkScan<TEST_EXECSPACE, ScanType::Inclusive, n, n_vector_range,
             Kokkos::Min<T, TEST_EXECSPACE>>()
       .run();
+
+  (void)n;
+  (void)n_vector_range;
 }
 
 }  // namespace Test

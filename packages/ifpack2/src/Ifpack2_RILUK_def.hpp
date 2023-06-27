@@ -46,8 +46,9 @@
 #include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Ifpack2_LocalSparseTriangularSolver.hpp"
 #include "Ifpack2_Details_getParamTryingTypes.hpp"
+#include "Ifpack2_Details_getCrsMatrix.hpp"
 #include "Kokkos_Sort.hpp"
-#include "KokkosKernels_SparseUtils.hpp"
+#include "KokkosSparse_Utils.hpp"
 #include "KokkosKernels_Sorting.hpp"
 
 namespace Ifpack2 {
@@ -129,7 +130,9 @@ template<class MatrixType>
 void RILUK<MatrixType>::allocateSolvers ()
 {
   L_solver_ = Teuchos::rcp (new LocalSparseTriangularSolver<row_matrix_type> ());
+  L_solver_->setObjectLabel("lower");
   U_solver_ = Teuchos::rcp (new LocalSparseTriangularSolver<row_matrix_type> ());
+  U_solver_->setObjectLabel("upper");
 }
 
 template<class MatrixType>
@@ -221,7 +224,7 @@ size_t RILUK<MatrixType>::getNodeSmootherComplexity() const {
     "input matrix, then call compute(), before calling this method.");
   // RILUK methods cost roughly one apply + the nnz in the upper+lower triangles
   if(!L_.is_null() && !U_.is_null())
-    return A_->getNodeNumEntries() + L_->getNodeNumEntries() + U_->getNodeNumEntries();
+    return A_->getLocalNumEntries() + L_->getLocalNumEntries() + U_->getLocalNumEntries();
   else
     return 0;
 }
@@ -505,16 +508,15 @@ void RILUK<MatrixType>::initialize ()
     if (this->isKokkosKernelsSpiluk_) {
       this->KernelHandle_ = Teuchos::rcp (new kk_handle_type ());
       KernelHandle_->create_spiluk_handle( KokkosSparse::Experimental::SPILUKAlgorithm::SEQLVLSCHD_TP1, 
-                                           A_local_->getNodeNumRows(),
-                                           2*A_local_->getNodeNumEntries()*(LevelOfFill_+1), 
-                                           2*A_local_->getNodeNumEntries()*(LevelOfFill_+1) );
+                                           A_local_->getLocalNumRows(),
+                                           2*A_local_->getLocalNumEntries()*(LevelOfFill_+1), 
+                                           2*A_local_->getLocalNumEntries()*(LevelOfFill_+1) );
     }
 
     {
-      RCP<const crs_matrix_type> A_local_crs =
-        rcp_dynamic_cast<const crs_matrix_type> (A_local_);
-      if (A_local_crs.is_null ()) {
-        local_ordinal_type numRows = A_local_->getNodeNumRows();
+      RCP<const crs_matrix_type> A_local_crs = Details::getCrsMatrix(A_local_);
+      if(A_local_crs.is_null()) {
+        local_ordinal_type numRows = A_local_->getLocalNumRows();
         Array<size_t> entriesPerRow(numRows);
         for(local_ordinal_type i = 0; i < numRows; i++) {
           entriesPerRow[i] = A_local_->getNumEntriesInLocalRow(i);
@@ -524,8 +526,8 @@ void RILUK<MatrixType>::initialize ()
                                     A_local_->getColMap (),
                                     entriesPerRow()));
         // copy entries into A_local_crs
-        nonconst_local_inds_host_view_type indices("indices",A_local_->getNodeMaxNumRowEntries());
-        nonconst_values_host_view_type values("values",A_local_->getNodeMaxNumRowEntries());
+        nonconst_local_inds_host_view_type indices("indices",A_local_->getLocalMaxNumRowEntries());
+        nonconst_values_host_view_type values("values",A_local_->getLocalMaxNumRowEntries());
         for(local_ordinal_type i = 0; i < numRows; i++) {
           size_t numEntries = 0;
           A_local_->getLocalRowCopy(i, indices, values, numEntries);
@@ -545,8 +547,17 @@ void RILUK<MatrixType>::initialize ()
     checkOrderingConsistency (*A_local_);
     L_solver_->setMatrix (L_);
     L_solver_->initialize ();
+    //NOTE (Nov-09-2022): 
+    //For Cuda >= 11.3 (using cusparseSpSV), skip trisolve computes here.
+    //Instead, call trisolve computes within RILUK compute
+#if !defined(KOKKOSKERNELS_ENABLE_TPL_CUSPARSE) || !defined(KOKKOS_ENABLE_CUDA) || (CUDA_VERSION < 11030)
+    L_solver_->compute ();//NOTE: It makes sense to do compute here because only the nonzero pattern is involved in trisolve compute
+#endif
     U_solver_->setMatrix (U_);
     U_solver_->initialize ();
+#if !defined(KOKKOSKERNELS_ENABLE_TPL_CUSPARSE) || !defined(KOKKOS_ENABLE_CUDA) || (CUDA_VERSION < 11030)
+    U_solver_->compute ();//NOTE: It makes sense to do compute here because only the nonzero pattern is involved in trisolve compute
+#endif
 
     // Do not call initAllValues. compute() always calls initAllValues to
     // fill L and U with possibly new numbers. initialize() is concerned
@@ -566,8 +577,8 @@ checkOrderingConsistency (const row_matrix_type& A)
   // First check that the local row map ordering is the same as the local portion of the column map.
   // The extraction of the strictly lower/upper parts of A, as well as the factorization,
   // implicitly assume that this is the case.
-  Teuchos::ArrayView<const global_ordinal_type> rowGIDs = A.getRowMap()->getNodeElementList();
-  Teuchos::ArrayView<const global_ordinal_type> colGIDs = A.getColMap()->getNodeElementList();
+  Teuchos::ArrayView<const global_ordinal_type> rowGIDs = A.getRowMap()->getLocalElementList();
+  Teuchos::ArrayView<const global_ordinal_type> colGIDs = A.getColMap()->getLocalElementList();
   bool gidsAreConsistentlyOrdered=true;
   global_ordinal_type indexOfInconsistentGID=0;
   for (global_ordinal_type i=0; i<rowGIDs.size(); ++i) {
@@ -634,8 +645,8 @@ initAllValues (const row_matrix_type& A)
   // This is ok, as the *order* of the GIDs in the rowmap is a better
   // expression of the user's intent than the GIDs themselves.
 
-  Teuchos::ArrayView<const global_ordinal_type> nodeGIDs = rowMap->getNodeElementList();
-  for (size_t myRow=0; myRow<A.getNodeNumRows(); ++myRow) {
+  Teuchos::ArrayView<const global_ordinal_type> nodeGIDs = rowMap->getLocalElementList();
+  for (size_t myRow=0; myRow<A.getLocalNumRows(); ++myRow) {
     local_ordinal_type local_row = myRow;
 
     //TODO JJH 4April2014 An optimization is to use getLocalRowView.  Not all matrices support this,
@@ -670,7 +681,7 @@ initAllValues (const row_matrix_type& A)
         LV[NumL] = InV[j];
         NumL++;
       }
-      else if (Teuchos::as<size_t>(k) <= rowMap->getNodeNumElements()) {
+      else if (Teuchos::as<size_t>(k) <= rowMap->getLocalNumElements()) {
         UI[NumU] = k;
         UV[NumU] = InV[j];
         NumU++;
@@ -764,11 +775,11 @@ void RILUK<MatrixType>::compute ()
 
     // Get Maximum Row length
     const size_t MaxNumEntries =
-            L_->getNodeMaxNumRowEntries () + U_->getNodeMaxNumRowEntries () + 1;
+            L_->getLocalMaxNumRowEntries () + U_->getLocalMaxNumRowEntries () + 1;
 
     Teuchos::Array<local_ordinal_type> InI(MaxNumEntries); // Allocate temp space
     Teuchos::Array<scalar_type> InV(MaxNumEntries);
-    size_t num_cols = U_->getColMap()->getNodeNumElements();
+    size_t num_cols = U_->getColMap()->getLocalNumElements();
     Teuchos::Array<int> colflag(num_cols);
 
     auto DV = Kokkos::subview(D_->getLocalViewHost(Tpetra::Access::ReadWrite), Kokkos::ALL(), 0);
@@ -779,7 +790,7 @@ void RILUK<MatrixType>::compute ()
       colflag[j] = -1;
     }
     using IST = typename row_matrix_type::impl_scalar_type;
-    for (size_t i = 0; i < L_->getNodeNumRows (); ++i) {
+    for (size_t i = 0; i < L_->getLocalNumRows (); ++i) {
       local_ordinal_type local_row = i;
       // Need some integer workspace and pointers
       size_t NumUU;
@@ -897,16 +908,15 @@ void RILUK<MatrixType>::compute ()
 
     // If L_solver_ or U_solver store modified factors internally, we need to reset those
     L_solver_->setMatrix (L_);
-    L_solver_->compute ();
+    L_solver_->compute ();//NOTE: Only do compute if the pointer changed. Otherwise, do nothing
     U_solver_->setMatrix (U_);
-    U_solver_->compute ();
+    U_solver_->compute ();//NOTE: Only do compute if the pointer changed. Otherwise, do nothing
   }
   else {
     {//Make sure values in A is picked up even in case of pattern reuse
-      RCP<const crs_matrix_type> A_local_crs =
-        rcp_dynamic_cast<const crs_matrix_type> (A_local_);
-      if (A_local_crs.is_null ()) {
-        local_ordinal_type numRows = A_local_->getNodeNumRows();
+      RCP<const crs_matrix_type> A_local_crs = Details::getCrsMatrix(A_local_);
+      if(A_local_crs.is_null()) {
+        local_ordinal_type numRows = A_local_->getLocalNumRows();
         Array<size_t> entriesPerRow(numRows);
         for(local_ordinal_type i = 0; i < numRows; i++) {
           entriesPerRow[i] = A_local_->getNumEntriesInLocalRow(i);
@@ -916,8 +926,8 @@ void RILUK<MatrixType>::compute ()
                                     A_local_->getColMap (),
                                     entriesPerRow()));
         // copy entries into A_local_crs
-        nonconst_local_inds_host_view_type indices("indices",A_local_->getNodeMaxNumRowEntries());
-        nonconst_values_host_view_type values("values",A_local_->getNodeMaxNumRowEntries());
+        nonconst_local_inds_host_view_type indices("indices",A_local_->getLocalMaxNumRowEntries());
+        nonconst_values_host_view_type values("values",A_local_->getLocalMaxNumRowEntries());
         for(local_ordinal_type i = 0; i < numRows; i++) {
           size_t numEntries = 0;
           A_local_->getLocalRowCopy(i, indices, values, numEntries);
@@ -926,9 +936,10 @@ void RILUK<MatrixType>::compute ()
         A_local_crs_nc->fillComplete (A_local_->getDomainMap (), A_local_->getRangeMap ());
         A_local_crs = rcp_const_cast<const crs_matrix_type> (A_local_crs_nc);
       }
-      A_local_rowmap_  = A_local_crs->getLocalMatrixDevice().graph.row_map;
-      A_local_entries_ = A_local_crs->getLocalMatrixDevice().graph.entries;
-      A_local_values_  = A_local_crs->getLocalValuesView();
+      auto lclMtx = A_local_crs->getLocalMatrixDevice();
+      A_local_rowmap_  = lclMtx.graph.row_map;
+      A_local_entries_ = lclMtx.graph.entries;
+      A_local_values_  = lclMtx.values;
     }
 
     L_->resumeFill ();
@@ -941,24 +952,29 @@ void RILUK<MatrixType>::compute ()
     
     using row_map_type = typename crs_matrix_type::local_matrix_device_type::row_map_type;
 
-    row_map_type L_rowmap  = L_->getLocalMatrixDevice().graph.row_map;
-    auto L_entries = L_->getLocalMatrixDevice().graph.entries;
-    auto L_values  = L_->getLocalValuesView();
-    row_map_type U_rowmap  = U_->getLocalMatrixDevice().graph.row_map;
-    auto U_entries = U_->getLocalMatrixDevice().graph.entries;
-    auto U_values  = U_->getLocalValuesView();
+    {
+      auto lclL = L_->getLocalMatrixDevice();
+      row_map_type L_rowmap  = lclL.graph.row_map;
+      auto L_entries = lclL.graph.entries;
+      auto L_values  = lclL.values;
 
-    KokkosSparse::Experimental::spiluk_numeric( KernelHandle_.getRawPtr(), LevelOfFill_, 
-                                                A_local_rowmap_, A_local_entries_, A_local_values_, 
-                                                L_rowmap, L_entries, L_values, U_rowmap, U_entries, U_values );
+      auto lclU = U_->getLocalMatrixDevice();
+      row_map_type U_rowmap  = lclU.graph.row_map;
+      auto U_entries = lclU.graph.entries;
+      auto U_values  = lclU.values;
+
+      KokkosSparse::Experimental::spiluk_numeric( KernelHandle_.getRawPtr(), LevelOfFill_, 
+                                                  A_local_rowmap_, A_local_entries_, A_local_values_, 
+                                                  L_rowmap, L_entries, L_values, U_rowmap, U_entries, U_values );
+    }
     
     L_->fillComplete (L_->getColMap (), A_local_->getRangeMap ());
     U_->fillComplete (A_local_->getDomainMap (), U_->getRowMap ());
     
     L_solver_->setMatrix (L_);
-    L_solver_->compute ();
+    L_solver_->compute ();//NOTE: Only do compute if the pointer changed. Otherwise, do nothing
     U_solver_->setMatrix (U_);
-    U_solver_->compute ();
+    U_solver_->compute ();//NOTE: Only do compute if the pointer changed. Otherwise, do nothing
   }
 
   isComputed_ = true;
@@ -1023,6 +1039,23 @@ apply (const Tpetra::MultiVector<scalar_type,local_ordinal_type,global_ordinal_t
     Teuchos::TimeMonitor timeMon (timer);
     if (alpha == one && beta == zero) {
       if (mode == Teuchos::NO_TRANS) { // Solve L (D (U Y)) = X for Y.      
+#if defined(KOKKOSKERNELS_ENABLE_TPL_CUSPARSE) && defined(KOKKOS_ENABLE_CUDA) && (CUDA_VERSION >= 11030)
+        //NOTE (Nov-15-2022):
+        //This is a workaround for Cuda >= 11.3 (using cusparseSpSV)
+        //since cusparseSpSV_solve() does not support in-place computation
+        MV Y_tmp (Y.getMap (), Y.getNumVectors ());
+
+        // Start by solving L Y_tmp = X for Y_tmp.
+        L_solver_->apply (X, Y_tmp, mode);
+
+        if (!this->isKokkosKernelsSpiluk_) {
+          // Solve D Y = Y.  The operation lets us do this in place in Y, so we can
+          // write "solve D Y = Y for Y."
+          Y_tmp.elementWiseMultiply (one, *D_, Y_tmp, zero);
+        }
+
+        U_solver_->apply (Y_tmp, Y, mode); // Solve U Y = Y_tmp.
+#else
         // Start by solving L Y = X for Y.
         L_solver_->apply (X, Y, mode);
 
@@ -1033,8 +1066,29 @@ apply (const Tpetra::MultiVector<scalar_type,local_ordinal_type,global_ordinal_t
         }
 
         U_solver_->apply (Y, Y, mode); // Solve U Y = Y.
+#endif
       }
-      else { // Solve U^P (D^P (L^P Y)) = X for Y (where P is * or T).      
+      else { // Solve U^P (D^P (L^P Y)) = X for Y (where P is * or T).          
+#if defined(KOKKOSKERNELS_ENABLE_TPL_CUSPARSE) && defined(KOKKOS_ENABLE_CUDA) && (CUDA_VERSION >= 11030)
+        //NOTE (Nov-15-2022):
+        //This is a workaround for Cuda >= 11.3 (using cusparseSpSV)
+        //since cusparseSpSV_solve() does not support in-place computation
+        MV Y_tmp (Y.getMap (), Y.getNumVectors ());
+
+        // Start by solving U^P Y_tmp = X for Y_tmp.
+        U_solver_->apply (X, Y_tmp, mode);
+
+        if (!this->isKokkosKernelsSpiluk_) {
+          // Solve D^P Y = Y.
+          //
+          // FIXME (mfh 24 Jan 2014) If mode = Teuchos::CONJ_TRANS, we
+          // need to do an elementwise multiply with the conjugate of
+          // D_, not just with D_ itself.
+          Y_tmp.elementWiseMultiply (one, *D_, Y_tmp, zero);
+	    }
+
+        L_solver_->apply (Y_tmp, Y, mode); // Solve L^P Y = Y_tmp.
+#else
         // Start by solving U^P Y = X for Y.
         U_solver_->apply (X, Y, mode);
 
@@ -1048,6 +1102,7 @@ apply (const Tpetra::MultiVector<scalar_type,local_ordinal_type,global_ordinal_t
 	    }
 
         L_solver_->apply (Y, Y, mode); // Solve L^P Y = Y.
+#endif
       }
     }
     else { // alpha != 1 or beta != 0

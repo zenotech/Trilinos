@@ -1,10 +1,9 @@
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2022 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
 // See packages/seacas/LICENSE for details
-#ifndef Sierra_SystemInterface_h
-#define Sierra_SystemInterface_h
+#pragma once
 
 #include "EJ_CodeTypes.h" // for StringIdVector, Omissions, etc
 #include "EJ_vector3d.h"  // for vector3d
@@ -44,11 +43,11 @@ public:
 
   vector3d                offset() const { return offset_; }
   const std::vector<int> &information_record_parts() const { return infoRecordParts_; }
-  const StringIdVector &  global_var_names() const { return globalVarNames_; }
-  const StringIdVector &  node_var_names() const { return nodeVarNames_; }
-  const StringIdVector &  elem_var_names() const { return elemVarNames_; }
-  const StringIdVector &  nset_var_names() const { return nsetVarNames_; }
-  const StringIdVector &  sset_var_names() const { return ssetVarNames_; }
+  const StringIdVector   &global_var_names() const { return globalVarNames_; }
+  const StringIdVector   &node_var_names() const { return nodeVarNames_; }
+  const StringIdVector   &elem_var_names() const { return elemVarNames_; }
+  const StringIdVector   &nset_var_names() const { return nsetVarNames_; }
+  const StringIdVector   &sset_var_names() const { return ssetVarNames_; }
 
   const Omissions &block_inclusions() const { return blockInclusions_; }
   const Omissions &block_omissions() const { return blockOmissions_; }
@@ -98,7 +97,7 @@ private:
   bool zlib_{true};
   bool szip_{false};
 
-  std::string blockPrefix_{std::string("p")};
+  std::string blockPrefix_{"p"};
 
   vector3d offset_;
   double   tolerance_{0.0};
@@ -117,4 +116,3 @@ private:
   StringIdVector nsetVarNames_;
   StringIdVector ssetVarNames_;
 };
-#endif

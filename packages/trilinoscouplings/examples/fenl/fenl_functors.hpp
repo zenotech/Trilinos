@@ -56,7 +56,7 @@
 #include <Kokkos_Pair.hpp>
 #include <Kokkos_UnorderedMap.hpp>
 
-#include <impl/Kokkos_Timer.hpp>
+#include <Kokkos_Timer.hpp>
 
 #include <fenl.hpp>
 #include <BoxElemFixture.hpp>
@@ -134,7 +134,7 @@ public:
       //--------------------------------
       // Guess at capacity required for the map:
 
-      Kokkos::Impl::Timer wall_clock ;
+      Kokkos::Timer wall_clock ;
 
       wall_clock.reset();
 
@@ -268,14 +268,14 @@ public:
       const unsigned row_node = key.first ;
       const unsigned col_node = key.second ;
 
+      using atomic_incr_type = typename std::remove_reference< decltype( row_count(0) ) >::type;
+
       if ( row_node < row_count.extent(0) ) {
-        typedef typename std::remove_reference< decltype( row_count(0) ) >::type atomic_incr_type;
         const unsigned offset = graph.row_map( row_node ) + atomic_fetch_add( & row_count( row_node ) , atomic_incr_type(1) );
         graph.entries( offset ) = col_node ;
       }
 
       if ( col_node < row_count.extent(0) && col_node != row_node ) {
-        typedef typename std::remove_reference< decltype( row_count(0) ) >::type atomic_incr_type;
         const unsigned offset = graph.row_map( col_node ) + atomic_fetch_add( & row_count( col_node ) , atomic_incr_type(1) );
         graph.entries( offset ) = row_node ;
       }
@@ -367,7 +367,7 @@ public:
   void init( unsigned & update ) const { update = 0 ; }
 
   KOKKOS_INLINE_FUNCTION
-  void join( volatile unsigned & update , const volatile unsigned & input ) const { update += input ; }
+  void join( unsigned & update , const unsigned & input ) const { update += input ; }
 
   //------------------------------------
 };
@@ -1237,7 +1237,8 @@ public:
   {
     Teuchos::Array<scalar_type> response(value_count, 0.0);
     //Kokkos::parallel_reduce( fixture.elem_count() , *this , response );
-    Kokkos::parallel_reduce( solution.extent(0) , *this , &response[0] );
+    Kokkos::View<scalar_type*, Kokkos::HostSpace> resp_view(&response[0], value_count);
+    Kokkos::parallel_reduce( solution.extent(0) , *this , resp_view );
     return response[0];
   }
 
@@ -1245,7 +1246,8 @@ public:
   {
     Teuchos::Array<scalar_type> response(value_count, 0.0);
     //Kokkos::parallel_reduce( fixture.elem_count() , *this , response );
-    Kokkos::parallel_reduce( solution.extent(0) , *this , &response[0] );
+    Kokkos::View<scalar_type*, Kokkos::HostSpace> resp_view(&response[0], value_count);
+    Kokkos::parallel_reduce( solution.extent(0) , *this , resp_view );
     return response;
   }
 
@@ -1377,8 +1379,8 @@ public:
   }
 
   KOKKOS_INLINE_FUNCTION
-  void join( volatile value_type response ,
-             volatile const value_type input ) const {
+  void join( value_type response ,
+             const value_type input ) const {
      for (unsigned j=0; j<value_count; ++j)
        response[j] += input[j] ;
   }

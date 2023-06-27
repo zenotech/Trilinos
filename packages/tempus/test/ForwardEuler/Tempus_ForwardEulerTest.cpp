@@ -46,10 +46,6 @@ TEUCHOS_UNIT_TEST(ForwardEuler, ParameterList)
   RCP<ParameterList> pList =
     getParametersFromXmlFile("Tempus_ForwardEuler_SinCos.xml");
 
-  //std::ofstream ftmp("PL.txt");
-  //pList->print(ftmp);
-  //ftmp.close();
-
   // Setup the SinCosModel
   RCP<ParameterList> scm_pl = sublist(pList, "SinCosModel", true);
   auto model = rcp(new SinCosModel<double> (scm_pl));
@@ -67,9 +63,9 @@ TEUCHOS_UNIT_TEST(ForwardEuler, ParameterList)
 
     bool pass = haveSameValuesSorted(*stepperPL, *defaultPL, true);
     if (!pass) {
-      std::cout << std::endl;
-      std::cout << "stepperPL -------------- \n" << *stepperPL << std::endl;
-      std::cout << "defaultPL -------------- \n" << *defaultPL << std::endl;
+      out << std::endl;
+      out << "stepperPL -------------- \n" << *stepperPL << std::endl;
+      out << "defaultPL -------------- \n" << *defaultPL << std::endl;
     }
     TEST_ASSERT(pass)
   }
@@ -77,7 +73,7 @@ TEUCHOS_UNIT_TEST(ForwardEuler, ParameterList)
   // Test constructor IntegratorBasic(model, stepperType)
   {
     RCP<Tempus::IntegratorBasic<double> > integrator =
-      Tempus::createIntegratorBasic<double>(model, "Forward Euler");
+      Tempus::createIntegratorBasic<double>(model, std::string("Forward Euler"));
 
     RCP<ParameterList> stepperPL = sublist(tempusPL, "Demo Stepper", true);
     RCP<const ParameterList> defaultPL =
@@ -85,9 +81,9 @@ TEUCHOS_UNIT_TEST(ForwardEuler, ParameterList)
 
     bool pass = haveSameValuesSorted(*stepperPL, *defaultPL, true);
     if (!pass) {
-      std::cout << std::endl;
-      std::cout << "stepperPL -------------- \n" << *stepperPL << std::endl;
-      std::cout << "defaultPL -------------- \n" << *defaultPL << std::endl;
+      out << std::endl;
+      out << "stepperPL -------------- \n" << *stepperPL << std::endl;
+      out << "defaultPL -------------- \n" << *defaultPL << std::endl;
     }
     TEST_ASSERT(pass)
   }
@@ -187,16 +183,16 @@ TEUCHOS_UNIT_TEST(ForwardEuler, ConstructingFromDefaults)
     Thyra::V_StVpStV(xdiff.ptr(), 1.0, *x_exact, -1.0, *(x));
 
     // Check the order and intercept
-    std::cout << "  Stepper = " << stepper->description()
-              << "\n            with " << option << std::endl;
-    std::cout << "  =========================" << std::endl;
-    std::cout << "  Exact solution   : " << get_ele(*(x_exact), 0) << "   "
-                                         << get_ele(*(x_exact), 1) << std::endl;
-    std::cout << "  Computed solution: " << get_ele(*(x      ), 0) << "   "
-                                         << get_ele(*(x      ), 1) << std::endl;
-    std::cout << "  Difference       : " << get_ele(*(xdiff  ), 0) << "   "
-                                         << get_ele(*(xdiff  ), 1) << std::endl;
-    std::cout << "  =========================" << std::endl;
+    out << "  Stepper = " << stepper->description()
+        << "\n            with " << option << std::endl;
+    out << "  =========================" << std::endl;
+    out << "  Exact solution   : " << get_ele(*(x_exact), 0) << "   "
+                                   << get_ele(*(x_exact), 1) << std::endl;
+    out << "  Computed solution: " << get_ele(*(x      ), 0) << "   "
+                                   << get_ele(*(x      ), 1) << std::endl;
+    out << "  Difference       : " << get_ele(*(xdiff  ), 0) << "   "
+                                   << get_ele(*(xdiff  ), 1) << std::endl;
+    out << "  =========================" << std::endl;
     TEST_FLOATING_EQUALITY(get_ele(*(x), 0), 0.882508, 1.0e-4 );
     TEST_FLOATING_EQUALITY(get_ele(*(x), 1), 0.570790, 1.0e-4 );
   }
@@ -526,15 +522,15 @@ TEUCHOS_UNIT_TEST(ForwardEuler, Variable_TimeSteps)
   Thyra::V_StVpStV(xdiff.ptr(), 1.0, *x_ref, -1.0, *(x));
 
   // Check the solution
-  std::cout << "  Stepper = ForwardEuler" << std::endl;
-  std::cout << "  =========================" << std::endl;
-  std::cout << "  Reference solution: " << get_ele(*(x_ref), 0) << "   "
-                                        << get_ele(*(x_ref), 1) << std::endl;
-  std::cout << "  Computed solution : " << get_ele(*(x    ), 0) << "   "
-                                        << get_ele(*(x    ), 1) << std::endl;
-  std::cout << "  Difference        : " << get_ele(*(xdiff), 0) << "   "
-                                        << get_ele(*(xdiff), 1) << std::endl;
-  std::cout << "  =========================" << std::endl;
+  out << "  Stepper = ForwardEuler" << std::endl;
+  out << "  =========================" << std::endl;
+  out << "  Reference solution: " << get_ele(*(x_ref), 0) << "   "
+                                  << get_ele(*(x_ref), 1) << std::endl;
+  out << "  Computed solution : " << get_ele(*(x    ), 0) << "   "
+                                  << get_ele(*(x    ), 1) << std::endl;
+  out << "  Difference        : " << get_ele(*(xdiff), 0) << "   "
+                                  << get_ele(*(xdiff), 1) << std::endl;
+  out << "  =========================" << std::endl;
   TEST_FLOATING_EQUALITY(get_ele(*(x), 0), get_ele(*(x_ref), 0), 1.0e-12);
   TEST_FLOATING_EQUALITY(get_ele(*(x), 1), get_ele(*(x_ref), 1), 1.0e-12);
 }

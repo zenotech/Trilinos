@@ -42,9 +42,12 @@
 #ifndef KOKKOS_CRSMATRIX_MP_VECTOR_HPP
 #define KOKKOS_CRSMATRIX_MP_VECTOR_HPP
 
+#include <type_traits>
+
 #include "Sacado_MP_Vector.hpp"
 #include "Kokkos_View_MP_Vector.hpp"
 #include "KokkosSparse_CrsMatrix.hpp"
+#include "Kokkos_ArithTraits_MP_Vector.hpp"
 #include "KokkosSparse_spmv.hpp"
 #include "Kokkos_Blas1_MP_Vector.hpp" // for some utilities
 
@@ -59,21 +62,14 @@
 
 namespace { // (anonymous)
 
-// Work-around for CWG 1558.  See
-// https://en.cppreference.com/w/cpp/types/void_t
-template<class... Ts> struct make_void { typedef void type; };
-template<class... Ts>
-using replace_me_with_void_t_in_cxx17 =
-  typename make_void<Ts...>::type;
-
-template<class T, class = replace_me_with_void_t_in_cxx17<> >
+template<class T, class = std::void_t<> >
 struct const_type_impl {
   using type = T;
 };
 
 template<class T>
 struct const_type_impl<T,
-  replace_me_with_void_t_in_cxx17<typename T::const_type> > {
+  std::void_t<typename T::const_type> > {
   using type = typename T::const_type;
 };
 

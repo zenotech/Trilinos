@@ -41,7 +41,7 @@ import argparse
 import multiprocessing
 import subprocess
 
-from LoadEnv import setenvironment
+import setenvironment
 import trilinosprhelpers
 
 
@@ -179,7 +179,7 @@ class TrilinosPRConfigurationTest(unittest.TestCase):
         self._env_config_file = self.find_config_ini(env_config_file)
         gen_config_file = 'gen-config.ini'
         self._gen_config_file = self.find_config_ini(gen_config_file)
-        
+
         print("")
         print("--- LoadEnv Config file found: {}".format(self._env_config_file))
         print("--- GenConfig Config file found: {}".format(self._gen_config_file))
@@ -220,12 +220,17 @@ class TrilinosPRConfigurationTest(unittest.TestCase):
             pullrequest_env_config_file=self._env_config_file,
             pullrequest_gen_config_file=self._gen_config_file,
             workspace_dir=".",
+            source_dir="source",
+            build_dir="build",
+            ctest_driver="ctest_driver.cmake",
+            ctest_drop_site="testing.sandia.gov",
             filename_packageenables="../packageEnables.cmake",
             filename_subprojects="../package_subproject_list.cmake",
             mode="standard",
             req_mem_per_core=3.0,
             max_cores_allowed=12,
             num_concurrent_tests=-1,
+            ccache_enable=False,
             dry_run=False
         )
         return output
@@ -246,14 +251,20 @@ class TrilinosPRConfigurationTest(unittest.TestCase):
         Generate dummy command line arguments
         """
         args = copy.deepcopy(self.dummy_args())
-        args.pullrequest_build_name = "python-3"
-        args.genconfig_build_name = "python-3"
+        args.pullrequest_build_name = "Trilinos_PR_python3"
+        args.genconfig_build_name = "Trilinos_PR_python3"
         return args
 
 
     def dummy_args_gcc_720(self):
         args = copy.deepcopy(self.dummy_args())
         args.pullrequest_build_name = "Trilinos-pullrequest-gcc-7.2.0"
+        return args
+
+
+    def dummy_args_non_pr_track(self):
+        args = copy.deepcopy(self.dummy_args())
+        args.pullrequest_cdash_track = "some_random_track"
         return args
 
 
@@ -357,10 +368,37 @@ class TrilinosPRConfigurationTest(unittest.TestCase):
     def test_TrilinosPRConfigurationBaseBuildNameGCC720(self):
         args = self.dummy_args_gcc_720()
         pr_config = trilinosprhelpers.TrilinosPRConfigurationBase(args)
-        build_name = pr_config. pullrequest_build_name
+        build_name = pr_config.pullrequest_build_name
         print("--- build_name = {}".format(build_name))
         expected_build_name = "PR-{}-test-{}-{}".format(args.pullrequest_number, args.genconfig_build_name, args.jenkins_job_number)
         self.assertEqual(build_name, expected_build_name)
+
+
+    def test_TrilinosPRConfigurationBaseBuildNameNonPRTrack(self):
+        args = self.dummy_args_non_pr_track()
+        pr_config = trilinosprhelpers.TrilinosPRConfigurationBase(args)
+        build_name = pr_config.pullrequest_build_name
+        print("--- build_name = {}".format(build_name))
+        expected_build_name = args.genconfig_build_name
+        self.assertEqual(build_name, expected_build_name)
+
+
+    def test_TrilinosPRConfigurationBaseDashboardModelPRTrack(self):
+        args = self.dummy_args()
+        pr_config = trilinosprhelpers.TrilinosPRConfigurationBase(args)
+        dashboard_model = pr_config.dashboard_model
+        print("--- dashboard_model = {}".format(dashboard_model))
+        expected_dashboard_model = "Experimental"
+        self.assertEqual(dashboard_model, expected_dashboard_model)
+
+
+    def test_TrilinosPRConfigurationBaseDashboardModelNonPRTrack(self):
+        args = self.dummy_args_non_pr_track()
+        pr_config = trilinosprhelpers.TrilinosPRConfigurationBase(args)
+        dashboard_model = pr_config.dashboard_model
+        print("--- dashboard_model = {}".format(dashboard_model))
+        expected_dashboard_model = "Nightly"
+        self.assertEqual(dashboard_model, expected_dashboard_model)
 
 
     def test_TrilinosPRConfigurationBasePackageEnablesPython3(self):
@@ -618,18 +656,20 @@ class TrilinosPRConfigurationTest(unittest.TestCase):
         self.assertEqual(package_enables_file, "../packageEnables.cmake")
 
 
-    def test_TrilinosPRConfigurationBaseProperty_working_directory_ctest(self):
-        """
-        Check property: working_directory_ctest
-        """
-        print("")
-        args = self.dummy_args()
-        pr_config = trilinosprhelpers.TrilinosPRConfigurationBase(args)
-
-        working_directory_ctest = pr_config.working_directory_ctest
-        print("--- working_directory:       {}".format(pr_config.arg_workspace_dir))
-        print("--- working_directory_ctest: {}".format(working_directory_ctest))
-        self.assertIn("TFW_testing_single_configure_prototype", working_directory_ctest)
+    # wcmclen - does not appear useful, the current `arg_workspace_dir` is `.`
+    #def test_TrilinosPRConfigurationBaseProperty_working_directory_ctest(self):
+    #    """
+    #    Check property: working_directory_ctest
+    #
+    #    Validates the current working directory for the ctest call.
+    #    """
+    #    print("")
+    #    args = self.dummy_args()
+    #    pr_config = trilinosprhelpers.TrilinosPRConfigurationBase(args)
+    #    working_directory_ctest = pr_config.working_directory_ctest
+    #    print("--- actual   working_directory: {}".format(pr_config.arg_workspace_dir))
+    #    print("--- expected working_directory: {}".format(working_directory_ctest))
+    #    self.assertIn("pr-ctest-framework/cmake", working_directory_ctest)
 
 
     def test_TrilinosPRConfigurationBase_prepare_test(self):

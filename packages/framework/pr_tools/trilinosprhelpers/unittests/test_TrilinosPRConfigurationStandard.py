@@ -126,7 +126,7 @@ class TrilinosPRConfigurationStandardTest(TestCase):
                                                    side_effect=mock_subprocess_check_output)
         self.mock_subprocess_check_output = self.patch_subprocess_check_output.start()
 
-        self.patch_modulehelper_module = patch('LoadEnv.setenvironment.ModuleHelper.module',
+        self.patch_modulehelper_module = patch('setenvironment.ModuleHelper.module',
                                                side_effect=mock_module_apply)
         self.mock_modulehelper_module  = self.patch_modulehelper_module.start()
 
@@ -159,12 +159,17 @@ class TrilinosPRConfigurationStandardTest(TestCase):
             pullrequest_env_config_file=self._env_config_file,
             pullrequest_gen_config_file=self._gen_config_file,
             workspace_dir=".",
+            source_dir="source",
+            build_dir="build",
+            ctest_driver="ctest_driver.cmake",
+            ctest_drop_site="testing.sandia.gov",
             filename_packageenables="../packageEnables.cmake",
             filename_subprojects="../package_subproject_list.cmake",
             mode="standard",
             req_mem_per_core=3.0,
             max_cores_allowed=12,
             num_concurrent_tests=-1,
+            ccache_enable=False,
             dry_run = False
         )
         return output
@@ -232,7 +237,7 @@ class TrilinosPRConfigurationStandardTest(TestCase):
         - Change args to enable dry_run mode.
         """
         args = self.dummy_args()
-        args.pullrequest_build_name = "python-3"
+        args.pullrequest_build_name = "Trilinos_PR_python3"
         pr_config = trilinosprhelpers.TrilinosPRConfigurationStandard(args)
 
         # prepare step

@@ -36,26 +36,18 @@
 #define STK_IO_HEARTBEAT_HPP
 // #######################  Start Clang Header Tool Managed Headers ########################
 // clang-format off
-#include <Ioss_Field.h>                            // for Field, etc
-#include <Ioss_PropertyManager.h>                  // for PropertyManager
-#include <stddef.h>                                // for size_t
-#include <Teuchos_RCP.hpp>                         // for RCP::RCP<T>, etc
-#include <algorithm>                               // for swap
-#include <stk_io/DatabasePurpose.hpp>              // for DatabasePurpose
-#include <stk_io/IossBridge.hpp>
-#include <stk_io/MeshField.hpp>                    // for MeshField, etc
-#include <stk_mesh/base/BulkData.hpp>              // for BulkData
-#include <stk_mesh/base/Selector.hpp>              // for Selector
-#include <stk_util/parallel/Parallel.hpp>          // for ParallelMachine
-#include <stk_util/util/ParameterList.hpp>         // for Type
-#include <string>                                  // for string
-#include <vector>                                  // for vector
-#include "Teuchos_RCPDecl.hpp"                     // for RCP
-#include "mpi.h"                                   // for MPI_Comm, etc
-#include "stk_mesh/base/Types.hpp"                 // for FieldVector
-#include "stk_util/util/ReportHandler.hpp"  // for ThrowAssert, etc
-namespace Ioss { class Property; }
+#include <Ioss_Field.h>                     // for Field, Field::TRANSIENT
+#include <Teuchos_RCP.hpp>                  // for RCP::~RCP<T>, RCP::RCP<T>
+#include <stk_io/IossBridge.hpp>            // for GlobalAnyVariable
+#include <stk_util/util/ParameterList.hpp>  // for Type
+#include <string>                           // for string
+#include <vector>                           // for vector
+#include "Teuchos_RCPDecl.hpp"              // for RCP
+#include "Teuchos_RCPStdSharedPtrConversions.hpp"
+#include "mpi.h"                            // for MPI_Comm
+namespace Ioss { class PropertyManager; }
 namespace Ioss { class Region; }
+namespace Ioss { class Property; }
 namespace stk { namespace io { class InputFile; } }
 namespace stk { namespace mesh { class FieldBase; } }
 namespace stk { namespace mesh { class MetaData; } }
@@ -112,41 +104,19 @@ public:
                         int copies = 1,
                         Ioss::Field::RoleType role = Ioss::Field::TRANSIENT);
 
-#ifndef STK_HIDE_DEPRECATED_CODE // Delete after September 2021
-    STK_DEPRECATED void define_global_ref(const std::string &variableName,
-                           const STK_ANY_NAMESPACE::any *value,
-                           stk::util::ParameterType::Type type,
-                           int copies = 1,
-                           Ioss::Field::RoleType role = Ioss::Field::TRANSIENT);
-
-    STK_DEPRECATED void define_global_ref(const std::string &name,
-                           const STK_ANY_NAMESPACE::any *value,
-                           const std::string &storage,
-                           Ioss::Field::BasicType dataType,
-                           int copies = 1,
-                           Ioss::Field::RoleType role = Ioss::Field::TRANSIENT);
-
-    STK_DEPRECATED void add_global_ref(const std::string &variableName,
-                        const STK_ANY_NAMESPACE::any *value,
-                        stk::util::ParameterType::Type type,
-                        int copies = 1,
-                        Ioss::Field::RoleType role = Ioss::Field::TRANSIENT);
-
-    STK_DEPRECATED void add_global_ref(const std::string &name,
-                        const STK_ANY_NAMESPACE::any *value,
-                        const std::string &storage,
-                        Ioss::Field::BasicType dataType,
-                        int copies = 1,
-                        Ioss::Field::RoleType role = Ioss::Field::TRANSIENT);
-#endif
-
     void process_output(int step, double time);
     void process_output_pre_write(int step, double time);
     void process_output_write(int step, double time);
     void process_output_post_write(int step, double time);
 
     void flush_output() const;
-    Teuchos::RCP<Ioss::Region> get_heartbeat_io_region() {
+#ifndef STK_HIDE_DEPRECATED_CODE //delete after Apr 2023
+    STK_DEPRECATED_MSG("This function has been renamed get_heartbeat_ioss_region() and now returns a std::shared_ptr.") Teuchos::RCP<Ioss::Region> get_heartbeat_io_region() {
+        return Teuchos::rcp(m_region);
+    }
+#endif
+
+    std::shared_ptr<Ioss::Region> get_heartbeat_ioss_region() {
         return m_region;
     }
 
@@ -157,20 +127,20 @@ public:
 
 private:
     void internal_define_global_ref(const std::string &variableName,
-                           const STK_ANY_NAMESPACE::any *value,
+                           const std::any *value,
                            stk::util::ParameterType::Type type,
                            int copies = 1,
                            Ioss::Field::RoleType role = Ioss::Field::TRANSIENT);
 
     void internal_define_global_ref(const std::string &name,
-                           const STK_ANY_NAMESPACE::any *value,
+                           const std::any *value,
                            const std::string &storage,
                            Ioss::Field::BasicType dataType,
                            int copies = 1,
                            Ioss::Field::RoleType role = Ioss::Field::TRANSIENT);
 
     std::vector<GlobalAnyVariable> m_fields;
-    Teuchos::RCP<Ioss::Region> m_region;
+    std::shared_ptr<Ioss::Region> m_region;
 
     int m_currentStep;
     int m_processor;

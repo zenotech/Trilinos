@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 #ifndef KOKKOSBLAS3_TRMM_PERF_TEST_H_
 #define KOKKOSBLAS3_TRMM_PERF_TEST_H_
 
@@ -82,8 +54,8 @@ void (*do_trmm_invoke[LOOP_N][TEST_N])(options_t) = {
  * LHS giving us this flop count: flops = columns_LHS * (columns_LHS + 1) flops
  * = (flops / 2) * 2 flops = flops * rows_LHS
  */
-static inline int __trmm_impl_flop_count(char side, int b_m, int b_n, int a_m,
-                                         int a_n) {
+static inline int __trmm_impl_flop_count(char side, int b_m, int b_n,
+                                         int /*a_m*/, int /*a_n*/) {
   int flops;
 
   if (side == 'L' || side == 'l') {
@@ -107,7 +79,7 @@ static inline int __trmm_impl_flop_count(char side, int b_m, int b_n, int a_m,
 // Flop count formula from lapack working note 41:
 // http://www.icl.utk.edu/~mgates3/docs/lawn41.pdf
 static inline double __trmm_flop_count(char side, double b_m, double b_n,
-                                       double a_m, double a_n) {
+                                       double /*a_m*/, double /*a_n*/) {
   double flops;
 
   if (side == 'L' || side == 'l') {
@@ -189,8 +161,8 @@ static void __trmm_output_csv_row(options_t options, trmm_args_t trmm_args,
                  << std::endl;
 }
 
-static void __print_trmm_perf_test_options(options_t options) {
 #ifdef PERF_TEST_DEBUG
+static void __print_trmm_perf_test_options(options_t options) {
   printf("options.test      = %s\n", test_e_str[options.test].c_str());
   printf("options.loop      = %s\n", loop_e_str[options.loop].c_str());
   printf("options.start     = %dx%d,%dx%d\n", options.start.a.m,
@@ -207,15 +179,18 @@ static void __print_trmm_perf_test_options(options_t options) {
     printf("options.alpha     = %lf\n", options.blas_args.trmm.alpha);
   else if (std::is_same<float, default_scalar>::value)
     printf("options.alpha     = %f\n", options.blas_args.trmm.alpha);
-#endif  // PERF_TEST_DEBUG
   return;
 }
+#else
+static void __print_trmm_perf_test_options(options_t /*options*/) { return; }
+#endif  // PERF_TEST_DEBUG
 
 /*************************** Internal templated fns **************************/
+// Need to take subviews on the device
+#if !defined(KOKKOS_ENABLE_CUDA) && !defined(KOKKOS_ENABLE_HIP) && \
+    !defined(KOKKOS_ENABLE_OPENMPTARGET)
 template <class scalar_type, class vta, class vtb, class device_type>
 void __do_trmm_serial_blas(options_t options, trmm_args_t trmm_args) {
-// Need to take subviews on the device
-#if !defined(KOKKOS_ENABLE_CUDA)
   uint32_t warm_up_n = options.warm_up_n;
   uint32_t n         = options.n;
   Kokkos::Timer timer;
@@ -247,29 +222,37 @@ void __do_trmm_serial_blas(options_t options, trmm_args_t trmm_args) {
     Kokkos::fence();
   }
   __trmm_output_csv_row(options, trmm_args, timer.seconds());
-#else
-  std::cerr << std::string(__func__)
-            << " disabled since KOKKOS_ENABLE_CUDA is defined." << std::endl;
-#endif  // !KOKKOS_ENABLE_CUDA
   return;
 }
+#else
+template <class scalar_type, class vta, class vtb, class device_type>
+void __do_trmm_serial_blas(options_t /*options*/, trmm_args_t /*trmm_args*/) {
+  std::cerr << std::string(__func__)
+            << " disabled since KOKKOS_ENABLE_CUDA or "
+               "KOKKOS_ENABLE_OPENMPTARGET is defined."
+            << std::endl;
+  return;
+}
+#endif  // !KOKKOS_ENABLE_CUDA && !KOKKOS_ENABLE_OPENMPTARGET
 
+// Need to take subviews on the device
+#if !defined(KOKKOS_ENABLE_CUDA) && !defined(KOKKOS_ENABLE_HIP) && \
+    !defined(KOKKOS_ENABLE_OPENMPTARGET)
 template <class side, class uplo, class trans, class diag>
 void __do_trmm_serial_batched_template(options_t options,
                                        trmm_args_t trmm_args) {
-// Need to take subviews on the device
-#if !defined(KOKKOS_ENABLE_CUDA)
   uint32_t warm_up_n = options.warm_up_n;
   uint32_t n         = options.n;
   Kokkos::Timer timer;
-  using tag = Algo::Trmm::Unblocked;
+  using tag = KokkosBatched::Algo::Trmm::Unblocked;
 
   for (uint32_t j = 0; j < warm_up_n; ++j) {
     for (int i = 0; i < options.start.a.k; ++i) {
       auto A = Kokkos::subview(trmm_args.A, i, Kokkos::ALL(), Kokkos::ALL());
       auto B = Kokkos::subview(trmm_args.B, i, Kokkos::ALL(), Kokkos::ALL());
 
-      SerialTrmm<side, uplo, trans, diag, tag>::invoke(trmm_args.alpha, A, B);
+      KokkosBatched::SerialTrmm<side, uplo, trans, diag, tag>::invoke(
+          trmm_args.alpha, A, B);
     }
     // Fence after submitting each batch operation
     Kokkos::fence();
@@ -281,23 +264,35 @@ void __do_trmm_serial_batched_template(options_t options,
       auto A = Kokkos::subview(trmm_args.A, i, Kokkos::ALL(), Kokkos::ALL());
       auto B = Kokkos::subview(trmm_args.B, i, Kokkos::ALL(), Kokkos::ALL());
 
-      SerialTrmm<side, uplo, trans, diag, tag>::invoke(trmm_args.alpha, A, B);
+      KokkosBatched::SerialTrmm<side, uplo, trans, diag, tag>::invoke(
+          trmm_args.alpha, A, B);
     }
     // Fence after submitting each batch operation
     Kokkos::fence();
   }
   __trmm_output_csv_row(options, trmm_args, timer.seconds());
-#else
-  std::cerr << std::string(__func__)
-            << " disabled since KOKKOS_ENABLE_CUDA is defined." << std::endl;
-#endif  // !KOKKOS_ENABLE_CUDA
 }
+#else
+template <class side, class uplo, class trans, class diag>
+void __do_trmm_serial_batched_template(options_t /*options*/,
+                                       trmm_args_t /*trmm_args*/) {
+  std::cerr << std::string(__func__)
+            << " disabled since KOKKOS_ENABLE_CUDA or "
+               "KOKKOS_ENABLE_OPENMPTARGET is defined."
+            << std::endl;
+}
+#endif  // !KOKKOS_ENABLE_CUDA && !KOKKOS_ENABLE_OPENMPTARGET
 
 template <class scalar_type, class vta, class vtb, class device_type>
 void __do_trmm_serial_batched(options_t options, trmm_args_t trmm_args) {
   char __side = tolower(trmm_args.side), __uplo = tolower(trmm_args.uplo),
        __trans = tolower(trmm_args.trans);
   //__diag = tolower(diag[0]);
+
+  using KokkosBatched::Diag;
+  using KokkosBatched::Side;
+  using KokkosBatched::Trans;
+  using KokkosBatched::Uplo;
 
   STATUS;
 
@@ -390,7 +385,8 @@ void __do_trmm_serial_batched(options_t options, trmm_args_t trmm_args) {
   return;
 }
 
-#if !defined(KOKKOS_ENABLE_CUDA) && !defined(KOKKOS_ENABLE_HIP)
+#if !defined(KOKKOS_ENABLE_CUDA) && !defined(KOKKOS_ENABLE_HIP) && \
+    !defined(KOKKOS_ENABLE_OPENMPTARGET)
 template <class ExecutionSpace>
 struct parallel_blas_trmm {
   trmm_args_t trmm_args_;
@@ -406,12 +402,13 @@ struct parallel_blas_trmm {
                      &trmm_args_.diag, trmm_args_.alpha, svA, svB);
   }
 };
-#endif  // !KOKKOS_ENABLE_CUDA
+#endif  // !KOKKOSKERNELS_ENABLE_DEVICE
 
 template <class scalar_type, class vta, class vtb, class device_type>
 void __do_trmm_parallel_blas(options_t options, trmm_args_t trmm_args) {
-// TODO: Note why this is disabled on CUDA and HIP
-#if !defined(KOKKOS_ENABLE_CUDA) && !defined(KOKKOS_ENABLE_HIP)
+// TODO: Note why this is disabled on CUDA, OPENMPTARGET and HIP
+#if !defined(KOKKOS_ENABLE_CUDA) && !defined(KOKKOS_ENABLE_HIP) && \
+    !defined(KOKKOS_ENABLE_OPENMPTARGET)
   uint32_t warm_up_n = options.warm_up_n;
   uint32_t n         = options.n;
   Kokkos::Timer timer;
@@ -442,11 +439,11 @@ void __do_trmm_parallel_blas(options_t options, trmm_args_t trmm_args) {
   __trmm_output_csv_row(options, trmm_args, timer.seconds());
 #else
   std::cerr << std::string(__func__)
-            << " disabled since KOKKOS_ENABLE_CUDA and/or KOKKOS_ENABLE_HIP is "
-               "defined."
+            << " disabled since KOKKOS_ENABLE_CUDA, KOKKOS_ENABLE_HIP "
+               "or KOKKOS_ENABLE_OPENMPTARGET is defined."
             << std::endl;
   __trmm_output_csv_row(options, trmm_args, -1);
-#endif  // !KOKKOS_ENABLE_CUDA
+#endif  // !KOKKOS_ENABLE_DEVICE
   return;
 }
 
@@ -462,8 +459,8 @@ struct parallel_batched_trmm {
     auto svA = Kokkos::subview(trmm_args_.A, i, Kokkos::ALL(), Kokkos::ALL());
     auto svB = Kokkos::subview(trmm_args_.B, i, Kokkos::ALL(), Kokkos::ALL());
 
-    SerialTrmm<side, uplo, trans, diag, tag>::invoke(trmm_args_.alpha, svA,
-                                                     svB);
+    KokkosBatched::SerialTrmm<side, uplo, trans, diag, tag>::invoke(
+        trmm_args_.alpha, svA, svB);
   }
 };
 
@@ -473,7 +470,7 @@ void __do_trmm_parallel_batched_template(options_t options,
   uint32_t warm_up_n = options.warm_up_n;
   uint32_t n         = options.n;
   Kokkos::Timer timer;
-  using tag             = Algo::Trmm::Unblocked;
+  using tag             = KokkosBatched::Algo::Trmm::Unblocked;
   using execution_space = typename device_type::execution_space;
   using functor_type =
       parallel_batched_trmm<side, uplo, trans, diag, tag, execution_space>;
@@ -509,6 +506,11 @@ void __do_trmm_parallel_batched(options_t options, trmm_args_t trmm_args) {
   char __side = tolower(trmm_args.side), __uplo = tolower(trmm_args.uplo),
        __trans = tolower(trmm_args.trans);
   //__diag = tolower(diag[0]);
+
+  using KokkosBatched::Diag;
+  using KokkosBatched::Side;
+  using KokkosBatched::Trans;
+  using KokkosBatched::Uplo;
 
   STATUS;
 

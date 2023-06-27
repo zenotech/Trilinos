@@ -6,23 +6,14 @@
 // ****************************************************************************
 // @HEADER
 
-#include "Teuchos_UnitTestHarness.hpp"
-#include "Teuchos_XMLParameterListHelpers.hpp"
-#include "Teuchos_TimeMonitor.hpp"
-#include "Teuchos_DefaultComm.hpp"
-
-#include "Thyra_VectorStdOps.hpp"
+#include "Tempus_UnitTest_Utils.hpp"
 
 #include "Tempus_StepperFactory.hpp"
 #include "Tempus_TimeStepControl.hpp"
 #include "Tempus_TimeStepControlStrategyBasicVS.hpp"
 
-#include "../TestModels/SinCosModel.hpp"
 #include "../TestModels/DahlquistTestModel.hpp"
-#include "../TestUtils/Tempus_ConvergenceTestUtils.hpp"
 
-#include <fstream>
-#include <vector>
 
 namespace Tempus_Unit_Test {
 
@@ -32,7 +23,6 @@ using Teuchos::rcp_const_cast;
 using Teuchos::rcp_dynamic_cast;
 using Teuchos::ParameterList;
 using Teuchos::sublist;
-using Teuchos::getParametersFromXmlFile;
 
 
 // ************************************************************
@@ -157,8 +147,7 @@ TEUCHOS_UNIT_TEST(TimeStepControlStrategyBasicVS, setNextTimeStep)
       }
 
       solutionHistory->promoteWorkingState();
-      //auto x = solutionHistory->getCurrentState()->getX();
-      //std::cout << "  x = " << get_ele(*(x), 0) << std::endl;
+      //out << "  x = " << get_ele(*(x), 0) << std::endl;
     }
 
     auto currentState = solutionHistory->getCurrentState();
@@ -191,7 +180,7 @@ TEUCHOS_UNIT_TEST(TimeStepControlStrategyBasicVS, setNextTimeStep)
 
       solutionHistory->promoteWorkingState();
       //auto x = solutionHistory->getCurrentState()->getX();
-      //std::cout << "  x = " << get_ele(*(x), 0) << std::endl;
+      //out << "  x = " << get_ele(*(x), 0) << std::endl;
     }
 
     auto currentState = solutionHistory->getCurrentState();
