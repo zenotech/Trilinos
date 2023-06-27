@@ -480,10 +480,10 @@ private:
 
 
   //! Returns the number of global matrix rows.
-  int NumGlobalRows() const {return(A_->NumGlobalRows());};
+  long long NumGlobalRows() const {return(A_->NumGlobalRows64());};
 
   //! Returns the number of global matrix columns.
-  int NumGlobalCols() const {return(A_->NumGlobalCols());};
+  long long NumGlobalCols() const { return (A_->NumGlobalCols64()); };
 
   //! Returns the number of local matrix rows.
   int NumMyRows() const {return(A_->NumMyRows());};
