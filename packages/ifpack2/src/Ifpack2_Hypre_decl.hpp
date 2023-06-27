@@ -305,7 +305,7 @@ public:
 
     \return Integer error code, set to 0 if successful.
    */
-    int SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type, double), global_ordinal_type parameter1, double parameter2);
+    int SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, int, double), int parameter1, double parameter2);
 
     //! Set a parameter that takes two int parameters.
     /*!

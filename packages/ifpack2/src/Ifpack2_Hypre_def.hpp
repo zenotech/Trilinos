@@ -419,7 +419,7 @@ int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_
 
 //==============================================================================
 template<class MatrixType>
-int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type, double), global_ordinal_type parameter1, double parameter2){
+int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, int, double), int parameter1, double parameter2){
   RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter1, parameter2));
   IFPACK2_CHK_ERR(AddFunToList(temp));
   return 0;
@@ -427,7 +427,7 @@ int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (
 
 //==============================================================================
 template<class MatrixType>
-int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, global_ordinal_type (*pt2Func)(HYPRE_Solver, global_ordinal_type, global_ordinal_type), global_ordinal_type parameter1, global_ordinal_type parameter2){
+int Hypre<MatrixType>::SetParameter(Hypre_Chooser chooser, int (*pt2Func)(HYPRE_Solver, int, int), int parameter1, int parameter2){
   RCP<FunctionParameter> temp = rcp(new FunctionParameter(chooser, pt2Func, parameter1, parameter2));
   IFPACK2_CHK_ERR(AddFunToList(temp));
   return 0;
