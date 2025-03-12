@@ -93,7 +93,7 @@ void fill_view(ViewType dest_view, const std::string& name) {
   }
 
   else {
-    throw std::runtime_error("invalid choice");
+    FAIL() << "invalid choice";
   }
 
   Kokkos::deep_copy(aux_view, v_h);
@@ -112,12 +112,12 @@ void verify_data(ViewTypeData view_data_h, ViewTypeTest view_test,
   // check that returned iterators are correct
   const std::size_t std_diff = std_result - KE::begin(view_data_h);
   const std::size_t my_diff  = my_result - KE::begin(view_test);
-  EXPECT_EQ(std_diff, my_diff);
+  ASSERT_EQ(std_diff, my_diff);
 
   // check the actual data after algo has been applied
   auto view_test_h = create_host_space_copy(view_test);
   for (std::size_t i = 0; i < my_diff; ++i) {
-    EXPECT_EQ(view_test_h(i), view_data_h[i]);
+    ASSERT_EQ(view_test_h(i), view_data_h[i]);
     // std::cout << "i= " << i << " "
     // 	      << "mine: " << view_test_h(i) << " "
     // 	      << "std: " << view_data_h(i)
@@ -144,7 +144,7 @@ void run_single_scenario(const InfoType& scenario_info) {
     // make host copy BEFORE running algo
     auto data_h = create_host_space_copy(view);
     auto rit    = KE::remove_if(exespace(), KE::begin(view), KE::end(view),
-                             remove_if_even);
+                                remove_if_even);
     verify_data(data_h, view, rit, remove_if_even);
   }
 
@@ -154,7 +154,7 @@ void run_single_scenario(const InfoType& scenario_info) {
     // make host copy BEFORE running algo
     auto data_h = create_host_space_copy(view);
     auto rit    = KE::remove_if("label", exespace(), KE::begin(view),
-                             KE::end(view), remove_if_even);
+                                KE::end(view), remove_if_even);
     verify_data(data_h, view, rit, remove_if_even);
   }
 

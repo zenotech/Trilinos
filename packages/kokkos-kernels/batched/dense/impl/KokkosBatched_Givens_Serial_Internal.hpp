@@ -13,8 +13,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //@HEADER
-#ifndef __KOKKOSBATCHED_GIVENS_SERIAL_INTERNAL_HPP__
-#define __KOKKOSBATCHED_GIVENS_SERIAL_INTERNAL_HPP__
+#ifndef KOKKOSBATCHED_GIVENS_SERIAL_INTERNAL_HPP
+#define KOKKOSBATCHED_GIVENS_SERIAL_INTERNAL_HPP
 
 /// \author Kyungjoo Kim (kyukim@sandia.gov)
 
@@ -30,10 +30,9 @@ namespace KokkosBatched {
 ///
 struct SerialGivensInternal {
   template <typename ValueType>
-  KOKKOS_INLINE_FUNCTION static int invoke(
-      const ValueType chi1, const ValueType chi2,
-      /* */ Kokkos::pair<ValueType, ValueType>* G,
-      /* */ ValueType* chi1_new) {
+  KOKKOS_INLINE_FUNCTION static int invoke(const ValueType chi1, const ValueType chi2,
+                                           /* */ Kokkos::pair<ValueType, ValueType>* G,
+                                           /* */ ValueType* chi1_new) {
     typedef ValueType value_type;
     const value_type zero(0), one(1);
     /// compute G = [ gamma -sigma;
@@ -54,14 +53,11 @@ struct SerialGivensInternal {
     } else {
       // here we do not care overflow caused by the division although it is
       // probable....
-      r  = Kokkos::Details::ArithTraits<value_type>::sqrt(chi1 * chi1 +
-                                                         chi2 * chi2);
+      r  = Kokkos::ArithTraits<value_type>::sqrt(chi1 * chi1 + chi2 * chi2);
       cs = chi1 / r;
       sn = chi2 / r;
 
-      if (Kokkos::Details::ArithTraits<value_type>::abs(chi1) >
-              Kokkos::Details::ArithTraits<value_type>::abs(chi2) &&
-          cs < zero) {
+      if (Kokkos::ArithTraits<value_type>::abs(chi1) > Kokkos::ArithTraits<value_type>::abs(chi2) && cs < zero) {
         cs = -cs;
         sn = -sn;
         r  = -r;

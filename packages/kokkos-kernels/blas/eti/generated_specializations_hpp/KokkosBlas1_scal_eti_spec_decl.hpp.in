@@ -16,7 +16,6 @@
 
 #ifndef KOKKOSBLAS1_SCAL_ETI_SPEC_DECL_HPP_
 #define KOKKOSBLAS1_SCAL_ETI_SPEC_DECL_HPP_
-
 namespace KokkosBlas {
 namespace Impl {
 @BLAS1_SCAL_ETI_DECL_BLOCK@

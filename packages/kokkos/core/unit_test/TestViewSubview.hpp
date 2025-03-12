@@ -401,7 +401,7 @@ void test_left_0() {
 template <class Space>
 void test_left_1(bool use_constr) {
   using view_type =
-      Kokkos::View<int*** * [2][3][4][5], Kokkos::LayoutLeft, Space>;
+      Kokkos::View<int**** [2][3][4][5], Kokkos::LayoutLeft, Space>;
 
   if (Kokkos::SpaceAccessibility<Kokkos::HostSpace,
                                  typename Space::memory_space>::accessible) {
@@ -487,8 +487,8 @@ void test_left_1(bool use_constr) {
       for (int i1 = 0; i1 < (int)sx4.extent(1); ++i1)
         for (int i2 = 0; i2 < (int)sx4.extent(2); ++i2)
           for (int i3 = 0; i3 < (int)sx4.extent(3); ++i3) {
-            ASSERT_TRUE(&sx4(i0, i1, i2, i3) ==
-                        &x8(0, 0 + i0, 1, 1 + i1, 1, 0 + i2, 2, 2 + i3));
+            ASSERT_EQ(&sx4(i0, i1, i2, i3),
+                      &x8(0, 0 + i0, 1, 1 + i1, 1, 0 + i2, 2, 2 + i3));
           }
   }
 }
@@ -559,8 +559,8 @@ void test_left_2() {
       for (int i1 = 0; i1 < (int)sx4.extent(1); ++i1)
         for (int i2 = 0; i2 < (int)sx4.extent(2); ++i2)
           for (int i3 = 0; i3 < (int)sx4.extent(3); ++i3) {
-            ASSERT_TRUE(&sx4(i0, i1, i2, i3) ==
-                        &x4(1 + i0, 1 + i1, 0 + i2, 2 + i3));
+            ASSERT_EQ(&sx4(i0, i1, i2, i3),
+                      &x4(1 + i0, 1 + i1, 0 + i2, 2 + i3));
           }
   }
 }
@@ -702,7 +702,7 @@ void test_right_0() {
 template <class Space>
 void test_right_1(bool use_constr) {
   using view_type =
-      Kokkos::View<int*** * [2][3][4][5], Kokkos::LayoutRight, Space>;
+      Kokkos::View<int**** [2][3][4][5], Kokkos::LayoutRight, Space>;
 
   if (Kokkos::SpaceAccessibility<Kokkos::HostSpace,
                                  typename Space::memory_space>::accessible) {
@@ -769,8 +769,8 @@ void test_right_1(bool use_constr) {
       for (int i1 = 0; i1 < (int)sx4.extent(1); ++i1)
         for (int i2 = 0; i2 < (int)sx4.extent(2); ++i2)
           for (int i3 = 0; i3 < (int)sx4.extent(3); ++i3) {
-            ASSERT_TRUE(&sx4(i0, i1, i2, i3) ==
-                        &x8(0, 0 + i0, 1, 1 + i1, 1, 0 + i2, 2, 2 + i3));
+            ASSERT_EQ(&sx4(i0, i1, i2, i3),
+                      &x8(0, 0 + i0, 1, 1 + i1, 1, 0 + i2, 2, 2 + i3));
           }
   }
 }
@@ -865,11 +865,11 @@ struct FillView_3D {
   using exec_t = typename Space::execution_space;
   using view_t = Kokkos::View<int***, Layout, Space>;
   using rank_t = Kokkos::Rank<
-      view_t::Rank,
-      std::is_same<Layout, Kokkos::LayoutLeft>::value ? Kokkos::Iterate::Left
-                                                      : Kokkos::Iterate::Right,
-      std::is_same<Layout, Kokkos::LayoutLeft>::value ? Kokkos::Iterate::Left
-                                                      : Kokkos::Iterate::Right>;
+      view_t::rank,
+      std::is_same_v<Layout, Kokkos::LayoutLeft> ? Kokkos::Iterate::Left
+                                                 : Kokkos::Iterate::Right,
+      std::is_same_v<Layout, Kokkos::LayoutLeft> ? Kokkos::Iterate::Left
+                                                 : Kokkos::Iterate::Right>;
   using policy_t = Kokkos::MDRangePolicy<exec_t, rank_t>;
 
   view_t a;
@@ -893,11 +893,11 @@ struct FillView_4D {
   using exec_t = typename Space::execution_space;
   using view_t = Kokkos::View<int****, Layout, Space>;
   using rank_t = Kokkos::Rank<
-      view_t::Rank,
-      std::is_same<Layout, Kokkos::LayoutLeft>::value ? Kokkos::Iterate::Left
-                                                      : Kokkos::Iterate::Right,
-      std::is_same<Layout, Kokkos::LayoutLeft>::value ? Kokkos::Iterate::Left
-                                                      : Kokkos::Iterate::Right>;
+      view_t::rank,
+      std::is_same_v<Layout, Kokkos::LayoutLeft> ? Kokkos::Iterate::Left
+                                                 : Kokkos::Iterate::Right,
+      std::is_same_v<Layout, Kokkos::LayoutLeft> ? Kokkos::Iterate::Left
+                                                 : Kokkos::Iterate::Right>;
   using policy_t = Kokkos::MDRangePolicy<exec_t, rank_t>;
 
   view_t a;
@@ -922,11 +922,11 @@ struct FillView_5D {
   using exec_t = typename Space::execution_space;
   using view_t = Kokkos::View<int*****, Layout, Space>;
   using rank_t = Kokkos::Rank<
-      view_t::Rank,
-      std::is_same<Layout, Kokkos::LayoutLeft>::value ? Kokkos::Iterate::Left
-                                                      : Kokkos::Iterate::Right,
-      std::is_same<Layout, Kokkos::LayoutLeft>::value ? Kokkos::Iterate::Left
-                                                      : Kokkos::Iterate::Right>;
+      view_t::rank,
+      std::is_same_v<Layout, Kokkos::LayoutLeft> ? Kokkos::Iterate::Left
+                                                 : Kokkos::Iterate::Right,
+      std::is_same_v<Layout, Kokkos::LayoutLeft> ? Kokkos::Iterate::Left
+                                                 : Kokkos::Iterate::Right>;
   using policy_t = Kokkos::MDRangePolicy<exec_t, rank_t>;
 
   view_t a;
@@ -1267,56 +1267,56 @@ template <class Space, class LayoutSub, class Layout, class LayoutOrg,
 void test_2d_subview_3d_impl_layout() {
   test_2d_subview_3d_impl_type<Space, int[N0][N1][N2], int[N1][N2], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, int[N0][N1][N2], int * [N2], LayoutSub,
+  test_2d_subview_3d_impl_type<Space, int[N0][N1][N2], int* [N2], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
   test_2d_subview_3d_impl_type<Space, int[N0][N1][N2], int**, LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
 
-  test_2d_subview_3d_impl_type<Space, int * [N1][N2], int[N1][N2], LayoutSub,
+  test_2d_subview_3d_impl_type<Space, int* [N1][N2], int[N1][N2], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, int * [N1][N2], int * [N2], LayoutSub,
+  test_2d_subview_3d_impl_type<Space, int* [N1][N2], int* [N2], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, int * [N1][N2], int**, LayoutSub, Layout,
+  test_2d_subview_3d_impl_type<Space, int* [N1][N2], int**, LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
 
-  test_2d_subview_3d_impl_type<Space, int* * [N2], int[N1][N2], LayoutSub,
+  test_2d_subview_3d_impl_type<Space, int** [N2], int[N1][N2], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, int* * [N2], int * [N2], LayoutSub,
-                               Layout, LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, int* * [N2], int**, LayoutSub, Layout,
+  test_2d_subview_3d_impl_type<Space, int** [N2], int* [N2], LayoutSub, Layout,
+                               LayoutOrg, MemTraits>();
+  test_2d_subview_3d_impl_type<Space, int** [N2], int**, LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
 
   test_2d_subview_3d_impl_type<Space, int***, int[N1][N2], LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, int***, int * [N2], LayoutSub, Layout,
+  test_2d_subview_3d_impl_type<Space, int***, int* [N2], LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
   test_2d_subview_3d_impl_type<Space, int***, int**, LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
 
   test_2d_subview_3d_impl_type<Space, const int[N0][N1][N2], const int[N1][N2],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, const int[N0][N1][N2], const int * [N2],
+  test_2d_subview_3d_impl_type<Space, const int[N0][N1][N2], const int* [N2],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
   test_2d_subview_3d_impl_type<Space, const int[N0][N1][N2], const int**,
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
 
-  test_2d_subview_3d_impl_type<Space, const int * [N1][N2], const int[N1][N2],
+  test_2d_subview_3d_impl_type<Space, const int* [N1][N2], const int[N1][N2],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, const int * [N1][N2], const int * [N2],
+  test_2d_subview_3d_impl_type<Space, const int* [N1][N2], const int* [N2],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, const int * [N1][N2], const int**,
+  test_2d_subview_3d_impl_type<Space, const int* [N1][N2], const int**,
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
 
-  test_2d_subview_3d_impl_type<Space, const int* * [N2], const int[N1][N2],
+  test_2d_subview_3d_impl_type<Space, const int** [N2], const int[N1][N2],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, const int* * [N2], const int * [N2],
+  test_2d_subview_3d_impl_type<Space, const int** [N2], const int* [N2],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, const int* * [N2], const int**, LayoutSub,
+  test_2d_subview_3d_impl_type<Space, const int** [N2], const int**, LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
 
   test_2d_subview_3d_impl_type<Space, const int***, const int[N1][N2],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_2d_subview_3d_impl_type<Space, const int***, const int * [N2], LayoutSub,
+  test_2d_subview_3d_impl_type<Space, const int***, const int* [N2], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
   test_2d_subview_3d_impl_type<Space, const int***, const int**, LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
@@ -1349,54 +1349,54 @@ template <class Space, class LayoutSub, class Layout, class LayoutOrg,
 void test_3d_subview_5d_impl_layout() {
   test_3d_subview_5d_impl_type<Space, int[N0][N1][N2][N3][N4], int[N2][N3][N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int[N0][N1][N2][N3][N4], int * [N3][N4],
+  test_3d_subview_5d_impl_type<Space, int[N0][N1][N2][N3][N4], int* [N3][N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int[N0][N1][N2][N3][N4], int* * [N4],
+  test_3d_subview_5d_impl_type<Space, int[N0][N1][N2][N3][N4], int** [N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
   test_3d_subview_5d_impl_type<Space, int[N0][N1][N2][N3][N4], int***,
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
 
-  test_3d_subview_5d_impl_type<Space, int * [N1][N2][N3][N4], int[N2][N3][N4],
+  test_3d_subview_5d_impl_type<Space, int* [N1][N2][N3][N4], int[N2][N3][N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int * [N1][N2][N3][N4], int * [N3][N4],
+  test_3d_subview_5d_impl_type<Space, int* [N1][N2][N3][N4], int* [N3][N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int * [N1][N2][N3][N4], int* * [N4],
+  test_3d_subview_5d_impl_type<Space, int* [N1][N2][N3][N4], int** [N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int * [N1][N2][N3][N4], int***, LayoutSub,
+  test_3d_subview_5d_impl_type<Space, int* [N1][N2][N3][N4], int***, LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
 
-  test_3d_subview_5d_impl_type<Space, int* * [N2][N3][N4], int[N2][N3][N4],
+  test_3d_subview_5d_impl_type<Space, int** [N2][N3][N4], int[N2][N3][N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int* * [N2][N3][N4], int * [N3][N4],
+  test_3d_subview_5d_impl_type<Space, int** [N2][N3][N4], int* [N3][N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int* * [N2][N3][N4], int* * [N4],
-                               LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int* * [N2][N3][N4], int***, LayoutSub,
+  test_3d_subview_5d_impl_type<Space, int** [N2][N3][N4], int** [N4], LayoutSub,
+                               Layout, LayoutOrg, MemTraits>();
+  test_3d_subview_5d_impl_type<Space, int** [N2][N3][N4], int***, LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
 
-  test_3d_subview_5d_impl_type<Space, int** * [N3][N4], int[N2][N3][N4],
+  test_3d_subview_5d_impl_type<Space, int*** [N3][N4], int[N2][N3][N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int** * [N3][N4], int * [N3][N4],
-                               LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int** * [N3][N4], int* * [N4], LayoutSub,
+  test_3d_subview_5d_impl_type<Space, int*** [N3][N4], int* [N3][N4], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int** * [N3][N4], int***, LayoutSub,
+  test_3d_subview_5d_impl_type<Space, int*** [N3][N4], int** [N4], LayoutSub,
+                               Layout, LayoutOrg, MemTraits>();
+  test_3d_subview_5d_impl_type<Space, int*** [N3][N4], int***, LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
 
-  test_3d_subview_5d_impl_type<Space, int*** * [N4], int[N2][N3][N4], LayoutSub,
+  test_3d_subview_5d_impl_type<Space, int**** [N4], int[N2][N3][N4], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int*** * [N4], int * [N3][N4], LayoutSub,
+  test_3d_subview_5d_impl_type<Space, int**** [N4], int* [N3][N4], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int*** * [N4], int* * [N4], LayoutSub,
+  test_3d_subview_5d_impl_type<Space, int**** [N4], int** [N4], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int*** * [N4], int***, LayoutSub, Layout,
+  test_3d_subview_5d_impl_type<Space, int**** [N4], int***, LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
 
   test_3d_subview_5d_impl_type<Space, int*****, int[N2][N3][N4], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int*****, int * [N3][N4], LayoutSub,
+  test_3d_subview_5d_impl_type<Space, int*****, int* [N3][N4], LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, int*****, int* * [N4], LayoutSub, Layout,
+  test_3d_subview_5d_impl_type<Space, int*****, int** [N4], LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
   test_3d_subview_5d_impl_type<Space, int*****, int***, LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
@@ -1405,96 +1405,94 @@ void test_3d_subview_5d_impl_layout() {
                                const int[N2][N3][N4], LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
   test_3d_subview_5d_impl_type<Space, const int[N0][N1][N2][N3][N4],
-                               const int * [N3][N4], LayoutSub, Layout,
+                               const int* [N3][N4], LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
   test_3d_subview_5d_impl_type<Space, const int[N0][N1][N2][N3][N4],
-                               const int* * [N4], LayoutSub, Layout, LayoutOrg,
+                               const int** [N4], LayoutSub, Layout, LayoutOrg,
                                MemTraits>();
   test_3d_subview_5d_impl_type<Space, const int[N0][N1][N2][N3][N4],
                                const int***, LayoutSub, Layout, LayoutOrg,
                                MemTraits>();
 
-  test_3d_subview_5d_impl_type<Space, const int * [N1][N2][N3][N4],
+  test_3d_subview_5d_impl_type<Space, const int* [N1][N2][N3][N4],
                                const int[N2][N3][N4], LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int * [N1][N2][N3][N4],
-                               const int * [N3][N4], LayoutSub, Layout,
+  test_3d_subview_5d_impl_type<Space, const int* [N1][N2][N3][N4],
+                               const int* [N3][N4], LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int * [N1][N2][N3][N4],
-                               const int* * [N4], LayoutSub, Layout, LayoutOrg,
+  test_3d_subview_5d_impl_type<Space, const int* [N1][N2][N3][N4],
+                               const int** [N4], LayoutSub, Layout, LayoutOrg,
                                MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int * [N1][N2][N3][N4],
-                               const int***, LayoutSub, Layout, LayoutOrg,
-                               MemTraits>();
-
-  test_3d_subview_5d_impl_type<Space, const int* * [N2][N3][N4],
-                               const int[N2][N3][N4], LayoutSub, Layout,
-                               LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int* * [N2][N3][N4],
-                               const int * [N3][N4], LayoutSub, Layout,
-                               LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int* * [N2][N3][N4],
-                               const int* * [N4], LayoutSub, Layout, LayoutOrg,
-                               MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int* * [N2][N3][N4], const int***,
+  test_3d_subview_5d_impl_type<Space, const int* [N1][N2][N3][N4], const int***,
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
 
-  test_3d_subview_5d_impl_type<Space, const int** * [N3][N4],
+  test_3d_subview_5d_impl_type<Space, const int** [N2][N3][N4],
                                const int[N2][N3][N4], LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int** * [N3][N4],
-                               const int * [N3][N4], LayoutSub, Layout,
+  test_3d_subview_5d_impl_type<Space, const int** [N2][N3][N4],
+                               const int* [N3][N4], LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int** * [N3][N4], const int* * [N4],
-                               LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int** * [N3][N4], const int***,
+  test_3d_subview_5d_impl_type<Space, const int** [N2][N3][N4],
+                               const int** [N4], LayoutSub, Layout, LayoutOrg,
+                               MemTraits>();
+  test_3d_subview_5d_impl_type<Space, const int** [N2][N3][N4], const int***,
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
 
-  test_3d_subview_5d_impl_type<Space, const int*** * [N4],
+  test_3d_subview_5d_impl_type<Space, const int*** [N3][N4],
                                const int[N2][N3][N4], LayoutSub, Layout,
                                LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int*** * [N4], const int * [N3][N4],
+  test_3d_subview_5d_impl_type<Space, const int*** [N3][N4],
+                               const int* [N3][N4], LayoutSub, Layout,
+                               LayoutOrg, MemTraits>();
+  test_3d_subview_5d_impl_type<Space, const int*** [N3][N4], const int** [N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int*** * [N4], const int* * [N4],
+  test_3d_subview_5d_impl_type<Space, const int*** [N3][N4], const int***,
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int*** * [N4], const int***,
+
+  test_3d_subview_5d_impl_type<Space, const int**** [N4], const int[N2][N3][N4],
+                               LayoutSub, Layout, LayoutOrg, MemTraits>();
+  test_3d_subview_5d_impl_type<Space, const int**** [N4], const int* [N3][N4],
+                               LayoutSub, Layout, LayoutOrg, MemTraits>();
+  test_3d_subview_5d_impl_type<Space, const int**** [N4], const int** [N4],
+                               LayoutSub, Layout, LayoutOrg, MemTraits>();
+  test_3d_subview_5d_impl_type<Space, const int**** [N4], const int***,
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
 
   test_3d_subview_5d_impl_type<Space, const int*****, const int[N2][N3][N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int*****, const int * [N3][N4],
+  test_3d_subview_5d_impl_type<Space, const int*****, const int* [N3][N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
-  test_3d_subview_5d_impl_type<Space, const int*****, const int* * [N4],
+  test_3d_subview_5d_impl_type<Space, const int*****, const int** [N4],
                                LayoutSub, Layout, LayoutOrg, MemTraits>();
   test_3d_subview_5d_impl_type<Space, const int*****, const int***, LayoutSub,
                                Layout, LayoutOrg, MemTraits>();
 }
 
 inline void test_subview_legal_args_right() {
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             Kokkos::ALL_t, Kokkos::pair<int, int>, int, int>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             Kokkos::ALL_t, Kokkos::ALL_t, int, int>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             Kokkos::pair<int, int>, Kokkos::pair<int, int>, int, int>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             Kokkos::pair<int, int>, Kokkos::ALL_t, int, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t,
                    Kokkos::pair<int, int>, int, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t, int, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
-                   Kokkos::pair<int, int>, int, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t, int, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::pair<int, int>, int, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t, int, int>::value));
+                   Kokkos::pair<int, int>, Kokkos::ALL_t, Kokkos::ALL_t, int,
+                   int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
@@ -1502,98 +1500,101 @@ inline void test_subview_legal_args_right() {
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t, int, int>::value));
+                   Kokkos::ALL_t, int, int>::value));
 
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             int, Kokkos::ALL_t, Kokkos::pair<int, int>, int>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             int, Kokkos::ALL_t, Kokkos::ALL_t, int>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             int, Kokkos::pair<int, int>, Kokkos::pair<int, int>, int>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             int, Kokkos::pair<int, int>, Kokkos::ALL_t, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, int, Kokkos::Impl::ALL_t,
+                   Kokkos::pair<int, int>, int, Kokkos::ALL_t,
                    Kokkos::pair<int, int>, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, int, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, int, Kokkos::pair<int, int>,
-                   Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, int, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::pair<int, int>, int, Kokkos::Impl::ALL_t,
-                   Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::pair<int, int>, int, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t, int>::value));
+                   Kokkos::pair<int, int>, int, Kokkos::ALL_t, Kokkos::ALL_t,
+                   int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
                    Kokkos::pair<int, int>, int, Kokkos::pair<int, int>,
                    Kokkos::pair<int, int>, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::pair<int, int>, int, Kokkos::Impl::ALL_t,
+                   Kokkos::pair<int, int>, int, Kokkos::ALL_t,
                    Kokkos::pair<int, int>, int>::value));
 
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             Kokkos::ALL_t, int, Kokkos::pair<int, int>, int>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             Kokkos::ALL_t, int, Kokkos::ALL_t, int>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             Kokkos::pair<int, int>, int, Kokkos::pair<int, int>, int>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, Kokkos::ALL_t,
+             Kokkos::pair<int, int>, int, Kokkos::ALL_t, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t, int,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t, int,
                    Kokkos::pair<int, int>, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t, int,
-                   Kokkos::Impl::ALL_t, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>, int,
-                   Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>, int,
-                   Kokkos::Impl::ALL_t, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int,
-                   Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int,
-                   Kokkos::Impl::ALL_t, int>::value));
+                   Kokkos::pair<int, int>, Kokkos::ALL_t, int, Kokkos::ALL_t,
+                   int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>, int,
                    Kokkos::pair<int, int>, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t, int,
                    Kokkos::pair<int, int>, int>::value));
 
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::ALL_t, Kokkos::pair<int, int>, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
+                   Kokkos::ALL_t, Kokkos::ALL_t, Kokkos::ALL_t, int>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::pair<int, int>, Kokkos::pair<int, int>, int>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::pair<int, int>, Kokkos::ALL_t, int>::value));
+  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t,
                    Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
-                   Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t, int>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
+          Kokkos::pair<int, int>, Kokkos::ALL_t, Kokkos::ALL_t, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
@@ -1601,32 +1602,35 @@ inline void test_subview_legal_args_right() {
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t, int>::value));
+                   Kokkos::ALL_t, int>::value));
 
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::ALL_t, int, Kokkos::pair<int, int>>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t, int,
+                   Kokkos::ALL_t, Kokkos::ALL_t, int, Kokkos::ALL_t>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::pair<int, int>, int, Kokkos::pair<int, int>>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::pair<int, int>, int, Kokkos::ALL_t>::value));
+  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t, int,
                    Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t, int,
-                   Kokkos::Impl::ALL_t>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>, int,
-                   Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>, int,
-                   Kokkos::Impl::ALL_t>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int,
-                   Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int,
-                   Kokkos::Impl::ALL_t>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
+          Kokkos::pair<int, int>, Kokkos::ALL_t, int, Kokkos::ALL_t>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>, int,
@@ -1634,32 +1638,31 @@ inline void test_subview_legal_args_right() {
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>, int,
-                   Kokkos::Impl::ALL_t>::value));
+                   Kokkos::ALL_t>::value));
 
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
-                   Kokkos::pair<int, int>>::value));
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, int,
+                Kokkos::ALL_t, Kokkos::ALL_t, Kokkos::pair<int, int>>::value));
   ASSERT_EQ(1, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t>::value));
+                   Kokkos::ALL_t, Kokkos::ALL_t, Kokkos::ALL_t>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
+                   Kokkos::ALL_t, Kokkos::pair<int, int>,
                    Kokkos::pair<int, int>>::value));
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, int,
+                Kokkos::ALL_t, Kokkos::pair<int, int>, Kokkos::ALL_t>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t,
                    Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(1, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t>::value));
+  ASSERT_EQ(1,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, int,
+                Kokkos::pair<int, int>, Kokkos::ALL_t, Kokkos::ALL_t>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
@@ -1667,36 +1670,35 @@ inline void test_subview_legal_args_right() {
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 5, 0, int, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t>::value));
+                   Kokkos::ALL_t>::value));
 
   ASSERT_EQ(1, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t>::value));
+                   Kokkos::ALL_t, Kokkos::ALL_t, Kokkos::ALL_t>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0, Kokkos::ALL_t,
+             Kokkos::ALL_t, Kokkos::pair<int, int>>::value));
+  ASSERT_EQ(1,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0,
+                Kokkos::pair<int, int>, Kokkos::ALL_t, Kokkos::ALL_t>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t,
                    Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(1, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
-                   Kokkos::pair<int, int>>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0, Kokkos::ALL_t,
+             Kokkos::pair<int, int>, Kokkos::ALL_t>::value));
+  ASSERT_EQ(
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0, Kokkos::ALL_t,
+             Kokkos::pair<int, int>, Kokkos::pair<int, int>>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t>::value));
+                   Kokkos::ALL_t>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutRight, Kokkos::LayoutRight, 3, 3, 0,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
@@ -1704,34 +1706,30 @@ inline void test_subview_legal_args_right() {
 }
 
 inline void test_subview_legal_args_left() {
+  ASSERT_EQ(1,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+                Kokkos::ALL_t, Kokkos::pair<int, int>, int, int>::value));
+  ASSERT_EQ(1,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+                Kokkos::ALL_t, Kokkos::ALL_t, int, int>::value));
   ASSERT_EQ(
-      1,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          Kokkos::Impl::ALL_t, Kokkos::pair<int, int>, int, int>::value));
-  ASSERT_EQ(
-      1,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t, int, int>::value));
-  ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          Kokkos::pair<int, int>, Kokkos::pair<int, int>, int, int>::value));
-  ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int, int>::value));
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+             Kokkos::pair<int, int>, Kokkos::pair<int, int>, int, int>::value));
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+                Kokkos::pair<int, int>, Kokkos::ALL_t, int, int>::value));
   ASSERT_EQ(1, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t,
                    Kokkos::pair<int, int>, int, int>::value));
   ASSERT_EQ(1, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t, int, int>::value));
+                   Kokkos::pair<int, int>, Kokkos::ALL_t, Kokkos::ALL_t, int,
+                   int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
@@ -1739,106 +1737,101 @@ inline void test_subview_legal_args_left() {
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t, int, int>::value));
+                   Kokkos::ALL_t, int, int>::value));
 
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+                int, Kokkos::ALL_t, Kokkos::pair<int, int>, int>::value));
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+                int, Kokkos::ALL_t, Kokkos::ALL_t, int>::value));
   ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          int, Kokkos::Impl::ALL_t, Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          int, Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t, int>::value));
-  ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          int, Kokkos::pair<int, int>, Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          int, Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int>::value));
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+             int, Kokkos::pair<int, int>, Kokkos::pair<int, int>, int>::value));
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+                int, Kokkos::pair<int, int>, Kokkos::ALL_t, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
-                   Kokkos::pair<int, int>, int, Kokkos::Impl::ALL_t,
+                   Kokkos::pair<int, int>, int, Kokkos::ALL_t,
                    Kokkos::pair<int, int>, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
-                   Kokkos::pair<int, int>, int, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t, int>::value));
+                   Kokkos::pair<int, int>, int, Kokkos::ALL_t, Kokkos::ALL_t,
+                   int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
                    Kokkos::pair<int, int>, int, Kokkos::pair<int, int>,
                    Kokkos::pair<int, int>, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
-                   Kokkos::pair<int, int>, int, Kokkos::Impl::ALL_t,
+                   Kokkos::pair<int, int>, int, Kokkos::ALL_t,
                    Kokkos::pair<int, int>, int>::value));
 
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+                Kokkos::ALL_t, int, Kokkos::pair<int, int>, int>::value));
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+                Kokkos::ALL_t, int, Kokkos::ALL_t, int>::value));
   ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          Kokkos::Impl::ALL_t, int, Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          Kokkos::Impl::ALL_t, int, Kokkos::Impl::ALL_t, int>::value));
-  ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          Kokkos::pair<int, int>, int, Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::Impl::ALL_t,
-          Kokkos::pair<int, int>, int, Kokkos::Impl::ALL_t, int>::value));
+      0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+             Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+             Kokkos::pair<int, int>, int, Kokkos::pair<int, int>, int>::value));
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, Kokkos::ALL_t,
+                Kokkos::pair<int, int>, int, Kokkos::ALL_t, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t, int,
                    Kokkos::pair<int, int>, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int,
-                   Kokkos::Impl::ALL_t, int>::value));
+                   Kokkos::pair<int, int>, Kokkos::ALL_t, int, Kokkos::ALL_t,
+                   int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>, int,
                    Kokkos::pair<int, int>, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t, int,
                    Kokkos::pair<int, int>, int>::value));
 
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::ALL_t, Kokkos::pair<int, int>, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
+                   Kokkos::ALL_t, Kokkos::ALL_t, Kokkos::ALL_t, int>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::pair<int, int>, Kokkos::pair<int, int>, int>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::pair<int, int>, Kokkos::ALL_t, int>::value));
+  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t,
                    Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
-                   Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::pair<int, int>, int>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t, int>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
+          Kokkos::pair<int, int>, Kokkos::ALL_t, Kokkos::ALL_t, int>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
@@ -1846,32 +1839,35 @@ inline void test_subview_legal_args_left() {
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t, int>::value));
+                   Kokkos::ALL_t, int>::value));
 
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::ALL_t, int, Kokkos::pair<int, int>>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t, int,
+                   Kokkos::ALL_t, Kokkos::ALL_t, int, Kokkos::ALL_t>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::pair<int, int>, int, Kokkos::pair<int, int>>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, Kokkos::ALL_t,
+          Kokkos::pair<int, int>, int, Kokkos::ALL_t>::value));
+  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t, int,
                    Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t, int,
-                   Kokkos::Impl::ALL_t>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>, int,
-                   Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>, int,
-                   Kokkos::Impl::ALL_t>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int,
-                   Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t, int,
-                   Kokkos::Impl::ALL_t>::value));
+  ASSERT_EQ(
+      0,
+      (Kokkos::Impl::SubviewLegalArgsCompileTime<
+          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
+          Kokkos::pair<int, int>, Kokkos::ALL_t, int, Kokkos::ALL_t>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>, int,
@@ -1879,32 +1875,31 @@ inline void test_subview_legal_args_left() {
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>, int,
-                   Kokkos::Impl::ALL_t>::value));
+                   Kokkos::ALL_t>::value));
 
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
+                Kokkos::ALL_t, Kokkos::ALL_t, Kokkos::pair<int, int>>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
+                   Kokkos::ALL_t, Kokkos::ALL_t, Kokkos::ALL_t>::value));
+  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
+                   Kokkos::ALL_t, Kokkos::pair<int, int>,
                    Kokkos::pair<int, int>>::value));
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
+                Kokkos::ALL_t, Kokkos::pair<int, int>, Kokkos::ALL_t>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
-                   Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
+                   Kokkos::pair<int, int>, Kokkos::ALL_t,
                    Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
-                   Kokkos::Impl::ALL_t, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
-                   Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t>::value));
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
+                Kokkos::pair<int, int>, Kokkos::ALL_t, Kokkos::ALL_t>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
@@ -1912,40 +1907,35 @@ inline void test_subview_legal_args_left() {
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 5, 0, int, int,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t>::value));
+                   Kokkos::ALL_t>::value));
 
-  ASSERT_EQ(
-      1,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0, Kokkos::Impl::ALL_t,
-          Kokkos::Impl::ALL_t, Kokkos::pair<int, int>>::value));
-  ASSERT_EQ(
-      1,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0, Kokkos::Impl::ALL_t,
-          Kokkos::Impl::ALL_t, Kokkos::Impl::ALL_t>::value));
+  ASSERT_EQ(1,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0, Kokkos::ALL_t,
+                Kokkos::ALL_t, Kokkos::pair<int, int>>::value));
   ASSERT_EQ(1, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::pair<int, int>>::value));
+                   Kokkos::ALL_t, Kokkos::ALL_t, Kokkos::ALL_t>::value));
   ASSERT_EQ(1, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0,
-                   Kokkos::pair<int, int>, Kokkos::Impl::ALL_t,
-                   Kokkos::Impl::ALL_t>::value));
-  ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0, Kokkos::Impl::ALL_t,
-          Kokkos::pair<int, int>, Kokkos::Impl::ALL_t>::value));
-  ASSERT_EQ(
-      0,
-      (Kokkos::Impl::SubviewLegalArgsCompileTime<
-          Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0, Kokkos::Impl::ALL_t,
-          Kokkos::pair<int, int>, Kokkos::pair<int, int>>::value));
+                   Kokkos::pair<int, int>, Kokkos::ALL_t,
+                   Kokkos::pair<int, int>>::value));
+  ASSERT_EQ(1,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0,
+                Kokkos::pair<int, int>, Kokkos::ALL_t, Kokkos::ALL_t>::value));
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0, Kokkos::ALL_t,
+                Kokkos::pair<int, int>, Kokkos::ALL_t>::value));
+  ASSERT_EQ(0,
+            (Kokkos::Impl::SubviewLegalArgsCompileTime<
+                Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0, Kokkos::ALL_t,
+                Kokkos::pair<int, int>, Kokkos::pair<int, int>>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
-                   Kokkos::Impl::ALL_t>::value));
+                   Kokkos::ALL_t>::value));
   ASSERT_EQ(0, (Kokkos::Impl::SubviewLegalArgsCompileTime<
                    Kokkos::LayoutLeft, Kokkos::LayoutLeft, 3, 3, 0,
                    Kokkos::pair<int, int>, Kokkos::pair<int, int>,
@@ -2118,15 +2108,33 @@ void test_unmanaged_subview_reset() {
 template <std::underlying_type_t<Kokkos::MemoryTraitsFlags> MTF>
 struct TestSubviewMemoryTraitsConstruction {
   void operator()() const noexcept {
-    using view_type          = Kokkos::View<double*, Kokkos::HostSpace>;
-    using size_type          = view_type::size_type;
     using memory_traits_type = Kokkos::MemoryTraits<MTF>;
+    using view_type =
+        Kokkos::View<double*, Kokkos::HostSpace, memory_traits_type>;
+    using size_type = typename view_type::size_type;
 
-    view_type v("v", 7);
+    // Create a managed View first and then apply the desired memory traits to
+    // an unmanaged version of it since a managed View can't use the Unmanaged
+    // trait.
+    Kokkos::View<double*, Kokkos::HostSpace> v_original("v", 7);
+    view_type v(v_original.data(), v_original.size());
     for (size_type i = 0; i != v.size(); ++i) v[i] = static_cast<double>(i);
 
     std::pair<int, int> range(3, 5);
-    auto sv = Kokkos::subview<memory_traits_type>(v, range);
+    auto sv = Kokkos::subview(v, range);
+
+    // check that the subview memory traits are the same as the original view
+    // (with the Aligned trait stripped).
+    using view_memory_traits    = typename decltype(v)::memory_traits;
+    using subview_memory_traits = typename decltype(sv)::memory_traits;
+    static_assert(view_memory_traits::impl_value ==
+                  memory_traits_type::impl_value);
+    if constexpr (memory_traits_type::is_aligned)
+      static_assert(subview_memory_traits::impl_value + Kokkos::Aligned ==
+                    memory_traits_type::impl_value);
+    else
+      static_assert(subview_memory_traits::impl_value ==
+                    memory_traits_type::impl_value);
 
     ASSERT_EQ(2u, sv.size());
     EXPECT_EQ(3., sv[0]);
@@ -2140,6 +2148,7 @@ inline void test_subview_memory_traits_construction() {
   // RandomAccess (2)
   // Atomic (4)
   // Restricted (8)
+  // Aligned (16)
   TestSubviewMemoryTraitsConstruction<0>()();
   TestSubviewMemoryTraitsConstruction<1>()();
   TestSubviewMemoryTraitsConstruction<2>()();
@@ -2156,6 +2165,22 @@ inline void test_subview_memory_traits_construction() {
   TestSubviewMemoryTraitsConstruction<13>()();
   TestSubviewMemoryTraitsConstruction<14>()();
   TestSubviewMemoryTraitsConstruction<15>()();
+  TestSubviewMemoryTraitsConstruction<16>()();
+  TestSubviewMemoryTraitsConstruction<17>()();
+  TestSubviewMemoryTraitsConstruction<18>()();
+  TestSubviewMemoryTraitsConstruction<19>()();
+  TestSubviewMemoryTraitsConstruction<20>()();
+  TestSubviewMemoryTraitsConstruction<21>()();
+  TestSubviewMemoryTraitsConstruction<22>()();
+  TestSubviewMemoryTraitsConstruction<23>()();
+  TestSubviewMemoryTraitsConstruction<24>()();
+  TestSubviewMemoryTraitsConstruction<25>()();
+  TestSubviewMemoryTraitsConstruction<26>()();
+  TestSubviewMemoryTraitsConstruction<27>()();
+  TestSubviewMemoryTraitsConstruction<28>()();
+  TestSubviewMemoryTraitsConstruction<29>()();
+  TestSubviewMemoryTraitsConstruction<30>()();
+  TestSubviewMemoryTraitsConstruction<31>()();
 }
 
 //----------------------------------------------------------------------------
@@ -2177,7 +2202,7 @@ struct
 
 template <class Space, class Layout>
 struct TestSubviewStaticSizes {
-  Kokkos::View<int * [10][5][2], Layout, Space> a;
+  Kokkos::View<int* [10][5][2], Layout, Space> a;
   Kokkos::View<int[6][7][8], Layout, Space> b;
 
   KOKKOS_INLINE_FUNCTION
@@ -2204,7 +2229,7 @@ struct TestSubviewStaticSizes {
 
     auto sub_a_4 = Kokkos::subview(a, Kokkos::ALL, 0, Kokkos::ALL, Kokkos::ALL);
     typename static_expect_same<
-        /* expected */ int * [5][2],
+        /* expected */ int* [5][2],
         /*  actual  */ typename get_view_type<decltype(sub_a_4)>::type>::type
         test_4 = 0;
 
@@ -2226,14 +2251,14 @@ struct TestSubviewStaticSizes {
     auto sub_a_7 = Kokkos::subview(a, Kokkos::ALL, 0, Kokkos::make_pair(0, 1),
                                    Kokkos::ALL);
     typename static_expect_same<
-        /* expected */ int* * [2],
+        /* expected */ int** [2],
         /*  actual  */ typename get_view_type<decltype(sub_a_7)>::type>::type
         test_7 = 0;
 
     auto sub_a_8 =
         Kokkos::subview(a, Kokkos::ALL, Kokkos::ALL, Kokkos::ALL, Kokkos::ALL);
     typename static_expect_same<
-        /* expected */ int * [10][5][2],
+        /* expected */ int* [10][5][2],
         /*  actual  */ typename get_view_type<decltype(sub_a_8)>::type>::type
         test_8 = 0;
 
@@ -2252,7 +2277,7 @@ struct TestSubviewStaticSizes {
     auto sub_b_3 =
         Kokkos::subview(b, Kokkos::make_pair(2, 3), Kokkos::ALL, Kokkos::ALL);
     typename static_expect_same<
-        /* expected */ int * [7][8],
+        /* expected */ int* [7][8],
         /*  actual  */ typename get_view_type<decltype(sub_b_3)>::type>::type
         test_11 = 0;
 
@@ -2267,11 +2292,10 @@ template <class Space>
 struct TestExtentsStaticTests {
   using test1 = typename static_expect_same<
       /* expected */
-      Kokkos::Experimental::Extents<Kokkos::Experimental::dynamic_extent,
-                                    Kokkos::Experimental::dynamic_extent, 1, 2,
-                                    3>,
+      Kokkos::Experimental::Extents<Kokkos::dynamic_extent,
+                                    Kokkos::dynamic_extent, 1, 2, 3>,
       /* actual */
-      typename Kokkos::Impl::ParseViewExtents<double* * [1][2][3]>::type>::type;
+      typename Kokkos::Impl::ParseViewExtents<double** [1][2][3]>::type>::type;
 
   using test2 = typename static_expect_same<
       /* expected */

@@ -46,13 +46,15 @@
 
 #include <Kokkos_Half.hpp>
 #include <Kokkos_AnonymousSpace.hpp>
-#include <Kokkos_LogicalSpaces.hpp>
 #include <Kokkos_Pair.hpp>
-#include <Kokkos_MinMaxClamp.hpp>
+#include <Kokkos_Clamp.hpp>
+#include <Kokkos_MinMax.hpp>
 #include <Kokkos_MathematicalConstants.hpp>
 #include <Kokkos_MathematicalFunctions.hpp>
 #include <Kokkos_MathematicalSpecialFunctions.hpp>
 #include <Kokkos_NumericTraits.hpp>
+#include <Kokkos_BitManipulation.hpp>
+#include <Kokkos_Swap.hpp>
 #include <Kokkos_MemoryPool.hpp>
 #include <Kokkos_Array.hpp>
 #include <Kokkos_View.hpp>
@@ -61,7 +63,9 @@
 #include <Kokkos_hwloc.hpp>
 #include <Kokkos_Timer.hpp>
 #include <Kokkos_Tuners.hpp>
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_4
 #include <Kokkos_TaskScheduler.hpp>
+#endif
 #include <Kokkos_Complex.hpp>
 #include <Kokkos_CopyViews.hpp>
 #include <impl/Kokkos_TeamMDPolicy.hpp>
@@ -98,6 +102,10 @@ void declare_configuration_metadata(const std::string& category,
 
 [[nodiscard]] bool is_initialized() noexcept;
 [[nodiscard]] bool is_finalized() noexcept;
+
+[[nodiscard]] int device_id() noexcept;
+[[nodiscard]] int num_devices() noexcept;
+[[nodiscard]] int num_threads() noexcept;
 
 bool show_warnings() noexcept;
 bool tune_internals() noexcept;
@@ -242,9 +250,9 @@ class KOKKOS_ATTRIBUTE_NODISCARD ScopeGuard {
   }
 
   ScopeGuard& operator=(const ScopeGuard&) = delete;
-  ScopeGuard& operator=(ScopeGuard&&) = delete;
-  ScopeGuard(const ScopeGuard&)       = delete;
-  ScopeGuard(ScopeGuard&&)            = delete;
+  ScopeGuard& operator=(ScopeGuard&&)      = delete;
+  ScopeGuard(const ScopeGuard&)            = delete;
+  ScopeGuard(ScopeGuard&&)                 = delete;
 };
 
 }  // namespace Kokkos
@@ -270,12 +278,12 @@ std::vector<ExecSpace> partition_space(ExecSpace const& space, Args...) {
 
 template <class ExecSpace, class T>
 std::vector<ExecSpace> partition_space(ExecSpace const& space,
-                                       std::vector<T>& weights) {
+                                       std::vector<T> const& weights) {
   static_assert(is_execution_space<ExecSpace>::value,
                 "Kokkos Error: partition_space expects an Execution Space as "
                 "first argument");
   static_assert(
-      std::is_arithmetic<T>::value,
+      std::is_arithmetic_v<T>,
       "Kokkos Error: partitioning arguments must be integers or floats");
 
   std::vector<ExecSpace> instances(weights.size());
@@ -295,9 +303,6 @@ std::vector<ExecSpace> partition_space(ExecSpace const& space,
 // Yet another workaround to deal with circular dependency issues because the
 // implementation of the RAII wrapper is using Kokkos::single.
 #include <Kokkos_AcquireUniqueTokenImpl.hpp>
-
-// Specializations required after core definitions
-#include <KokkosCore_Config_PostInclude.hpp>
 
 //----------------------------------------------------------------------------
 // Redefinition of the macros min and max if we pushed them at entry of

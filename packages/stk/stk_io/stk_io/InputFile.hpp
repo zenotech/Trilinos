@@ -35,8 +35,6 @@
 #ifndef STK_IO_Inputfile
 #define STK_IO_Inputfile
 
-#include <Teuchos_RCP.hpp>              // for is_null, RCP::operator->, etc
-#include <Teuchos_RCPStdSharedPtrConversions.hpp>
 #include <stk_mesh/base/Types.hpp>
 #include <stk_io/DatabasePurpose.hpp>   // for DatabasePurpose
 #include <stk_io/MeshField.hpp>
@@ -71,9 +69,6 @@ class Part;
                 const std::string &type,
                 DatabasePurpose purpose,
                 Ioss::PropertyManager& property_manager);
-#ifndef STK_HIDE_DEPRECATED_CODE //delete after May 2023                
-      STK_DEPRECATED_MSG("This constructor has been deprecated. Please pass in std::shared_ptr instead of Teuchos::rcp.") InputFile(Teuchos::RCP<Ioss::Region> ioss_input_region);
-#endif
       InputFile(std::shared_ptr<Ioss::Region> ioss_input_region);
 
       ~InputFile()
@@ -91,20 +86,6 @@ class Part;
       double read_defined_input_fields_at_step(int step, std::vector<stk::io::MeshField> *missingFields,
                                                stk::mesh::BulkData &bulk, bool useEntityListCache = false);
       void get_global_variable_names(std::vector<std::string> &names);
-
-      void build_field_part_associations(stk::mesh::BulkData &bulk, std::vector<stk::io::MeshField> *missing);
-
-      void build_field_part_associations_from_grouping_entity(stk::mesh::BulkData &bulk, std::vector<stk::io::MeshField> *missingFields);
-
-#ifndef STK_HIDE_DEPRECATED_CODE //delete after May 2023
-      STK_DEPRECATED_MSG("This function has been renamed get_input_ioss_region() and now returns a std::shared_ptr.") Teuchos::RCP<Ioss::Region> get_input_io_region()
-      {
-	      if (m_region.get() == nullptr && m_database.get() != nullptr) {
-	        create_ioss_region();
-	      }
-	      return Teuchos::rcp(m_region);
-      }
-#endif
 
       std::shared_ptr<Ioss::Region> get_input_ioss_region()
       {
@@ -137,13 +118,6 @@ class Part;
           return Ioss::SPLIT_INVALID;
       }
 
-#ifndef STK_HIDE_DEPRECATED_CODE
-      STK_DEPRECATED_MSG("This function has been renamed get_ioss_input_database() and now returns a std::shared_ptr.") Teuchos::RCP<Ioss::DatabaseIO> get_input_database()
-      {
-	      return Teuchos::rcp(m_database);
-      }
-#endif
-
       std::shared_ptr<Ioss::DatabaseIO> get_ioss_input_database()
       {
 	      return m_database;
@@ -160,22 +134,22 @@ class Part;
           return true;
       }
 
+      const std::vector<std::string>& get_multistate_suffixes() const
+      {
+        static std::vector<std::string> emptyVector;
+
+        if(nullptr != m_multiStateSuffixes) {
+          return *m_multiStateSuffixes;
+        }
+
+        return emptyVector;
+      }
+
+      DatabasePurpose get_database_purpose() const { return m_db_purpose; }
+
+      void initialize_input_fields();
+
     private:
-      bool process_fields_for_grouping_entity(stk::io::MeshField &mesh_field,
-                                              const stk::mesh::Part &part,
-                                              Ioss::GroupingEntity *io_entity,
-                                              std::map<stk::mesh::FieldBase *, const stk::io::MeshField *> *missing_fields_collector_ptr = nullptr);
-
-      bool build_field_part_associations(stk::io::MeshField &mesh_field,
-					 const stk::mesh::Part &part,
-					 const stk::mesh::EntityRank rank,
-					 Ioss::GroupingEntity *io_entity,
-					 std::map<stk::mesh::FieldBase *, const stk::io::MeshField *> *missing_fields = nullptr);
-
-      void build_field_part_associations_for_part(Ioss::Region *region,
-                                                  const stk::mesh::FieldBase *f,
-                                                  const stk::mesh::Part * part,
-                                                  stk::io::MeshField &mf);
 
       DatabasePurpose m_db_purpose;
       std::shared_ptr<Ioss::DatabaseIO> m_database;

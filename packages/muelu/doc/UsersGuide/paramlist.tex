@@ -46,7 +46,7 @@
           
 \cbb{coarse: max size}{int}{2000}{Maximum dimension of a coarse grid. \muelu will stop coarsening once it is achieved.}
           
-\cbb{coarse: type}{string}{"SuperLU"}{Coarse solver. Possible values: see Table~\ref{tab:coarse_solvers}.}
+\cbb{coarse: type}{string}{"KLU"}{Coarse solver. Possible values: see Table~\ref{tab:coarse_solvers}.}
           
 \cba{coarse: params}{\parameterlist}{Coarse solver parameters. \muelu passes them directly to the appropriate package library.}
           
@@ -64,7 +64,11 @@
       aggregation. Possible values: "classical", "distance laplacian",
       "unsupported vector smoothing"}
           
+\cbb{aggregation: distance laplacian metric}{string}{unweighted}{Metric used to compute the distance Laplacian. Possible values: "unweighted", "material"}
+          
 \cbb{aggregation: drop tol}{double}{0.0}{Connectivity dropping threshold for a graph used in aggregation.}
+          
+\cbb{aggregation: use ml scaling of drop tol}{bool}{false}{Enables ML-style scaling of drop tol, where the drop tol halves with each successive level.}
           
 \cbb{aggregation: min agg size}{int}{2}{Minimum size of an aggregate.}
           
@@ -112,6 +116,10 @@
 \cbb{aggregation: output file: coarse graph edges}{bool}{false}{Whether to draw all coarse node connections along with the aggregates.}
           
 \cbb{aggregation: output file: build colormap}{bool}{false}{Whether to output a random colormap in a separate XML file.}
+          
+\cbb{aggregation: output file: aggregate qualities}{bool}{false}{Whether to plot the aggregate quality.}
+          
+\cbb{aggregation: output file: material}{bool}{false}{Whether to plot the material.}
           
 \cbb{aggregation: mesh layout}{string}{Global Lexicographic}{Type of ordering for structured mesh aggregation. Possible values: "Global Lexicographic" and "Local Lexicographic".}
           
@@ -231,6 +239,8 @@
           
 \cbb{repartition: rebalance P and R}{bool}{false}{Explicit rebalancing of R and P during the setup. This speeds up the solve, but slows down the setup phases.}
           
+\cbb{repartition: explicit via new copy rebalance P and R}{bool}{false}{Fully explicit rebalancing of R and P during setup that makes new copy and invokes fill copy.  Slowest rebalancing option, but needed by combine mg algo.}
+          
 \cbb{reuse: type}{string}{"none"}{Reuse options for consecutive hierarchy construction. This speeds up the setup phase, but may lead to poorer convergence. Possible values: see Table~\ref{t:reuse_types}.}
           
 \cbb{maxwell1: mode}{string}{"standard"}{Specifying the order of solve of the block system. Allowed values are: "standard" (default), "refmaxwell"}
@@ -240,6 +250,8 @@
 \cba{maxwell1: 22list}{\parameterlist}{Specifies the multigrid solver for the 22 block}
           
 \cbb{maxwell1: dump matrices}{bool}{false}{Dump matrices to disk.}
+          
+\cbb{maxwell1: nodal smoother fix zero diagonal threshold}{double}{1e-10}{Specifies the fix zero diagonals threshold to be used for the nodal smoothing matrices.}
           
 \cbb{refmaxwell: mode}{string}{"additive"}{Specifying the order of solve of the block system. Allowed values are: "additive" (default), "121", "212", "1", "2"}
           

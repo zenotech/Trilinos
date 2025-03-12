@@ -62,7 +62,7 @@ void fill_view(ViewType dest_view, const std::string& name) {
   }
 
   else {
-    throw std::runtime_error("invalid choice");
+    FAIL() << "invalid choice";
   }
 
   Kokkos::deep_copy(aux_view, v_h);
@@ -77,7 +77,7 @@ void verify_data(ViewType1 test_view, ViewType2 orig_view) {
 
   const std::size_t ext = test_view.extent(0);
   for (std::size_t i = 0; i < ext; ++i) {
-    EXPECT_EQ(tv_h(i), ov_h(ext - i - 1));
+    ASSERT_EQ(tv_h(i), ov_h(ext - i - 1));
   }
 }
 

@@ -57,11 +57,6 @@ public:
   /** \brief  Query the upper bound on the number of mesh entities
     *         that may be associated with a single bucket.
     */
-#ifndef STK_HIDE_DEPRECATED_CODE  // Delete after April 3, 2023
-  STK_DEPRECATED_MSG("Please use stk::mesh::get_default_bucket_capacity() from stk_mesh/base/Bucket.hpp instead")
-  static const unsigned default_bucket_capacity = 512;
-#endif
-
   BucketRepository(
       BulkData & mesh,
       unsigned entity_rank_count,
@@ -125,15 +120,11 @@ public:
 
   Partition *get_partition(const EntityRank arg_entity_rank ,
                            const OrdinalVector &parts,
-                           std::vector<Partition*>::iterator& ik,
-                           PartOrdinal* keyPtr,
-                           PartOrdinal* keyEnd);
+                           std::vector<Partition*>::iterator& ik);
 
   Partition *create_partition(const EntityRank arg_entity_rank ,
                               const OrdinalVector &parts,
-                              std::vector<Partition*>::iterator& ik,
-                              PartOrdinal* keyPtr,
-                              PartOrdinal* keyEnd);
+                              std::vector<Partition*>::iterator& ik);
 
   // For use by BulkData::internal_modification_end().
   void internal_modification_end();
@@ -142,8 +133,7 @@ public:
   void sync_from_partitions();
   void sync_from_partitions(EntityRank rank);
 
-  // Used in unit tests.  Returns the current partitions.
-  std::vector<Partition *> get_partitions(EntityRank rank) const;
+  const std::vector<Partition *>& get_partitions(EntityRank rank) const;
 
   Partition* get_partition(const EntityRank arg_entity_rank, const OrdinalVector &parts);
 
@@ -156,6 +146,9 @@ public:
   void delete_bucket(Bucket * bucket);
 
   void set_need_sync_from_partitions(EntityRank entityRank) { m_need_sync_from_partitions[entityRank] = true; }
+
+  void set_remove_mode_tracking();
+  void set_remove_mode_fill_and_sort();
 
 private:
   BucketRepository();
@@ -171,14 +164,9 @@ private:
 
   void ensure_data_structures_sized();
 
-  void fill_key_ptr(const OrdinalVector& parts, PartOrdinal** keyPtr, PartOrdinal** keyEnd,
-                    const unsigned maxKeyTmpBufferSize, PartOrdinal* keyTmpBuffer, OrdinalVector& keyTmpVec);
+  BulkData & m_mesh ;
 
-
-  BulkData & m_mesh ; // Associated Bulk Data Aggregate
-
-  // Vector of bucket pointers by rank.  This is now a cache and no longer the primary
-  // location of Buckets when USE_STK_MESH_IMPL_PARTITION is #defined.
+  // Vector of bucket pointers for each rank.
   std::vector< BucketVector >   m_buckets ;
 
   std::vector<std::vector<Partition *> > m_partitions;

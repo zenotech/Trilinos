@@ -19,7 +19,7 @@
 namespace KokkosSparse {
 namespace Impl {
 
-@SPARSE_PAR_ILUT_NUMERIC_DECL_BLOCK@
+@SPARSE_PAR_ILUT_NUMERIC_ETI_DECL_BLOCK@
 
 } // Impl
 } // KokkosSparse

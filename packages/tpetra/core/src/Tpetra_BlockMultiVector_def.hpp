@@ -1,45 +1,16 @@
 // @HEADER
-// ***********************************************************************
-//
+// *****************************************************************************
 //          Tpetra: Templated Linear Algebra Services Package
-//                 Copyright (2008) Sandia Corporation
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-// the U.S. Government retains certain rights in this software.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// ************************************************************************
+// Copyright 2008 NTESS and the Tpetra contributors.
+// SPDX-License-Identifier: BSD-3-Clause
+// *****************************************************************************
 // @HEADER
 
 #ifndef TPETRA_BLOCKMULTIVECTOR_DEF_HPP
 #define TPETRA_BLOCKMULTIVECTOR_DEF_HPP
 
+#include "Tpetra_BlockMultiVector_decl.hpp"
 #include "Tpetra_Details_Behavior.hpp"
 #include "Tpetra_BlockView.hpp"
 #include "Teuchos_OrdinalTraits.hpp"
@@ -48,9 +19,17 @@
 namespace Tpetra {
 
 template<class Scalar, class LO, class GO, class Node>
-typename BlockMultiVector<Scalar, LO, GO, Node>::mv_type
+const typename BlockMultiVector<Scalar, LO, GO, Node>::mv_type &
 BlockMultiVector<Scalar, LO, GO, Node>::
 getMultiVectorView () const
+{
+  return mv_;
+}
+
+template<class Scalar, class LO, class GO, class Node>
+typename BlockMultiVector<Scalar, LO, GO, Node>::mv_type &
+BlockMultiVector<Scalar, LO, GO, Node>::
+getMultiVectorView ()
 {
   return mv_;
 }
@@ -87,8 +66,8 @@ BlockMultiVector (const map_type& meshMap,
                   const LO numVecs) :
   dist_object_type (Teuchos::rcp (new map_type (meshMap))), // shallow copy
   meshMap_ (meshMap),
-  pointMap_ (makePointMap (meshMap, blockSize)),
-  mv_ (Teuchos::rcpFromRef (pointMap_), numVecs), // nonowning RCP is OK, since pointMap_ won't go away
+  pointMap_ (makePointMapRCP (meshMap, blockSize)),
+  mv_ (pointMap_, numVecs), // nonowning RCP is OK, since pointMap_ won't go away
   blockSize_ (blockSize)
 {}
 
@@ -100,8 +79,8 @@ BlockMultiVector (const map_type& meshMap,
                   const LO numVecs) :
   dist_object_type (Teuchos::rcp (new map_type (meshMap))), // shallow copy
   meshMap_ (meshMap),
-  pointMap_ (pointMap),
-  mv_ (Teuchos::rcpFromRef (pointMap_), numVecs),
+  pointMap_ (new map_type(pointMap)),
+  mv_ (pointMap_, numVecs),
   blockSize_ (blockSize)
 {}
 
@@ -156,9 +135,8 @@ BlockMultiVector (const mv_type& X_mv,
 
   // At this point, mv_ has been assigned, so we can ignore X_mv.
   Teuchos::RCP<const map_type> pointMap = mv_.getMap ();
-  if (! pointMap.is_null ()) {
-    pointMap_ = *pointMap; // Map::operator= also does a shallow copy
-  }
+  pointMap_ = pointMap; 
+
 }
 
 template<class Scalar, class LO, class GO, class Node>
@@ -169,7 +147,7 @@ BlockMultiVector (const BlockMultiVector<Scalar, LO, GO, Node>& X,
                   const size_t offset) :
   dist_object_type (Teuchos::rcp (new map_type (newMeshMap))), // shallow copy
   meshMap_ (newMeshMap),
-  pointMap_ (newPointMap),
+  pointMap_ (new map_type(newPointMap)),
   mv_ (X.mv_, newPointMap, offset * X.getBlockSize ()), // MV "offset view" constructor
   blockSize_ (X.getBlockSize ())
 {}
@@ -181,7 +159,7 @@ BlockMultiVector (const BlockMultiVector<Scalar, LO, GO, Node>& X,
                   const size_t offset) :
   dist_object_type (Teuchos::rcp (new map_type (newMeshMap))), // shallow copy
   meshMap_ (newMeshMap),
-  pointMap_ (makePointMap (newMeshMap, X.getBlockSize ())),
+  pointMap_ (makePointMapRCP (newMeshMap, X.getBlockSize ())),
   mv_ (X.mv_, pointMap_, offset * X.getBlockSize ()), // MV "offset view" constructor
   blockSize_ (X.getBlockSize ())
 {}
@@ -198,7 +176,7 @@ typename BlockMultiVector<Scalar, LO, GO, Node>::map_type
 BlockMultiVector<Scalar, LO, GO, Node>::
 makePointMap (const map_type& meshMap, const LO blockSize)
 {
-  typedef Tpetra::global_size_t GST;
+typedef Tpetra::global_size_t GST;
   typedef typename Teuchos::ArrayView<const GO>::size_type size_type;
 
   const GST gblNumMeshMapInds =
@@ -234,9 +212,55 @@ makePointMap (const map_type& meshMap, const LO blockSize)
     }
     return map_type (gblNumPointMapInds, lclPointGblInds (), indexBase,
                      meshMap.getComm ());
+
   }
 }
 
+
+template<class Scalar, class LO, class GO, class Node>
+Teuchos::RCP<const typename BlockMultiVector<Scalar, LO, GO, Node>::map_type>
+BlockMultiVector<Scalar, LO, GO, Node>::
+makePointMapRCP (const map_type& meshMap, const LO blockSize)
+{
+typedef Tpetra::global_size_t GST;
+  typedef typename Teuchos::ArrayView<const GO>::size_type size_type;
+
+  const GST gblNumMeshMapInds =
+    static_cast<GST> (meshMap.getGlobalNumElements ());
+  const size_t lclNumMeshMapIndices =
+    static_cast<size_t> (meshMap.getLocalNumElements ());
+  const GST gblNumPointMapInds =
+    gblNumMeshMapInds * static_cast<GST> (blockSize);
+  const size_t lclNumPointMapInds =
+    lclNumMeshMapIndices * static_cast<size_t> (blockSize);
+  const GO indexBase = meshMap.getIndexBase ();
+
+  if (meshMap.isContiguous ()) {
+    return Teuchos::rcp(new map_type (gblNumPointMapInds, lclNumPointMapInds, indexBase,
+                                     meshMap.getComm ()));
+  }
+  else {
+    // "Hilbert's Hotel" trick: multiply each process' GIDs by
+    // blockSize, and fill in.  That ensures correctness even if the
+    // mesh Map is overlapping.
+    Teuchos::ArrayView<const GO> lclMeshGblInds = meshMap.getLocalElementList ();
+    const size_type lclNumMeshGblInds = lclMeshGblInds.size ();
+    Teuchos::Array<GO> lclPointGblInds (lclNumPointMapInds);
+    for (size_type g = 0; g < lclNumMeshGblInds; ++g) {
+      const GO meshGid = lclMeshGblInds[g];
+      const GO pointGidStart = indexBase +
+        (meshGid - indexBase) * static_cast<GO> (blockSize);
+      const size_type offset = g * static_cast<size_type> (blockSize);
+      for (LO k = 0; k < blockSize; ++k) {
+        const GO pointGid = pointGidStart + static_cast<GO> (k);
+        lclPointGblInds[offset + static_cast<size_type> (k)] = pointGid;
+      }
+    }
+    return Teuchos::rcp(new map_type (gblNumPointMapInds, lclPointGblInds (), indexBase,
+                                      meshMap.getComm ()));
+
+  }
+}
 
 template<class Scalar, class LO, class GO, class Node>
 void
@@ -539,7 +563,7 @@ public:
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const Size k) const {
-    const auto zero = Kokkos::Details::ArithTraits<Scalar>::zero();
+    const auto zero = Kokkos::ArithTraits<Scalar>::zero();
     auto D_curBlk = Kokkos::subview(D_, k, Kokkos::ALL (), Kokkos::ALL ());
     const auto num_vecs = X_.extent(1);
     for (Size i = 0; i < num_vecs; ++i) {
@@ -618,7 +642,7 @@ public:
     using Kokkos::ALL;
     using Kokkos::subview;
     typedef Kokkos::pair<LO, LO> range_type;
-    typedef Kokkos::Details::ArithTraits<Scalar> KAT;
+    typedef Kokkos::ArithTraits<Scalar> KAT;
 
     // We only have to implement the alpha != 0 case.
 

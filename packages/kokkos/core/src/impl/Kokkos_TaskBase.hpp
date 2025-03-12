@@ -20,6 +20,11 @@
 #define KOKKOS_IMPL_TASKBASE_HPP
 
 #include <Kokkos_Macros.hpp>
+
+#ifndef KOKKOS_ENABLE_DEPRECATED_CODE_4
+#error "The tasking framework is deprecated"
+#endif
+
 #if defined(KOKKOS_ENABLE_TASKDAG)
 
 #include <Kokkos_TaskScheduler_fwd.hpp>
@@ -32,6 +37,11 @@
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
+
+#ifdef KOKKOS_ENABLE_DEPRECATION_WARNINGS
+// We allow using deprecated classes in this file
+KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_PUSH()
+#endif
 
 namespace Kokkos {
 namespace Impl {
@@ -133,9 +143,9 @@ class TaskBase {
   int16_t m_task_type;  ///< Type of task
   int16_t m_priority;   ///< Priority of runnable task
 
-  TaskBase(TaskBase&&)      = delete;
-  TaskBase(const TaskBase&) = delete;
-  TaskBase& operator=(TaskBase&&) = delete;
+  TaskBase(TaskBase&&)                 = delete;
+  TaskBase(const TaskBase&)            = delete;
+  TaskBase& operator=(TaskBase&&)      = delete;
   TaskBase& operator=(const TaskBase&) = delete;
 
   KOKKOS_DEFAULTED_FUNCTION ~TaskBase() = default;
@@ -174,17 +184,15 @@ class TaskBase {
 
     // Assign dependence to m_next.  It will be processed in the subsequent
     // call to schedule.  Error if the dependence is reset.
-    if (lock != Kokkos::Impl::desul_atomic_exchange(
-                    &m_next, dep, Kokkos::Impl::MemoryOrderSeqCst(),
-                    Kokkos::Impl::MemoryScopeDevice())) {
+    if (lock != desul::atomic_exchange(&m_next, dep, desul::MemoryOrderSeqCst(),
+                                       desul::MemoryScopeDevice())) {
       Kokkos::abort("TaskScheduler ERROR: resetting task dependence");
     }
     if (nullptr != dep) {
       // The future may be destroyed upon returning from this call
       // so increment reference count to track this assignment.
-      Kokkos::Impl::desul_atomic_inc(&(dep->m_ref_count),
-                                     Kokkos::Impl::MemoryOrderSeqCst(),
-                                     Kokkos::Impl::MemoryScopeDevice());
+      desul::atomic_inc(&(dep->m_ref_count), desul::MemoryOrderSeqCst(),
+                        desul::MemoryScopeDevice());
     }
   }
 
@@ -208,6 +216,7 @@ class TaskBase {
 // the number of full task types that fit into a cache line.  We'll leave it
 // here for now, though, since we're probably going to be ripping all of the
 // old TaskBase stuff out eventually anyway.
+#ifndef KOKKOS_IMPL_32BIT
 constexpr size_t unpadded_task_base_size = 44 + 2 * sizeof(int16_t);
 // don't forget padding:
 constexpr size_t task_base_misalignment =
@@ -231,7 +240,7 @@ static constexpr
 
 static_assert(sizeof(TaskBase) == expected_task_base_size,
               "Verifying expected sizeof(TaskBase)");
-
+#endif
 // </editor-fold> end Verify the size of TaskBase is as expected }}}2
 //------------------------------------------------------------------------------
 
@@ -247,10 +256,10 @@ namespace Impl {
 template <class Scheduler, typename ResultType, class FunctorType>
 class Task : public TaskBase, public FunctorType {
  public:
-  Task()            = delete;
-  Task(Task&&)      = delete;
-  Task(const Task&) = delete;
-  Task& operator=(Task&&) = delete;
+  Task()                       = delete;
+  Task(Task&&)                 = delete;
+  Task(const Task&)            = delete;
+  Task& operator=(Task&&)      = delete;
   Task& operator=(const Task&) = delete;
 
   using root_type    = TaskBase;
@@ -313,6 +322,10 @@ class Task : public TaskBase, public FunctorType {
 
 } /* namespace Impl */
 } /* namespace Kokkos */
+
+#ifdef KOKKOS_ENABLE_DEPRECATION_WARNINGS
+KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_POP()
+#endif
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------

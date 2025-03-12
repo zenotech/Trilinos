@@ -26,19 +26,20 @@
 // and compiler environment then sets a collection of #define macros.
 
 #include <Kokkos_Macros.hpp>
+#include <Kokkos_Printf.hpp>
 #include <impl/Kokkos_Error.hpp>
 #include <impl/Kokkos_Utilities.hpp>
 
-#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
-#include <Kokkos_MasterLock.hpp>
-#endif
-
 //----------------------------------------------------------------------------
-// Have assumed a 64bit build (8byte pointers) throughout the code base.
-
+// Have assumed a 64-bit build (8-byte pointers) throughout the code base.
+// 32-bit build allowed but unsupported.
+#ifdef KOKKOS_IMPL_32BIT
+static_assert(sizeof(void *) == 4,
+              "Kokkos assumes 64-bit build; i.e., 4-byte pointers");
+#else
 static_assert(sizeof(void *) == 8,
               "Kokkos assumes 64-bit build; i.e., 8-byte pointers");
-
+#endif
 //----------------------------------------------------------------------------
 
 namespace Kokkos {
@@ -70,9 +71,6 @@ template <class ExecutionSpace, class MemorySpace>
 struct Device;
 
 // forward declare here so that backend initializer calls can use it.
-#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
-struct InitArguments;
-#endif
 class InitializationSettings;
 
 }  // namespace Kokkos
@@ -108,8 +106,7 @@ using DefaultExecutionSpace KOKKOS_IMPL_DEFAULT_EXEC_SPACE_ANNOTATION =
 #elif defined(KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_HIP)
 using DefaultExecutionSpace KOKKOS_IMPL_DEFAULT_EXEC_SPACE_ANNOTATION = HIP;
 #elif defined(KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_SYCL)
-using DefaultExecutionSpace KOKKOS_IMPL_DEFAULT_EXEC_SPACE_ANNOTATION =
-    Experimental::SYCL;
+using DefaultExecutionSpace KOKKOS_IMPL_DEFAULT_EXEC_SPACE_ANNOTATION = SYCL;
 #elif defined(KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_OPENACC)
 using DefaultExecutionSpace KOKKOS_IMPL_DEFAULT_EXEC_SPACE_ANNOTATION =
     Experimental::OpenACC;
@@ -124,7 +121,7 @@ using DefaultExecutionSpace KOKKOS_IMPL_DEFAULT_EXEC_SPACE_ANNOTATION =
 using DefaultExecutionSpace KOKKOS_IMPL_DEFAULT_EXEC_SPACE_ANNOTATION = Serial;
 #else
 #error \
-    "At least one of the following execution spaces must be defined in order to use Kokkos: Kokkos::Cuda, Kokkos::HIP, Kokkos::Experimental::SYCL, Kokkos::Experimental::OpenMPTarget, Kokkos::Experimental::OpenACC, Kokkos::OpenMP, Kokkos::Threads, Kokkos::Experimental::HPX, or Kokkos::Serial."
+    "At least one of the following execution spaces must be defined in order to use Kokkos: Kokkos::Cuda, Kokkos::HIP, Kokkos::SYCL, Kokkos::Experimental::OpenMPTarget, Kokkos::Experimental::OpenACC, Kokkos::OpenMP, Kokkos::Threads, Kokkos::Experimental::HPX, or Kokkos::Serial."
 #endif
 
 #if defined(KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_OPENMP)
@@ -164,7 +161,7 @@ using SharedSpace = CudaUVMSpace;
 using SharedSpace = HIPManagedSpace;
 #define KOKKOS_HAS_SHARED_SPACE
 #elif defined(KOKKOS_ENABLE_SYCL)
-using SharedSpace = Experimental::SYCLSharedUSMSpace;
+using SharedSpace = SYCLSharedUSMSpace;
 #define KOKKOS_HAS_SHARED_SPACE
 // if only host compile point to HostSpace
 #elif !defined(KOKKOS_ENABLE_OPENACC) && !defined(KOKKOS_ENABLE_OPENMPTARGET)
@@ -186,7 +183,7 @@ using SharedHostPinnedSpace = CudaHostPinnedSpace;
 using SharedHostPinnedSpace = HIPHostPinnedSpace;
 #define KOKKOS_HAS_SHARED_HOST_PINNED_SPACE
 #elif defined(KOKKOS_ENABLE_SYCL)
-    using SharedHostPinnedSpace = Experimental::SYCLHostUSMSpace;
+    using SharedHostPinnedSpace = SYCLHostUSMSpace;
 #define KOKKOS_HAS_SHARED_HOST_PINNED_SPACE
 #elif !defined(KOKKOS_ENABLE_OPENACC) && !defined(KOKKOS_ENABLE_OPENMPTARGET)
     using SharedHostPinnedSpace = HostSpace;
@@ -257,12 +254,6 @@ KOKKOS_FUNCTION void runtime_check_memory_access_violation(
 }
 
 }  // namespace Impl
-
-namespace Experimental {
-template <class, class, class, class>
-class LogicalMemorySpace;
-}
-
 }  // namespace Kokkos
 
 //----------------------------------------------------------------------------
@@ -293,12 +284,9 @@ template <class DstSpace, class SrcSpace,
           class Enable         = void>
 struct DeepCopy;
 
-template <typename ExecutionSpace, class DT, class... DP>
-struct ZeroMemset;
-
 template <class ViewType, class Layout = typename ViewType::array_layout,
           class ExecSpace = typename ViewType::execution_space,
-          int Rank = ViewType::Rank, typename iType = int64_t>
+          int Rank = ViewType::rank, typename iType = int64_t>
 struct ViewFill;
 
 template <class ViewTypeA, class ViewTypeB, class Layout, class ExecSpace,
@@ -325,10 +313,13 @@ class ParallelFor;
 ///
 /// This is an implementation detail of parallel_reduce.  Users should
 /// skip this and go directly to the nonmember function parallel_reduce.
-template <class FunctorType, class ExecPolicy, class ReducerType = InvalidType,
-          class ExecutionSpace = typename Impl::FunctorPolicyExecutionSpace<
-              FunctorType, ExecPolicy>::execution_space>
+template <typename CombinedFunctorReducerType, typename PolicyType,
+          typename ExecutionSpaceType>
 class ParallelReduce;
+
+template <typename FunctorType, typename FunctorAnalysisReducerType,
+          typename Enable = void>
+class CombinedFunctorReducer;
 
 /// \class ParallelScan
 /// \brief Implementation detail of parallel_scan.

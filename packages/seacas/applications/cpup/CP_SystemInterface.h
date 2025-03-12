@@ -1,5 +1,5 @@
 /*
- * Copyright(C) 1999-2022 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2024 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
  *
@@ -20,7 +20,6 @@ namespace Cpup {
   {
   public:
     explicit SystemInterface(int rank = 0);
-    ~SystemInterface();
 
     bool parse_options(int argc, char **argv);
 
@@ -45,6 +44,7 @@ namespace Cpup {
     std::string root_dir() const { return rootDirectory_; }
     std::string sub_dir() const { return subDirectory_; }
 
+    bool minimize_open_files() const { return minimizeOpenFiles_; }
     bool is_auto() const { return auto_; }
     int  debug() const { return debugLevel_; }
 #if 0
@@ -65,9 +65,6 @@ namespace Cpup {
     bool map_element_ids() const { return mapIds_; }
     bool omit_nodesets() const { return omitNodesets_; }
     bool omit_sidesets() const { return omitSidesets_; }
-    int  compress_data() const { return compressData_; }
-    bool zlib() const { return zlib_; }
-    bool szip() const { return szip_; }
     bool subcycle_join() const { return subcycleJoin_; }
     bool keep_temporary() const { return keepTemporary_; }
     bool verify_valid_file() const { return verifyValidFile_; }
@@ -106,35 +103,33 @@ namespace Cpup {
 
     GetLongOption options_; //!< Options parsing
 
-    std::string inExtension_{};
-    std::string outExtension_{};
-    std::string cwd_{};
-    std::string rootDirectory_{};
-    std::string subDirectory_{};
-    std::string basename_{};
+    StringVector varNames_;
+    std::string  inExtension_{};
+    std::string  outExtension_{};
+    std::string  cwd_{};
+    std::string  rootDirectory_{};
+    std::string  subDirectory_{};
+    std::string  basename_{};
 
     // Used for a storage area only.  Needed for subcyle and auto-join option
     // Not directly settable through the user-interFace (maybe should be?)
     mutable std::string outputFilename_{};
 
-    int          myRank_{0};
-    int          processorCount_{1};
-    int          screenWidth_{};
-    int          stepMin_{1};
-    int          stepMax_{INT_MAX};
-    int          stepInterval_{1};
-    bool         auto_{false};
-    int          debugLevel_{};
-    StringVector varNames_;
+    int  myRank_{0};
+    int  processorCount_{1};
+    int  screenWidth_{};
+    int  stepMin_{1};
+    int  stepMax_{INT_MAX};
+    int  stepInterval_{1};
+    int  debugLevel_{};
+    bool auto_{false};
+    bool minimizeOpenFiles_{false};
 #if 0
     int  startPart_{};
     int  partCount_{-1};
     int  subcycle_{-1};
     int  cycle_{-1};
-    int  compressData_{0};
     int  maxOpenFiles_{0};
-    bool zlib_{true};
-    bool szip_{false};
     bool sumSharedNodes_{false};
     bool addProcessorIdField_{false};
     bool addProcessorIdMap_{false};

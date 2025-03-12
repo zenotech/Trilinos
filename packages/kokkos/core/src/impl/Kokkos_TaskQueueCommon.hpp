@@ -18,6 +18,11 @@
 #define KOKKOS_IMPL_TASKQUEUECOMMON_HPP
 
 #include <Kokkos_Macros.hpp>
+
+#ifndef KOKKOS_ENABLE_DEPRECATED_CODE_4
+#error "The tasking framework is deprecated"
+#endif
+
 #if defined(KOKKOS_ENABLE_TASKDAG)
 
 #include <Kokkos_TaskScheduler_fwd.hpp>
@@ -129,30 +134,28 @@ class TaskQueueCommonMixin {
   KOKKOS_INLINE_FUNCTION
   void _increment_ready_count() {
     // TODO @tasking @memory_order DSH memory order
-    Kokkos::Impl::desul_atomic_inc(&this->m_ready_count,
-                                   Kokkos::Impl::MemoryOrderSeqCst(),
-                                   Kokkos::Impl::MemoryScopeDevice());
+    desul::atomic_inc(&this->m_ready_count, desul::MemoryOrderSeqCst(),
+                      desul::MemoryScopeDevice());
   }
 
   KOKKOS_INLINE_FUNCTION
   void _decrement_ready_count() {
     // TODO @tasking @memory_order DSH memory order
-    Kokkos::Impl::desul_atomic_dec(&this->m_ready_count,
-                                   Kokkos::Impl::MemoryOrderSeqCst(),
-                                   Kokkos::Impl::MemoryScopeDevice());
+    desul::atomic_dec(&this->m_ready_count, desul::MemoryOrderSeqCst(),
+                      desul::MemoryScopeDevice());
   }
 
  public:
   KOKKOS_INLINE_FUNCTION
   bool is_done() const noexcept {
-    // TODO @tasking @memory_order DSH Memory order, instead of volatile
-    return (*(volatile int*)(&m_ready_count)) == 0;
+    return desul::atomic_load(&m_ready_count, desul::MemoryOrderAcquire(),
+                              desul::MemoryScopeDevice()) == 0;
   }
 
   KOKKOS_INLINE_FUNCTION
   int32_t ready_count() const noexcept {
-    // TODO @tasking @memory_order DSH Memory order, instead of volatile
-    return (*(volatile int*)(&m_ready_count));
+    return desul::atomic_load(&m_ready_count, desul::MemoryOrderAcquire(),
+                              desul::MemoryScopeDevice());
   }
 
   template <class TaskQueueTraits, class TeamSchedulerInfo>
@@ -457,10 +460,9 @@ class TaskQueueCommonMixin {
   //            && Same<MemoryPool, typename Derived::memory_pool>
   {
     static_assert(
-        std::is_same<ExecutionSpace,
-                     typename Derived::execution_space>::value &&
-            std::is_same<MemorySpace, typename Derived::memory_space>::value &&
-            std::is_same<MemoryPool, typename Derived::memory_pool>::value,
+        std::is_same_v<ExecutionSpace, typename Derived::execution_space> &&
+            std::is_same_v<MemorySpace, typename Derived::memory_space> &&
+            std::is_same_v<MemoryPool, typename Derived::memory_pool>,
         "Type mismatch in task_queue_allocation_size customization point");
 
     return sizeof(Derived);

@@ -173,7 +173,7 @@ void fill_view(ViewType dest_view, const std::string& name) {
   }
 
   else {
-    throw std::runtime_error("invalid choice");
+    FAIL() << "invalid choice";
   }
 
   Kokkos::deep_copy(aux_view, v_h);
@@ -229,7 +229,7 @@ void verify(DiffType my_diff, ViewType view, Args... args) {
       my_std_adjacent_find(KE::cbegin(view_h), KE::cend(view_h), args...);
   const auto std_diff = std_r - KE::cbegin(view_h);
 
-  EXPECT_EQ(my_diff, std_diff);
+  ASSERT_EQ(my_diff, std_diff);
 }
 
 template <class Tag, class ValueType, class InfoType, class... Args>
@@ -243,7 +243,7 @@ void run_single_scenario(const InfoType& scenario_info, Args... args) {
 
   {
     auto res_it        = KE::adjacent_find(exespace(), KE::cbegin(view),
-                                    KE::cend(view), args...);
+                                           KE::cend(view), args...);
     const auto my_diff = res_it - KE::cbegin(view);
     verify(my_diff, view, args...);
   }
@@ -287,12 +287,6 @@ void run_all_scenarios() {
 }
 
 TEST(std_algorithms_nonmod_seq_ops, adjacent_find) {
-#if defined(KOKKOS_ENABLE_CUDA) && \
-    defined(KOKKOS_COMPILER_NVHPC)  // FIXME_NVHPC
-  if constexpr (std::is_same_v<exespace, Kokkos::Cuda>) {
-    GTEST_SKIP() << "FIXME wrong result";
-  }
-#endif
   run_all_scenarios<DynamicTag, int>();
   run_all_scenarios<DynamicTag, double>();
   run_all_scenarios<StridedThreeTag, int>();

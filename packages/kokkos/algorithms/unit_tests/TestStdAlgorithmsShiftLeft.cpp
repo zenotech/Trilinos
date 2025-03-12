@@ -103,12 +103,12 @@ void verify_data(ResultIt result_it, ViewType view, ViewHostType data_view_host,
   // make sure results match
   const auto my_diff  = result_it - KE::begin(view);
   const auto std_diff = std_rit - KE::begin(data_view_host);
-  EXPECT_EQ(my_diff, std_diff);
+  ASSERT_EQ(my_diff, std_diff);
 
   // check views match
   auto view_h = create_host_space_copy(view);
   for (std::size_t i = 0; i < (std::size_t)my_diff; ++i) {
-    EXPECT_EQ(view_h(i), data_view_host[i]);
+    ASSERT_EQ(view_h(i), data_view_host[i]);
     // std::cout << "i= " << i << " "
     // 	      << "mine: " << view_h(i) << " "
     // 	      << "std: " << data_view_host(i)
@@ -150,7 +150,7 @@ void run_single_scenario(const InfoType& scenario_info,
     // create host copy BEFORE shift_left or view will be modified
     auto view_h = create_host_space_copy(view);
     auto rit    = KE::shift_left("label", exespace(), KE::begin(view),
-                              KE::end(view), shift_value);
+                                 KE::end(view), shift_value);
     verify_data(rit, view, view_h, shift_value);
   }
 

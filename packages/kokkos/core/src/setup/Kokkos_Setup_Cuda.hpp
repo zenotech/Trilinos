@@ -53,27 +53,10 @@
 #error "Cuda device capability >= 3.0 is required."
 #endif
 
-#ifdef KOKKOS_ENABLE_CUDA_LAMBDA
 #define KOKKOS_LAMBDA [=] __host__ __device__
-
 #define KOKKOS_CLASS_LAMBDA [ =, *this ] __host__ __device__
 
-#else  // !defined(KOKKOS_ENABLE_CUDA_LAMBDA)
-#undef KOKKOS_ENABLE_CXX11_DISPATCH_LAMBDA
-#endif  // !defined(KOKKOS_ENABLE_CUDA_LAMBDA)
-
-#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 700)
-// PTX atomics with memory order semantics are only available on volta and later
-#if !defined(KOKKOS_DISABLE_CUDA_ASM)
-#if !defined(KOKKOS_ENABLE_CUDA_ASM)
-#define KOKKOS_ENABLE_CUDA_ASM
-#if !defined(KOKKOS_DISABLE_CUDA_ASM_ATOMICS) && \
-    defined(KOKKOS_ENABLE_GNU_ATOMICS)
-#define KOKKOS_ENABLE_CUDA_ASM_ATOMICS
-#endif
-#endif
-#endif
-#endif
+#define KOKKOS_DEDUCTION_GUIDE __host__ __device__
 
 #define KOKKOS_IMPL_FORCEINLINE_FUNCTION __device__ __host__ __forceinline__
 #define KOKKOS_IMPL_FORCEINLINE __forceinline__
@@ -81,5 +64,13 @@
 #define KOKKOS_IMPL_FUNCTION __device__ __host__
 #define KOKKOS_IMPL_HOST_FUNCTION __host__
 #define KOKKOS_IMPL_DEVICE_FUNCTION __device__
+
+// clang-format off
+#ifdef KOKKOS_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE
+#define KOKKOS_IMPL_RELOCATABLE_FUNCTION __device__ __host__
+#else
+#define KOKKOS_IMPL_RELOCATABLE_FUNCTION @"KOKKOS_RELOCATABLE_FUNCTION requires Kokkos_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE=ON"
+#endif
+// clang-format on
 
 #endif /* KOKKOS_CUDA_SETUP_HPP_ */

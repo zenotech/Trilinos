@@ -1,5 +1,6 @@
 #include <stk_mesh/base/SideSetEntry.hpp>
 #include <stk_mesh/base/SideSetHelper.hpp>
+#include <stk_mesh/base/SideSetUtil.hpp>
 #include "stk_mesh/base/BulkData.hpp"
 #include "stk_mesh/base/MetaData.hpp"
 #include "stk_mesh/base/ExodusTranslator.hpp"
@@ -220,27 +221,6 @@ void SideSetHelper::fill_coincident_sideset_entries_for_side_using_connectivity(
   }
 }
 
-stk::mesh::Part* SideSetHelper::get_element_block_from_part_ordinals(const stk::mesh::BulkData& bulkData, const std::vector<stk::mesh::PartOrdinal>& partOrdinals)
-{
-    stk::mesh::Part* elementBlockPart = nullptr;;
-    const stk::mesh::PartVector& allParts = bulkData.mesh_meta_data().get_parts();
-    unsigned block_counter = 0;
-
-    for(stk::mesh::PartOrdinal partOrdinal : partOrdinals)
-    {
-      stk::mesh::Part* part = allParts[partOrdinal];
-        if(stk::mesh::is_element_block(*part))
-        {
-            elementBlockPart = part;
-            block_counter++;
-        }
-    }
-
-    bool elementIsAssociatedWithOnlyOneElementBlock = block_counter == 1;
-    STK_ThrowRequireWithSierraHelpMsg(elementIsAssociatedWithOnlyOneElementBlock);
-    STK_ThrowRequireWithSierraHelpMsg(elementBlockPart != nullptr);
-    return elementBlockPart;
-}
 
 bool SideSetHelper::graph_edge_can_be_distinguished(const ElemElemGraph& eeGraph, const GraphEdge& graphEdge, const Selector& selector, bool selectorValue)
 {
@@ -256,12 +236,12 @@ bool SideSetHelper::graph_edge_can_be_distinguished(const ElemElemGraph& eeGraph
   } else {
     // Remote connectivity
     const auto iter = parallelPartInfo.find(graphEdge.elem2());
-    //          STK_ThrowRequireWithSierraHelpMsg(iter != parallelPartInfo.end());
     if(iter == parallelPartInfo.end()) { return false; }
 
-    const std::vector<stk::mesh::PartOrdinal>& otherElementPartOrdinals = iter->second;
+    const std::vector<stk::mesh::PartOrdinal>& otherElementPartOrdinals = iter->second.elementPartOrdinals;
 
-    stk::mesh::Part* otherElementBlockPart = get_element_block_from_part_ordinals(mesh, otherElementPartOrdinals);
+    stk::mesh::EntityId otherElemId = eeGraph.convert_negative_local_id_to_global_id(graphEdge.elem2());
+    stk::mesh::Part* otherElementBlockPart = get_element_block_part(mesh, otherElementPartOrdinals, otherElemId);
 
     bool elemSelectorValue = selector(otherElementBlockPart) && activeSelector(otherElementBlockPart);
     if(selectorValue != elemSelectorValue) {
@@ -493,11 +473,11 @@ void SideSetHelper::add_sideset_entry_for_element_selected_by_sidesets(Entity en
 {
   if(mesh.bucket_ptr(entity) == nullptr) { return; }
 
-  const unsigned numSides = mesh.num_sides(entity);
+  const unsigned numSides = stk::mesh::num_sides(mesh, entity);
 
   if(sidesetsAndSelectors.size() > 0 && mesh.entity_rank(entity) == stk::topology::ELEM_RANK && numSides > 0) {
-    const stk::mesh::ConnectivityOrdinal* ordinals = mesh.begin_ordinals(entity, mesh.mesh_meta_data().side_rank());
-    const stk::mesh::Entity* sides = mesh.begin(entity, mesh.mesh_meta_data().side_rank());
+    const std::vector<stk::mesh::ConnectivityOrdinal> ordinals = stk::mesh::get_side_ordinals(mesh, entity);
+    const stk::mesh::EntityVector sides = stk::mesh::get_sides(mesh, entity);
 
     stk::mesh::SideSetEntry entry(entity);
 
@@ -559,14 +539,17 @@ void SideSetHelper::warn_about_internal_sidesets()
   }
 }
 
-void SideSetHelper::reset_internal_sideset_detection(bool rankedPartsChangedOnElems)
+void SideSetHelper::reset_internal_sideset_detection(bool rankedPartsChangedOnElemsOrSides)
 {
   internalSidesetOrdinals.clear();
 
   if(mesh.parallel_size() > 1 && mesh.has_face_adjacent_element_graph()) {
     const ElemElemGraph &graph = mesh.get_face_adjacent_element_graph();
+
     bool needToUpdateParallelPartInfo = (graph.mod_cycle_when_graph_modified() > m_modCycleWhenParallelPartInfoUpdated);
-    if (needToUpdateParallelPartInfo || stk::is_true_on_any_proc(mesh.parallel(), rankedPartsChangedOnElems)) {
+    bool globalRankedPartsChangedOnElemsOrSides = stk::is_true_on_any_proc(mesh.parallel(), rankedPartsChangedOnElemsOrSides);
+
+    if (needToUpdateParallelPartInfo || globalRankedPartsChangedOnElemsOrSides) {
       parallelPartInfo.clear();
 
       impl::populate_part_ordinals_for_remote_edges(mesh, graph, parallelPartInfo);

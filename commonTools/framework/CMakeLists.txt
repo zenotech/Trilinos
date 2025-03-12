@@ -7,7 +7,7 @@ add_subdirectory(github_issue_creator)
 TRIBITS_ADD_ADVANCED_TEST( ProjectCiFileChangeLogic_UnitTests
   OVERALL_WORKING_DIRECTORY TEST_NAME
   OVERALL_NUM_MPI_PROCS 1
-  TEST_0 CMND ${PYTHON_EXECUTABLE}
+  TEST_0 CMND ${Python3_EXECUTABLE}
     ARGS ${CMAKE_CURRENT_SOURCE_DIR}/ProjectCiFileChangeLogic_UnitTests.py -v
     PASS_REGULAR_EXPRESSION "OK"
     ALWAYS_FAIL_ON_NONZERO_RETURN
@@ -28,7 +28,7 @@ TRIBITS_ADD_ADVANCED_TEST( clean_all_jobs_UnitTests
   OVERALL_WORKING_DIRECTORY TEST_NAME
   OVERALL_NUM_MPI_PROCS 1
   EXCLUDE_IF_NOT_TRUE TFW_Python_Testing
-  TEST_0 CMND ${PYTHON_EXECUTABLE}
+  TEST_0 CMND ${Python3_EXECUTABLE}
     ARGS ${CMAKE_CURRENT_SOURCE_DIR}/clean_workspace/unittests/test_clean_all_jobs.py -v
     PASS_REGULAR_EXPRESSION "OK"
   )
@@ -38,7 +38,7 @@ TRIBITS_ADD_ADVANCED_TEST( clean_sentinel_UnitTests
   OVERALL_WORKING_DIRECTORY TEST_NAME
   OVERALL_NUM_MPI_PROCS 1
   EXCLUDE_IF_NOT_TRUE TFW_Python_Testing
-  TEST_0 CMND ${PYTHON_EXECUTABLE}
+  TEST_0 CMND ${Python3_EXECUTABLE}
     ARGS ${CMAKE_CURRENT_SOURCE_DIR}/clean_workspace/unittests/test_clean_sentinel.py -v
     PASS_REGULAR_EXPRESSION "OK"
   )
@@ -48,7 +48,7 @@ TRIBITS_ADD_ADVANCED_TEST( clean_workspace_UnitTests
   OVERALL_WORKING_DIRECTORY TEST_NAME
   OVERALL_NUM_MPI_PROCS 1
   EXCLUDE_IF_NOT_TRUE TFW_Python_Testing
-  TEST_0 CMND ${PYTHON_EXECUTABLE}
+  TEST_0 CMND ${Python3_EXECUTABLE}
     ARGS ${CMAKE_CURRENT_SOURCE_DIR}/clean_workspace/unittests/test_clean_workspace.py -v
     PASS_REGULAR_EXPRESSION "OK"
   )
@@ -59,7 +59,7 @@ TRIBITS_ADD_ADVANCED_TEST( PullRequestLinuxDriver_UnitTests
     OVERALL_NUM_MPI_PROCS 1
     EXCLUDE_IF_NOT_TRUE TFW_Python_Testing
     TEST_0 CMND bash
-        ARGS pr_python_test_driver.sh ${PYTHON_EXECUTABLE} ${PYTHON_PIP_EXECUTABLE}
+        ARGS pr_python_test_driver.sh ${Python3_EXECUTABLE} ${PYTHON_PIP_EXECUTABLE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../packages/framework/pr_tools
         SKIP_CLEAN_WORKING_DIRECTORY
         PASS_REGULAR_EXPRESSION "=+ [0-9]+ passed"
@@ -133,8 +133,7 @@ ENDFUNCTION()
 
 
 set(ALL_TOPLEVEL_PACKAGES_REGEX
-  "TrilinosFrameworkTests TrilinosATDMConfigTests .*Kokkos Teuchos KokkosKernels .*EpetraExt Tpetra .*Domi Thyra .*SEACAS .*Teko Intrepid .*MueLu .*ShyLU_DD ShyLU .*Tempus Stokhos ROL Piro Panzer Adelus TrilinosCouplings Pike TrilinosBuildStats TrilinosInstallTests")
-
+  "TrilinosFrameworkTests TrilinosATDMConfigTests .*Kokkos Teuchos KokkosKernels .*EpetraExt Tpetra .*Thyra .*SEACAS .*Teko Intrepid .*MueLu .*ShyLU_DD ShyLU .*Tempus Stokhos ROL Piro Panzer Adelus TrilinosCouplings TrilinosBuildStats TrilinosInstallTests")
 
 create_get_changed_trilinos_packages_test(ProjectsList_TeuchosCore
   "ProjectsList.cmake\npackages/teuchos/core/CMakeLists.txt"
@@ -146,8 +145,8 @@ create_get_changed_trilinos_packages_test(ProjectsList_TeuchosCore
   # The above test ensures that it can detect global build files as well as
   # package files.  Above, we check several of the parent packages in Trilinos
   # and we want to ensure that no subpackages are listed in the array
-  # CTEST_LABELS_FOR_SUBPROJECTS.  We also check to confirm that excluded
-  # packages TriKota and PyTrilinos are excluded.  To do that, we list non EX
+  # CTEST_LABELS_FOR_SUBPROJECTS.  We also check to confirm that
+  # PyTrilinos is excluded.  To do that, we list non EX
   # packages before and after them as they currently appear in the
   # Trilinos/PackagesList.cmake file.  If the PackagesList.cmake file changes,
   # then this test may have to change to accomidate that.  Therefore, we don't
@@ -166,9 +165,9 @@ create_get_changed_trilinos_packages_test(cmake_std_atdm_TeuchosCore_PyTrilinos_
   # get enabled (but excluded ST package PyTrilinos does not get included).
 
 
-create_get_changed_trilinos_packages_test(TeuchosCore_TriKota_NewPackage_Pliris
-  "packages/teuchos/core/CMakeLists.txt\npackages/TriKota/anything\npackages/new_package/anything\npackages/pliris/a.txt"
-  "TeuchosCore,TriKota,NewPackage,Pliris"
+create_get_changed_trilinos_packages_test(TeuchosCore_NewPackage_Pliris
+  "packages/teuchos/core/CMakeLists.txt\npackages/new_package/anything\npackages/pliris/a.txt"
+  "TeuchosCore,NewPackage,Pliris"
   "TeuchosCore,Pliris"
   "Setting Trilinos_ENABLE_TeuchosCore = ON;Setting Trilinos_ENABLE_Pliris = ON"
   "${ALL_TOPLEVEL_PACKAGES_REGEX}"

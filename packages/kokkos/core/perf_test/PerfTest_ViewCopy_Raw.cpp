@@ -14,11 +14,10 @@
 //
 //@HEADER
 
-#include <PerfTest_ViewCopy.hpp>
+#include "PerfTest_ViewCopy.hpp"
 
 namespace Test {
 
-#if defined(KOKKOS_ENABLE_CUDA_LAMBDA) || !defined(KOKKOS_ENABLE_CUDA)
 BENCHMARK(ViewDeepCopy_Raw<Kokkos::LayoutLeft, Kokkos::LayoutLeft>)
     ->ArgName("N")
     ->Arg(10)
@@ -38,6 +37,5 @@ BENCHMARK(ViewDeepCopy_Raw<Kokkos::LayoutRight, Kokkos::LayoutLeft>)
     ->ArgName("N")
     ->Arg(10)
     ->UseManualTime();
-#endif
 
 }  // namespace Test

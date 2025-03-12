@@ -18,16 +18,17 @@
 #define KOKKOS_SYCL_UNIQUE_TOKEN_HPP
 
 #include <impl/Kokkos_ConcurrentBitset.hpp>
-#include <Kokkos_SYCL_Space.hpp>
+#include <SYCL/Kokkos_SYCL_Space.hpp>
 #include <Kokkos_UniqueToken.hpp>
 
 namespace Kokkos {
-namespace Experimental {
 
 namespace Impl {
 Kokkos::View<uint32_t*, SYCLDeviceUSMSpace> sycl_global_unique_token_locks(
     bool deallocate = false);
 }
+
+namespace Experimental {
 
 // both global and instance Unique Tokens are implemented in the same way
 // the global version has one shared static lock array underneath
@@ -42,7 +43,7 @@ class UniqueToken<SYCL, UniqueTokenScope::Global> {
   using size_type       = int32_t;
 
   explicit UniqueToken(execution_space const& = execution_space())
-      : m_locks(Impl::sycl_global_unique_token_locks()) {}
+      : m_locks(Kokkos::Impl::sycl_global_unique_token_locks()) {}
 
   KOKKOS_DEFAULTED_FUNCTION
   UniqueToken(const UniqueToken&) = default;
@@ -75,11 +76,15 @@ class UniqueToken<SYCL, UniqueTokenScope::Global> {
   /// \brief acquire value such that 0 <= value < size()
   KOKKOS_INLINE_FUNCTION
   size_type impl_acquire() const {
+#if defined(__INTEL_LLVM_COMPILER) && __INTEL_LLVM_COMPILER >= 20250000
+    auto item = sycl::ext::oneapi::this_work_item::get_nd_item<3>();
+#else
     auto item = sycl::ext::oneapi::experimental::this_nd_item<3>();
+#endif
     std::size_t threadIdx[3] = {item.get_local_id(2), item.get_local_id(1),
                                 item.get_local_id(0)};
     std::size_t blockIdx[3]  = {item.get_group(2), item.get_group(1),
-                               item.get_group(0)};
+                                item.get_group(0)};
     std::size_t blockDim[3] = {item.get_local_range(2), item.get_local_range(1),
                                item.get_local_range(0)};
 
@@ -93,12 +98,8 @@ class UniqueToken<SYCL, UniqueTokenScope::Global> {
     }
 
     // Make sure that all writes in the previous lock owner are visible to me
-#ifdef KOKKOS_ENABLE_IMPL_DESUL_ATOMICS
     desul::atomic_thread_fence(desul::MemoryOrderAcquire(),
                                desul::MemoryScopeDevice());
-#else
-    Kokkos::memory_fence();
-#endif
     return idx;
   }
 
@@ -114,12 +115,8 @@ class UniqueToken<SYCL, UniqueTokenScope::Global> {
   KOKKOS_INLINE_FUNCTION
   void release(size_type idx) const noexcept {
     // Make sure my writes are visible to the next lock owner
-#ifdef KOKKOS_ENABLE_IMPL_DESUL_ATOMICS
     desul::atomic_thread_fence(desul::MemoryOrderRelease(),
                                desul::MemoryScopeDevice());
-#else
-    Kokkos::memory_fence();
-#endif
     (void)Kokkos::atomic_exchange(&m_locks(idx), 0);
   }
 };
@@ -130,11 +127,11 @@ class UniqueToken<SYCL, UniqueTokenScope::Instance>
  public:
   UniqueToken()
       : UniqueToken<SYCL, UniqueTokenScope::Global>(
-            Kokkos::Experimental::SYCL().concurrency()) {}
+            Kokkos::SYCL().concurrency()) {}
 
   explicit UniqueToken(execution_space const& arg)
       : UniqueToken<SYCL, UniqueTokenScope::Global>(
-            Kokkos::Experimental::SYCL().concurrency(), arg) {}
+            Kokkos::SYCL().concurrency(), arg) {}
 
   explicit UniqueToken(size_type max_size)
       : UniqueToken<SYCL, UniqueTokenScope::Global>(max_size) {}

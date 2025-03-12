@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2023 National Technology & Engineering Solutions
+// Copyright(C) 1999-2024 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -24,16 +24,14 @@
 #include <SL_tokenize.h>
 
 namespace {
-  [[noreturn]] void Parse_Die(const char *line)
+  [[noreturn]] void Parse_Die(std::string &sline)
   {
-    std::string sline = line;
     chop_whitespace(sline);
     Error(fmt::format("parsing input file, currently at \"{}\".\n", sline));
   }
 
   std::string Parse_Variables(std::string xline, std::ifstream &cmd_file, bool &all_flag,
-                              Tolerance &def_tol, std::vector<std::string> &names,
-                              std::vector<Tolerance> &toler);
+                              Tolerance &def_tol, NameList &names, std::vector<Tolerance> &toler);
 
   bool str_equal(const std::string &s1, const std::string &s2)
   {
@@ -138,12 +136,12 @@ namespace {
     }
   }
 
-  void Check_Parsed_Names(const std::vector<std::string> &names, bool &all_flag)
+  void Check_Parsed_Names(const NameList &names, bool &all_flag)
   {
     int num_include = 0;
     int num_exclude = 0;
     for (const auto &name : names) {
-      SMART_ASSERT(name != "");
+      SMART_ASSERT(!name.empty());
       if (name[0] == '!') {
         ++num_exclude;
       }
@@ -216,7 +214,7 @@ namespace {
 
       // second pass collects the excluded time steps
 
-      exclude_arg        = arg_copy;
+      exclude_arg        = std::move(arg_copy);
       num_excluded_steps = 0;
 
       tok = extract_token(exclude_arg, ",");
@@ -248,8 +246,6 @@ namespace {
 } // namespace
 
 SystemInterface::SystemInterface() { enroll_options(); }
-
-SystemInterface::~SystemInterface() = default;
 
 void SystemInterface::show_version()
 {
@@ -329,13 +325,6 @@ void SystemInterface::enroll_options()
 
   options_.enroll("ignore_steps", GetLongOption::NoValue,
                   "Don't compare any transient data; compare mesh only.", nullptr);
-  options_.enroll(
-      "x", GetLongOption::MandatoryValue,
-      "Exclude time steps.  Does not consider the time steps given in the list of integers.\n"
-      "\t\tThe format is comma-separated and ranged integers (with no spaces), such as "
-      "\"1,5-9,28\".\n"
-      "\t\tThe first time step is the number '1'.",
-      nullptr);
   options_.enroll(
       "exclude", GetLongOption::MandatoryValue,
       "Exclude time steps.  Does not consider the time steps given in the list of integers.\n"
@@ -499,6 +488,8 @@ void SystemInterface::enroll_options()
                   nullptr);
   options_.enroll("T", GetLongOption::MandatoryValue,
                   "Backward-compatible option for -TimeStepOffset", nullptr);
+  options_.enroll("x", GetLongOption::MandatoryValue, "Backward-compatible option for -exclude",
+                  nullptr);
 }
 
 bool SystemInterface::parse_options(int argc, char **argv)
@@ -585,7 +576,7 @@ bool SystemInterface::parse_options(int argc, char **argv)
         "\nThe following options were specified via the EXODIFF_OPTIONS environment variable:\n"
         "\t\t{}\n\n",
         options);
-    options_.parse(options, options_.basename(*argv));
+    options_.parse(options, GetLongOption::basename(*argv));
   }
 
   if (options_.retrieve("summary") != nullptr) {
@@ -632,14 +623,14 @@ bool SystemInterface::parse_options(int argc, char **argv)
     const char *temp = options_.retrieve("TimeStepOffset");
     if (temp != nullptr) {
       errno            = 0;
-      time_step_offset = strtol(temp, NULL, 10);
+      time_step_offset = strtol(temp, nullptr, 10);
       SMART_ASSERT(errno == 0);
     }
     else {
       const char *temp2 = options_.retrieve("T");
       if (temp2 != nullptr) {
         errno            = 0;
-        time_step_offset = strtol(temp2, NULL, 10);
+        time_step_offset = strtol(temp2, nullptr, 10);
         SMART_ASSERT(errno == 0);
       }
     }
@@ -665,7 +656,7 @@ bool SystemInterface::parse_options(int argc, char **argv)
     if (temp != nullptr) {
       // temp should be of the form <ts1>:<ts2>  where ts# is either a timestep number
       // (1-based) or 'last'
-      std::vector<std::string> tokens = SLIB::tokenize(temp, ":");
+      NameList tokens = SLIB::tokenize(temp, ":");
       if (tokens.size() == 2) {
         if (str_equal(tokens[0], "last")) {
           explicit_steps.first = -1;
@@ -833,7 +824,7 @@ bool SystemInterface::parse_options(int argc, char **argv)
     const char *temp = options_.retrieve("max_warnings");
     if (temp != nullptr) {
       errno        = 0;
-      max_warnings = strtol(temp, NULL, 10);
+      max_warnings = strtol(temp, nullptr, 10);
       SMART_ASSERT(errno == 0);
     }
   }
@@ -905,9 +896,9 @@ void SystemInterface::Parse_Command_File()
   std::ifstream cmd_file(command_file, std::ios::in);
   SMART_ASSERT(cmd_file.good());
 
-  char        line[256];
+  std::string line;
   std::string xline, tok2, tok3;
-  cmd_file.getline(line, 256);
+  std::getline(cmd_file, line);
   xline = line;
   while (!cmd_file.eof()) {
     std::string tok1;
@@ -920,7 +911,7 @@ void SystemInterface::Parse_Command_File()
       if (abbreviation(tok1, "default", 3) && abbreviation(tok2, "tolerance", 3)) {
         std::string tok = extract_token(xline, " \n\t=,");
         to_lower(tok);
-        if (tok == "") {
+        if (tok.empty()) {
           Parse_Die(line);
         }
 
@@ -952,7 +943,7 @@ void SystemInterface::Parse_Command_File()
           default_tol.type = ToleranceMode::IGNORE_;
           tok              = extract_token(xline, " \n\t=,");
         }
-        if (tok == "") {
+        if (tok.empty()) {
           Parse_Die(line);
         }
 
@@ -962,7 +953,7 @@ void SystemInterface::Parse_Command_File()
         to_lower(tok);
         if (abbreviation(tok, "floor", 3)) {
           tok = extract_token(xline, " \n\t=,");
-          if (tok == "") {
+          if (tok.empty()) {
             Parse_Die(line);
           }
           default_tol.floor = To_Double(tok);
@@ -981,7 +972,7 @@ void SystemInterface::Parse_Command_File()
                             tok3));
         }
         std::string tok = extract_token(xline, " \n\t=,");
-        if (tok == "") {
+        if (tok.empty()) {
           Parse_Die(line);
         }
         final_time_tol.value = To_Double(tok);
@@ -994,7 +985,7 @@ void SystemInterface::Parse_Command_File()
       }
       else if (abbreviation(tok1, "exclude", 3) && abbreviation(tok2, "times", 3)) {
         std::string tok = extract_token(xline, " \n\t=");
-        if (tok != "" && tok[0] != '#') {
+        if (!tok.empty() && tok[0] != '#') {
           parseExcludeTimes(tok, exclude_steps);
         }
       }
@@ -1078,13 +1069,13 @@ void SystemInterface::Parse_Command_File()
           coord_tol.floor = 0.0;                      // this file.
         }
 
-        if (tok2 != "" && tok2[0] != '#') {
+        if (!tok2.empty() && tok2[0] != '#') {
           // If rel or abs is specified, then the tolerance must
           // be specified.
           if (abbreviation(tok2, "relative", 3)) {
             coord_tol.type = ToleranceMode::RELATIVE_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             coord_tol.value = To_Double(tok2);
@@ -1092,7 +1083,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok2, "absolute", 3)) {
             coord_tol.type = ToleranceMode::ABSOLUTE_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             coord_tol.value = To_Double(tok2);
@@ -1100,7 +1091,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok2, "combine", 3)) {
             coord_tol.type = ToleranceMode::COMBINED_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             coord_tol.value = To_Double(tok2);
@@ -1108,7 +1099,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok2, "eigen_relative", 7)) {
             coord_tol.type = ToleranceMode::EIGEN_REL_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             coord_tol.value = To_Double(tok2);
@@ -1116,7 +1107,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok2, "eigen_absolute", 7)) {
             coord_tol.type = ToleranceMode::EIGEN_ABS_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             coord_tol.value = To_Double(tok2);
@@ -1124,7 +1115,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok2, "eigen_combine", 7)) {
             coord_tol.type = ToleranceMode::EIGEN_COM_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             coord_tol.value = To_Double(tok2);
@@ -1135,7 +1126,7 @@ void SystemInterface::Parse_Command_File()
           }
           else if (abbreviation(tok2, "floor", 3)) {
             tok2 = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             coord_tol.floor = To_Double(tok2);
@@ -1145,7 +1136,7 @@ void SystemInterface::Parse_Command_File()
           to_lower(tok2);
           if (abbreviation(tok2, "floor", 3)) {
             tok2 = extract_token(xline, " \n\t=,");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             coord_tol.floor = To_Double(tok2);
@@ -1157,13 +1148,13 @@ void SystemInterface::Parse_Command_File()
 
         std::string tok = extract_token(xline, " \n\t=");
         to_lower(tok);
-        if (tok != "" && tok[0] != '#') {
+        if (!tok.empty() && tok[0] != '#') {
           // If rel or abs is specified, then the tolerance
           // must be specified.
           if (abbreviation(tok, "relative", 3)) {
             time_tol.type = ToleranceMode::RELATIVE_;
             tok           = extract_token(xline, " \n\t=");
-            if (tok == "") {
+            if (tok.empty()) {
               Parse_Die(line);
             }
             time_tol.value = To_Double(tok);
@@ -1171,7 +1162,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok, "absolute", 3)) {
             time_tol.type = ToleranceMode::ABSOLUTE_;
             tok           = extract_token(xline, " \n\t=");
-            if (tok == "") {
+            if (tok.empty()) {
               Parse_Die(line);
             }
             time_tol.value = To_Double(tok);
@@ -1179,7 +1170,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok, "combine", 3)) {
             time_tol.type = ToleranceMode::COMBINED_;
             tok           = extract_token(xline, " \n\t=");
-            if (tok == "") {
+            if (tok.empty()) {
               Parse_Die(line);
             }
             time_tol.value = To_Double(tok);
@@ -1190,7 +1181,7 @@ void SystemInterface::Parse_Command_File()
           }
           else if (abbreviation(tok, "floor", 3)) {
             tok = extract_token(xline, " \n\t=");
-            if (tok == "") {
+            if (tok.empty()) {
               Parse_Die(line);
             }
             time_tol.floor = To_Double(tok);
@@ -1200,7 +1191,7 @@ void SystemInterface::Parse_Command_File()
           to_lower(tok2);
           if (abbreviation(tok2, "floor", 3)) {
             tok2 = extract_token(xline, " \n\t=,");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             time_tol.floor = To_Double(tok2);
@@ -1214,13 +1205,7 @@ void SystemInterface::Parse_Command_File()
 
         Check_Parsed_Names(glob_var_names, glob_var_do_all_flag);
 
-        if (!xline.empty()) {
-          copy_string(line, xline);
-        }
-        else {
-          copy_string(line, "");
-        }
-
+        line = xline;
         continue;
       }
       else if (abbreviation(tok1, "nodal", 4) && abbreviation(tok2, "variables", 3)) {
@@ -1230,13 +1215,7 @@ void SystemInterface::Parse_Command_File()
 
         Check_Parsed_Names(node_var_names, node_var_do_all_flag);
 
-        if (!xline.empty()) {
-          copy_string(line, xline);
-        }
-        else {
-          copy_string(line, "");
-        }
-
+        line = xline;
         continue;
       }
       else if (abbreviation(tok1, "element", 4) && abbreviation(tok2, "variables", 3)) {
@@ -1246,13 +1225,7 @@ void SystemInterface::Parse_Command_File()
 
         Check_Parsed_Names(elmt_var_names, elmt_var_do_all_flag);
 
-        if (!xline.empty()) {
-          copy_string(line, xline);
-        }
-        else {
-          copy_string(line, "");
-        }
-
+        line = xline;
         continue;
       }
       else if (tok1 == "nodeset" && abbreviation(tok2, "variables", 3)) {
@@ -1262,13 +1235,7 @@ void SystemInterface::Parse_Command_File()
 
         Check_Parsed_Names(ns_var_names, ns_var_do_all_flag);
 
-        if (!xline.empty()) {
-          copy_string(line, xline);
-        }
-        else {
-          copy_string(line, "");
-        }
-
+        line = xline;
         continue;
       }
       else if (abbreviation(tok1, "sideset", 4) && abbreviation(tok2, "variables", 3)) {
@@ -1278,13 +1245,7 @@ void SystemInterface::Parse_Command_File()
 
         Check_Parsed_Names(ss_var_names, ss_var_do_all_flag);
 
-        if (!xline.empty()) {
-          copy_string(line, xline);
-        }
-        else {
-          copy_string(line, "");
-        }
-
+        line = xline;
         continue;
       }
       else if (abbreviation(tok1, "sideset", 4) && abbreviation(tok2, "distribution", 4)) {
@@ -1297,13 +1258,13 @@ void SystemInterface::Parse_Command_File()
           ss_df_tol.floor = 0.0;                      // this file.
         }
 
-        if (tok2 != "" && tok2[0] != '#') {
+        if (!tok2.empty() && tok2[0] != '#') {
           // If rel or abs is specified, then the tolerance must
           // be specified.
           if (abbreviation(tok2, "relative", 3)) {
             ss_df_tol.type = ToleranceMode::RELATIVE_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             ss_df_tol.value = To_Double(tok2);
@@ -1311,7 +1272,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok2, "absolute", 3)) {
             ss_df_tol.type = ToleranceMode::ABSOLUTE_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             ss_df_tol.value = To_Double(tok2);
@@ -1319,7 +1280,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok2, "combine", 3)) {
             ss_df_tol.type = ToleranceMode::COMBINED_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             ss_df_tol.value = To_Double(tok2);
@@ -1327,7 +1288,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok2, "eigen_relative", 7)) {
             ss_df_tol.type = ToleranceMode::EIGEN_REL_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             ss_df_tol.value = To_Double(tok2);
@@ -1335,7 +1296,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok2, "eigen_absolute", 7)) {
             ss_df_tol.type = ToleranceMode::EIGEN_ABS_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             ss_df_tol.value = To_Double(tok2);
@@ -1343,7 +1304,7 @@ void SystemInterface::Parse_Command_File()
           else if (abbreviation(tok2, "eigen_combine", 7)) {
             ss_df_tol.type = ToleranceMode::EIGEN_COM_;
             tok2           = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             ss_df_tol.value = To_Double(tok2);
@@ -1354,7 +1315,7 @@ void SystemInterface::Parse_Command_File()
           }
           else if (abbreviation(tok2, "floor", 3)) {
             tok2 = extract_token(xline, " \n\t=");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             ss_df_tol.floor = To_Double(tok2);
@@ -1364,7 +1325,7 @@ void SystemInterface::Parse_Command_File()
           to_lower(tok2);
           if (abbreviation(tok2, "floor", 3)) {
             tok2 = extract_token(xline, " \n\t=,");
-            if (tok2 == "") {
+            if (tok2.empty()) {
               Parse_Die(line);
             }
             ss_df_tol.floor = To_Double(tok2);
@@ -1378,12 +1339,7 @@ void SystemInterface::Parse_Command_File()
 
         Check_Parsed_Names(eb_var_names, eb_var_do_all_flag);
 
-        if (!xline.empty()) {
-          copy_string(line, xline);
-        }
-        else {
-          copy_string(line, "");
-        }
+        line = xline;
         continue;
       }
       else if (abbreviation(tok1, "faceblock", 4) && abbreviation(tok2, "variables", 3)) {
@@ -1393,12 +1349,7 @@ void SystemInterface::Parse_Command_File()
 
         Check_Parsed_Names(fb_var_names, fb_var_do_all_flag);
 
-        if (!xline.empty()) {
-          copy_string(line, xline);
-        }
-        else {
-          copy_string(line, "");
-        }
+        line = xline;
         continue;
       }
       else if (abbreviation(tok1, "element", 4) && abbreviation(tok2, "attributes", 3)) {
@@ -1408,13 +1359,7 @@ void SystemInterface::Parse_Command_File()
 
         Check_Parsed_Names(elmt_att_names, elmt_att_do_all_flag);
 
-        if (!xline.empty()) {
-          copy_string(line, xline);
-        }
-        else {
-          copy_string(line, "");
-        }
-
+        line = xline;
         continue;
       }
       else {
@@ -1422,24 +1367,21 @@ void SystemInterface::Parse_Command_File()
       }
     }
 
-    cmd_file.getline(line, 256);
+    std::getline(cmd_file, line);
     xline = line;
   }
 }
 
 namespace {
   std::string Parse_Variables(std::string xline, std::ifstream &cmd_file, bool &all_flag,
-                              Tolerance &def_tol, std::vector<std::string> &names,
-                              std::vector<Tolerance> &toler)
+                              Tolerance &def_tol, NameList &names, std::vector<Tolerance> &toler)
   {
-    char line[256];
-
     toler.clear();
     names.clear();
 
     std::string tok = extract_token(xline, " \n\t=,");
     to_lower(tok);
-    if (tok != "") {
+    if (!tok.empty()) {
       if (tok != "(all)" && tok != "all" && !abbreviation(tok, "relative", 3) &&
           !abbreviation(tok, "absolute", 3) && !abbreviation(tok, "combine", 3) &&
           !abbreviation(tok, "ulps_float", 6) && !abbreviation(tok, "ulps_double", 6) &&
@@ -1458,7 +1400,7 @@ namespace {
       if (abbreviation(tok, "relative", 3)) {
         def_tol.type = ToleranceMode::RELATIVE_;
         tok          = extract_token(xline, " \n\t=,");
-        if (tok == "floor" || tok == "") {
+        if (tok == "floor" || tok.empty()) {
           Error(" Input file specifies a tolerance type "
                 "but no tolerance\n");
         }
@@ -1469,7 +1411,7 @@ namespace {
       else if (abbreviation(tok, "absolute", 3)) {
         def_tol.type = ToleranceMode::ABSOLUTE_;
         tok          = extract_token(xline, " \n\t=,");
-        if (tok == "floor" || tok == "") {
+        if (tok == "floor" || tok.empty()) {
           Error("Input file specifies a tolerance type "
                 "but no tolerance\n");
         }
@@ -1480,7 +1422,7 @@ namespace {
       else if (abbreviation(tok, "combine", 3)) {
         def_tol.type = ToleranceMode::COMBINED_;
         tok          = extract_token(xline, " \n\t=,");
-        if (tok == "floor" || tok == "") {
+        if (tok == "floor" || tok.empty()) {
           Error("Input file specifies a tolerance type "
                 "but no tolerance\n");
         }
@@ -1491,7 +1433,7 @@ namespace {
       else if (abbreviation(tok, "ulps_float", 6)) {
         def_tol.type = ToleranceMode::ULPS_FLOAT_;
         tok          = extract_token(xline, " \n\t=,");
-        if (tok == "floor" || tok == "") {
+        if (tok == "floor" || tok.empty()) {
           Error("Input file specifies a tolerance type "
                 "but no tolerance\n");
         }
@@ -1502,7 +1444,7 @@ namespace {
       else if (abbreviation(tok, "ulps_double", 6)) {
         def_tol.type = ToleranceMode::ULPS_DOUBLE_;
         tok          = extract_token(xline, " \n\t=,");
-        if (tok == "floor" || tok == "") {
+        if (tok == "floor" || tok.empty()) {
           Error("Input file specifies a tolerance type "
                 "but no tolerance\n");
         }
@@ -1513,7 +1455,7 @@ namespace {
       else if (abbreviation(tok, "eigen_relative", 7)) {
         def_tol.type = ToleranceMode::EIGEN_REL_;
         tok          = extract_token(xline, " \n\t=,");
-        if (tok == "floor" || tok == "") {
+        if (tok == "floor" || tok.empty()) {
           Error("Input file specifies a tolerance type "
                 "but no tolerance\n");
         }
@@ -1524,7 +1466,7 @@ namespace {
       else if (abbreviation(tok, "eigen_absolute", 7)) {
         def_tol.type = ToleranceMode::EIGEN_ABS_;
         tok          = extract_token(xline, " \n\t=,");
-        if (tok == "floor" || tok == "") {
+        if (tok == "floor" || tok.empty()) {
           Error("Input file specifies a tolerance type "
                 "but no tolerance\n");
         }
@@ -1535,7 +1477,7 @@ namespace {
       else if (abbreviation(tok, "eigen_combine", 7)) {
         def_tol.type = ToleranceMode::EIGEN_COM_;
         tok          = extract_token(xline, " \n\t=,");
-        if (tok == "floor" || tok == "") {
+        if (tok == "floor" || tok.empty()) {
           Error("Input file specifies a tolerance type "
                 "but no tolerance\n");
         }
@@ -1552,14 +1494,15 @@ namespace {
 
       if (abbreviation(tok, "floor", 3)) {
         tok = extract_token(xline, " \n\t=,");
-        if (tok == "" || tok[0] == '#') {
+        if (tok.empty() || tok[0] == '#') {
           Error("Floor specified but couldn't find value\n");
         }
         def_tol.floor = To_Double(tok);
       }
     }
 
-    cmd_file.getline(line, 256);
+    std::string line{};
+    std::getline(cmd_file, line);
     xline = line;
     while (!cmd_file.eof()) {
       if (xline.empty() ||
@@ -1570,7 +1513,7 @@ namespace {
       if (first_character(xline) != '#') {
         tok = extract_token(xline);
         chop_whitespace(tok);
-        if (tok == "") {
+        if (tok.empty()) {
           continue; // Found tab but no name given.
         }
 
@@ -1578,11 +1521,11 @@ namespace {
           // A "!" in front of a name means to exclude the name so no
           // need to look for difference type and tolerance.
           std::string tmp = tok;
-          if (extract_token(tmp, "!") != "") {
+          if (!extract_token(tmp, "!").empty()) {
             names.push_back(tok);
             toler.push_back(def_tol);
           }
-          cmd_file.getline(line, 256);
+          std::getline(cmd_file, line);
           xline = line;
           continue;
         }
@@ -1594,7 +1537,7 @@ namespace {
         tok = extract_token(xline);
         to_lower(tok);
 
-        if (tok != "" && tok[0] != '#') {
+        if (!tok.empty() && tok[0] != '#') {
           if (abbreviation(tok, "relative", 3)) {
             toler[idx].type = ToleranceMode::RELATIVE_;
             tok             = extract_token(xline, " \n\t=,");
@@ -1625,13 +1568,13 @@ namespace {
             toler[idx].value = def_tol.value;
 
             tok = extract_token(xline, " \n\t=,");
-            if (tok == "") {
+            if (tok.empty()) {
               Parse_Die(line);
             }
             toler[idx].floor = To_Double(tok);
           }
           else {
-            if (tok == "") {
+            if (tok.empty()) {
               Parse_Die(line);
             }
             toler[idx].value = To_Double(tok);
@@ -1640,7 +1583,7 @@ namespace {
             to_lower(tok);
             if (abbreviation(tok, "floor", 3)) {
               tok = extract_token(xline, " \n\t=,");
-              if (tok == "") {
+              if (tok.empty()) {
                 Parse_Die(line);
               }
               toler[idx].floor = To_Double(tok);
@@ -1655,7 +1598,7 @@ namespace {
         }
       }
 
-      cmd_file.getline(line, 256);
+      std::getline(cmd_file, line);
       xline = line;
     }
 

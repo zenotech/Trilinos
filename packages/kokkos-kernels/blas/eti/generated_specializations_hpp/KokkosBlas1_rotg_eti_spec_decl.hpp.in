@@ -16,6 +16,7 @@
 
 #ifndef KOKKOSBLAS1_ROTG_ETI_SPEC_DECL_HPP_
 #define KOKKOSBLAS1_ROTG_ETI_SPEC_DECL_HPP_
+
 namespace KokkosBlas {
 namespace Impl {
 @BLAS1_ROTG_ETI_DECL_BLOCK@

@@ -20,6 +20,11 @@
 #define KOKKOS_IMPL_TASKNODE_HPP
 
 #include <Kokkos_Macros.hpp>
+
+#ifndef KOKKOS_ENABLE_DEPRECATED_CODE_4
+#error "The tasking framework is deprecated"
+#endif
+
 #if defined(KOKKOS_ENABLE_TASKDAG)
 
 #include <Kokkos_TaskScheduler_fwd.hpp>
@@ -39,16 +44,13 @@
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
+#ifdef KOKKOS_ENABLE_DEPRECATION_WARNINGS
+// We allow using deprecated classes in this file
+KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_PUSH()
+#endif
+
 namespace Kokkos {
 namespace Impl {
-
-#ifdef KOKKOS_COMPILER_PGI
-// Bizzarely, an extra jump instruction forces the PGI compiler to not have a
-// bug related to (probably?) empty base optimization and/or aggregate
-// construction.  This must be defined out-of-line to generate a jump
-// jump instruction
-void _kokkos_pgi_compiler_bug_workaround();
-#endif
 
 enum TaskType : int16_t {
   TaskTeam    = 0,
@@ -101,17 +103,11 @@ class ReferenceCountedBase {
 
  public:
   KOKKOS_INLINE_FUNCTION
-#ifndef KOKKOS_COMPILER_PGI
-  constexpr
-#endif
-      explicit ReferenceCountedBase(
-          reference_count_size_type initial_reference_count)
+  constexpr explicit ReferenceCountedBase(
+      reference_count_size_type initial_reference_count)
       : m_ref_count(initial_reference_count) {
     // This can't be here because it breaks constexpr
     // KOKKOS_EXPECTS(initial_reference_count > 0);
-#ifdef KOKKOS_COMPILER_PGI
-    Impl::_kokkos_pgi_compiler_bug_workaround();
-#endif
   }
 
   /** Decrement the reference count,
@@ -131,9 +127,8 @@ class ReferenceCountedBase {
 
   KOKKOS_INLINE_FUNCTION
   void increment_reference_count() {
-    Kokkos::Impl::desul_atomic_inc(&m_ref_count,
-                                   Kokkos::Impl::MemoryOrderSeqCst(),
-                                   Kokkos::Impl::MemoryScopeDevice());
+    desul::atomic_inc(&m_ref_count, desul::MemoryOrderSeqCst(),
+                      desul::MemoryScopeDevice());
   }
 };
 
@@ -189,11 +184,11 @@ class TaskNode
         m_priority(static_cast<priority_type>(priority)),
         m_is_respawning(false) {}
 
-  TaskNode()                = delete;
-  TaskNode(TaskNode const&) = delete;
-  TaskNode(TaskNode&&)      = delete;
+  TaskNode()                           = delete;
+  TaskNode(TaskNode const&)            = delete;
+  TaskNode(TaskNode&&)                 = delete;
   TaskNode& operator=(TaskNode const&) = delete;
-  TaskNode& operator=(TaskNode&&) = delete;
+  TaskNode& operator=(TaskNode&&)      = delete;
 
   KOKKOS_INLINE_FUNCTION
   bool is_aggregate() const noexcept {
@@ -666,6 +661,10 @@ class alignas(16) RunnableTask
 } /* namespace Impl */
 
 } /* namespace Kokkos */
+
+#ifdef KOKKOS_ENABLE_DEPRECATION_WARNINGS
+KOKKOS_IMPL_DISABLE_DEPRECATED_WARNINGS_POP()
+#endif
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
