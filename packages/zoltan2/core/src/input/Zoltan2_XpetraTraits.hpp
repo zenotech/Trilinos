@@ -162,6 +162,7 @@ struct XpetraTraits<Tpetra::CrsMatrix<scalar_t, lno_t, gno_t, node_t> >
   }
 };
 
+
 //////////////////////////////////////////////////////////////////////////////
 // Xpetra::CrsMatrix
 template <typename scalar_t,
@@ -310,6 +311,7 @@ struct XpetraTraits<Tpetra::CrsGraph<lno_t, gno_t, node_t> >
 
 };
 
+
 //////////////////////////////////////////////////////////////////////////////
 // Xpetra::CrsGraph
 template <typename lno_t,
@@ -423,6 +425,7 @@ struct XpetraTraits<Tpetra::Vector<scalar_t, lno_t, gno_t, node_t> >
     return V;
   }
 };
+
 
 //////////////////////////////////////////////////////////////////////////////
 // Xpetra::Vector
@@ -539,6 +542,7 @@ struct XpetraTraits<Tpetra::MultiVector<scalar_t, lno_t, gno_t, node_t> >
     return MV;
   }
 };
+
 
 //////////////////////////////////////////////////////////////////////////////
 // Xpetra::MultiVector
