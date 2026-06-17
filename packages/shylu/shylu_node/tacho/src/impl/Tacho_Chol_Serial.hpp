@@ -33,7 +33,7 @@ template <typename ArgUplo> struct Chol<ArgUplo, Algo::Serial> {
       int r_val = 0;
       const ordinal_type m = A.extent(0);
       if (m > 0) {
-        LapackSerial<value_type>::potrf(ArgUplo::param, m, A.data(), A.stride_1(), &r_val);
+        LapackSerial<value_type>::potrf(ArgUplo::param, m, A.data(), A.stride(1), &r_val);
         TACHO_TEST_FOR_EXCEPTION(r_val, std::runtime_error, "LAPACK (potrf) returns non-zero error code.");
       }
       return r_val;
@@ -51,7 +51,22 @@ template <typename ArgUplo> struct Chol<ArgUplo, Algo::Serial> {
     if constexpr(runOnHost) {
       int r_val = 0;
       r_val = invoke(A);
-      TACHO_TEST_FOR_EXCEPTION(r_val, std::runtime_error, "LAPACK (potrf) returns non-zero error code.");
+      return r_val;
+    } else {
+      TACHO_TEST_FOR_ABORT(true, ">> This function is only allowed in host space.");
+      return 0;
+    }
+  }
+
+  template <typename MemberType, typename ViewTypeA>
+  KOKKOS_INLINE_FUNCTION static int invoke(MemberType &member, const double tol, const ViewTypeA &A) {
+
+    // tol is not used, same as no tol
+    static constexpr bool runOnHost = run_tacho_on_host_v<typename ViewTypeA::execution_space>;
+
+    if constexpr(runOnHost) {
+      int r_val = 0;
+      r_val = invoke(A);
       return r_val;
     } else {
       TACHO_TEST_FOR_ABORT(true, ">> This function is only allowed in host space.");

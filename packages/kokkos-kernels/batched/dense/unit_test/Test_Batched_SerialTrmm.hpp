@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #include "gtest/gtest.h"
 #include "Kokkos_Core.hpp"
 #include "Kokkos_Random.hpp"
@@ -60,7 +47,7 @@ struct VanillaGEMM {
   typedef typename ViewTypeA::value_type ScalarA;
   typedef typename ViewTypeB::value_type ScalarB;
   typedef typename ViewTypeC::value_type ScalarC;
-  typedef Kokkos::ArithTraits<ScalarC> APT;
+  typedef KokkosKernels::ArithTraits<ScalarC> APT;
   typedef typename APT::mag_type mag_type;
   ScalarA alpha;
   ScalarC beta;
@@ -142,7 +129,7 @@ template <typename DeviceType, typename ViewType, typename ScalarType, typename 
 void impl_test_batched_trmm(const int N, const int nRows, const int nCols, const char* trans) {
   typedef typename ViewType::value_type value_type;
   typedef typename DeviceType::execution_space execution_space;
-  typedef Kokkos::ArithTraits<value_type> ats;
+  typedef KokkosKernels::ArithTraits<value_type> ats;
 
   ScalarType alpha(1.0);
   ScalarType beta(0.0);
@@ -151,10 +138,10 @@ void impl_test_batched_trmm(const int N, const int nRows, const int nCols, const
   const bool is_A_lower    = std::is_same<typename ParamTagType::uplo, Uplo::Lower>::value;
   const int K              = is_side_right ? nCols : nRows;
   ViewType A("A", N, K, K), B_actual("B_actual", N, nRows, nCols), B_expected("B_expected", N, nRows, nCols);
-  typename ViewType::HostMirror A_host          = Kokkos::create_mirror_view(A);
-  typename ViewType::HostMirror B_actual_host   = Kokkos::create_mirror_view(B_actual);
-  typename ViewType::HostMirror B_expected_host = Kokkos::create_mirror_view(B_expected);
-  uint64_t seed                                 = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  typename ViewType::host_mirror_type A_host          = Kokkos::create_mirror_view(A);
+  typename ViewType::host_mirror_type B_actual_host   = Kokkos::create_mirror_view(B_actual);
+  typename ViewType::host_mirror_type B_expected_host = Kokkos::create_mirror_view(B_expected);
+  uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
 
   using ViewTypeSubA = decltype(Kokkos::subview(A, 0, Kokkos::ALL(), Kokkos::ALL()));
   using ViewTypeSubB = decltype(Kokkos::subview(B_actual, 0, Kokkos::ALL(), Kokkos::ALL()));
@@ -214,9 +201,7 @@ void impl_test_batched_trmm(const int N, const int nRows, const int nCols, const
     for (int i = 0; i < N; i++) {
       vgemm.A = Kokkos::subview(A, i, Kokkos::ALL(), Kokkos::ALL());
       vgemm.B = Kokkos::subview(B_actual, i, Kokkos::ALL(), Kokkos::ALL());
-      ;
       vgemm.C = Kokkos::subview(B_expected, i, Kokkos::ALL(), Kokkos::ALL());
-      ;
       Kokkos::parallel_for("KokkosBlas::Test::VanillaGEMM",
                            Kokkos::TeamPolicy<execution_space>(nRows, Kokkos::AUTO, 16), vgemm);
     }
@@ -234,9 +219,7 @@ void impl_test_batched_trmm(const int N, const int nRows, const int nCols, const
     for (int i = 0; i < N; i++) {
       vgemm.A = Kokkos::subview(B_actual, i, Kokkos::ALL(), Kokkos::ALL());
       vgemm.B = Kokkos::subview(A, i, Kokkos::ALL(), Kokkos::ALL());
-      ;
       vgemm.C = Kokkos::subview(B_expected, i, Kokkos::ALL(), Kokkos::ALL());
-      ;
       Kokkos::parallel_for("KokkosBlas::Test::VanillaGEMM",
                            Kokkos::TeamPolicy<execution_space>(nRows, Kokkos::AUTO, 16), vgemm);
     }

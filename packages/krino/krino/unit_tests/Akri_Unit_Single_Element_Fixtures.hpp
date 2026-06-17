@@ -28,6 +28,7 @@ public:
     
     meta = bulk->mesh_meta_data_ptr();
     AuxMetaData::create(*meta);
+    meta->declare_field<double>(stk::topology::NODE_RANK, "coordinates", 1);
   }
   void commit() { meta->commit(); }
   void write_results(const std::string & filename) { write_results(filename, *bulk); }
@@ -44,13 +45,13 @@ private:
 class SimpleStkFixture2d : public SimpleStkFixture
 {
 public:
-  SimpleStkFixture2d(MPI_Comm comm = MPI_COMM_WORLD) : SimpleStkFixture(2) {}
+  SimpleStkFixture2d(MPI_Comm /*comm*/ = MPI_COMM_WORLD) : SimpleStkFixture(2) {}
 };
 
 class SimpleStkFixture3d : public SimpleStkFixture
 {
 public:
-  SimpleStkFixture3d(MPI_Comm comm = MPI_COMM_WORLD) : SimpleStkFixture(3) {}
+  SimpleStkFixture3d(MPI_Comm /*comm*/ = MPI_COMM_WORLD) : SimpleStkFixture(3) {}
 };
 
 // Fixture to create a single element stk mesh of the given topology.

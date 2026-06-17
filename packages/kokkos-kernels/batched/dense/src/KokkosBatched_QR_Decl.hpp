@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSBATCHED_QR_DECL_HPP
 #define KOKKOSBATCHED_QR_DECL_HPP
 
@@ -66,11 +53,11 @@ struct QR {
   KOKKOS_FORCEINLINE_FUNCTION static int invoke(const MemberType &member, const AViewType &A, const tViewType &t,
                                                 const wViewType &w) {
     int r_val = 0;
-    if (std::is_same<ArgMode, Mode::Serial>::value) {
+    if constexpr (std::is_same_v<ArgMode, Mode::Serial>) {
       r_val = SerialQR<ArgAlgo>::invoke(A, t, w);
-    } else if (std::is_same<ArgMode, Mode::Team>::value) {
+    } else if constexpr (std::is_same_v<ArgMode, Mode::Team>) {
       r_val = TeamQR<MemberType, ArgAlgo>::invoke(member, A, t, w);
-    } else if (std::is_same<ArgMode, Mode::TeamVector>::value) {
+    } else if constexpr (std::is_same_v<ArgMode, Mode::TeamVector>) {
       r_val = TeamVectorQR<MemberType, ArgAlgo>::invoke(member, A, t, w);
     }
     return r_val;

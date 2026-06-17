@@ -283,7 +283,7 @@ namespace Amesos2 {
     global_ordinal_t rowInd = OrdinalTraits<global_ordinal_t>::zero();
 
     // For rowptr we can just make a mirror and deep_copy at the end
-    typename KV_GS::HostMirror host_rowptr = Kokkos::create_mirror_view(rowptr);
+    typename KV_GS::host_mirror_type host_rowptr = Kokkos::create_mirror_view(rowptr);
 
     #if !defined(TESTING_AMESOS2_WITH_TPETRA_REMOVE_UVM)
     // Note nzval, colind, and rowptr will not all be in the same memory space.
@@ -525,12 +525,14 @@ namespace Amesos2 {
   template<typename KV_S, typename KV_GO, typename KV_GS, typename host_ordinal_type_array, typename host_scalar_type_array>
   typename MatrixAdapter<Matrix>::local_ordinal_t
   MatrixAdapter<Matrix>::gather(KV_S& nzvals, KV_GO& indices, KV_GS& pointers,
+                                host_ordinal_type_array &perm_g2l,
+                                host_ordinal_type_array &recvCountRows, host_ordinal_type_array &recvDisplRows,
                                 host_ordinal_type_array &recvCounts, host_ordinal_type_array &recvDispls,
                                 host_ordinal_type_array &transpose_map, host_scalar_type_array &nzvals_t,
                                 bool column_major, EPhase current_phase) const
   {
-    return static_cast<const adapter_t*>(this)->gather_impl(nzvals, indices, pointers, recvCounts, recvDispls, transpose_map, nzvals_t,
-                                                            column_major, current_phase);
+    return static_cast<const adapter_t*>(this)->gather_impl(nzvals, indices, pointers, perm_g2l, recvCountRows, recvDisplRows, recvCounts, recvDispls,
+                                                            transpose_map, nzvals_t, column_major, current_phase);
   }
 
   template <class Matrix>

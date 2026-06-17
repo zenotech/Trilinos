@@ -43,7 +43,7 @@ namespace Amesos2 {
   const Teuchos::RCP<const Teuchos::Comm<int> >
   ConcreteMatrixAdapter<KokkosSparse::CrsMatrix<Scalar,LocalOrdinal,ExecutionSpace>>::getComm_impl() const
   {
-    return Tpetra::getDefaultComm(); // Kokkos CrsMatrix currently is just serial
+    return Teuchos::rcp(new Teuchos::SerialComm<int>());
   }
 
   template <typename Scalar, typename LocalOrdinal, typename ExecutionSpace>
@@ -192,12 +192,28 @@ namespace Amesos2 {
   ConcreteMatrixAdapter<
     KokkosSparse::CrsMatrix<Scalar,LocalOrdinal,ExecutionSpace>
     >::gather_impl(KV_S& nzvals, KV_GO& indices, KV_GS& pointers,
+                   host_ordinal_type_array &perm_g2l,
+                   host_ordinal_type_array &recvCountRows, host_ordinal_type_array &recvDisplRows,
                    host_ordinal_type_array &recvCounts, host_ordinal_type_array &recvDispls,
                    host_ordinal_type_array &transpose_map, host_scalar_type_array &nzvals_t,
                    bool column_major, EPhase current_phase) const
   {
     //TEUCHOS_TEST_FOR_EXCEPTION(true, std::runtime_error, "KokkosCrsMatrixAdapter has not been implemented gather_impl.");
     return -1;
+  }
+
+
+  template <typename Scalar, typename LocalOrdinal, typename ExecutionSpace>
+  void
+  ConcreteMatrixAdapter<
+    KokkosSparse::CrsMatrix<Scalar,LocalOrdinal,ExecutionSpace>
+    >::describe (Teuchos::FancyOStream& os,
+                   const Teuchos::EVerbosityLevel verbLevel) const
+  {
+    size_t m = this->mat_->numRows();
+    size_t n = this->mat_->numCols();
+    os << " KokkosSparse::CrsMatrix(" << std::to_string(m) << " x " << std::to_string(n) << ")";
+    os << " of type " << std::string(typeid(Scalar).name()) << std::endl;
   }
 } // end namespace Amesos2
 

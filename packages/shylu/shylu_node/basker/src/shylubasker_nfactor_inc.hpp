@@ -25,12 +25,8 @@
 #include "shylubasker_error_manager.hpp"
 
 /*Kokkos Includes*/
-#ifdef BASKER_KOKKOS
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Timer.hpp>
-#else
-#include <omp.h>
-#endif
 
 /*System Includes*/
 #include <iostream>
@@ -60,15 +56,11 @@ namespace BaskerNS
    
   
     //----------------------Domain NFactor-------------------------//
-    #ifdef BASKER_KOKKOS
-
     //====TIMER==
     #ifdef BASKER_TIME
     //Kokkos::Timer       timer;
     #endif
     //===TIMER===
-
-    typedef Kokkos::TeamPolicy<Exe_Space>        TeamPolicy;
     if(btf_tabs_offset != 0)
       {
 	//printf("domain\n");
@@ -127,13 +119,6 @@ namespace BaskerNS
 	//timer.reset();
     #endif
     //====TIMER====
-    
-
-    #else// else basker_kokkos
-    #pragma omp parallel
-    {}//end omp parallel
-    #endif //end basker_kokkos
-
       }
     //-------------------End--Domian NFactor------------------------//
 
@@ -166,10 +151,8 @@ namespace BaskerNS
 	printf("\n\n   ============ SEP: %ld ======\n\n",(long)l);
 	  }
 
-	#ifdef BASKER_KOKKOS
 	//Kokkos::Timer  timer_inner_sep;
 	#ifdef BASKER_NO_LAMBDA
-	
 	kokkos_nfactor_sep2_inc_lvl <Int, Entry, Exe_Space>
 	  sep_nfactor(this,l);
 	
@@ -226,12 +209,6 @@ namespace BaskerNS
         #else //ELSE BASKER_NO_LAMBDA
 	//Note: to be added
         #endif //end BASKER_NO_LAMBDA
-	#else
-	#pragma omp parallel
-	{
-
-	}//end omp parallel
-	#endif
       }//end over each level
 
     #ifdef BASKER_TIME

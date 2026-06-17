@@ -1,20 +1,7 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
-#ifndef _KOKKOS_GAUSSSEIDEL_HPP
-#define _KOKKOS_GAUSSSEIDEL_HPP
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
+#ifndef KOKKOSSPARSE_GAUSSSEIDEL_HPP
+#define KOKKOSSPARSE_GAUSSSEIDEL_HPP
 
 #include "KokkosSparse_gauss_seidel_spec.hpp"
 #include "KokkosKernels_Handle.hpp"
@@ -22,8 +9,6 @@
 #include "KokkosKernels_Error.hpp"
 
 namespace KokkosSparse {
-
-namespace Experimental {
 
 ///
 /// @brief Gauss-Seidel preconditioner setup (first phase, based on sparsity
@@ -1160,6 +1145,6 @@ void backward_sweep_block_gauss_seidel_apply(KernelHandle *handle, typename Kern
   backward_sweep_gauss_seidel_apply<format>(handle, num_rows, num_cols, row_map, entries, values, x_lhs_output_vec,
                                             y_rhs_input_vec, init_zero_x_vector, update_y_vector, omega, numIter);
 }
-}  // namespace Experimental
+
 }  // namespace KokkosSparse
 #endif

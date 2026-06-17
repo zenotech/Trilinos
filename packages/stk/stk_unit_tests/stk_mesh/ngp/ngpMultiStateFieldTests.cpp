@@ -79,7 +79,7 @@ ClassWithNgpField* create_class_on_device(const stk::mesh::NgpField<double>& ngp
   ClassWithNgpField* devicePtr = static_cast<ClassWithNgpField*>(
         Kokkos::kokkos_malloc<stk::ngp::MemSpace>("device class memory", sizeof(ClassWithNgpField)));
   Kokkos::parallel_for("construct class on device", stk::ngp::DeviceRangePolicy(0, 1),
-                       MY_LAMBDA(const int i) { new (devicePtr) ClassWithNgpField(ngpField); }
+                       MY_LAMBDA(const int /*i*/) { new (devicePtr) ClassWithNgpField(ngpField); }
                        );
   Kokkos::fence();
   return devicePtr;
@@ -88,7 +88,7 @@ ClassWithNgpField* create_class_on_device(const stk::mesh::NgpField<double>& ngp
 void delete_class_on_device(ClassWithNgpField* devicePtr)
 {
   Kokkos::parallel_for("device_destruct", stk::ngp::DeviceRangePolicy(0, 1),
-                       KOKKOS_LAMBDA(const int i) { devicePtr->~ClassWithNgpField(); }
+                       KOKKOS_LAMBDA(const int /*i*/) { devicePtr->~ClassWithNgpField(); }
                        );
   Kokkos::fence();
   Kokkos::kokkos_free<stk::ngp::MemSpace>(static_cast<void*>(devicePtr));
@@ -106,18 +106,19 @@ public:
     return field;
   }
 
-  void setup_multistate_field()
+  void setup_multistate_field(int numStates)
   {
-    const unsigned numStates = 2;
-    m_fieldNew = &create_multistate_field<double>(stk::topology::NODE_RANK, "myField", numStates);
-    EXPECT_EQ(stk::mesh::StateNew, m_fieldNew->state());
+    stk::mesh::FieldBase& field = create_multistate_field<double>(stk::topology::NODE_RANK, "myField", numStates);
+    for (int state = 0; state < numStates; ++state) {
+      m_fieldStates.push_back(field.field_state(static_cast<stk::mesh::FieldState>(state)));
+    }
 
-    m_fieldOld = &m_fieldNew->field_of_state(stk::mesh::StateOld);
-    EXPECT_EQ(stk::mesh::StateOld, m_fieldOld->state());
+    get_meta().declare_part("test_part");
   }
 
-  stk::mesh::Field<double>& get_field_new() { return *m_fieldNew; }
-  stk::mesh::Field<double>& get_field_old() { return *m_fieldOld; }
+  stk::mesh::Field<double>& get_field(stk::mesh::FieldState state) {
+    return *static_cast<stk::mesh::Field<double>*>(m_fieldStates[state]);
+  }
 
   template <typename ValueType>
   struct CheckValueUsingNgpField {
@@ -148,6 +149,22 @@ public:
     stk::mesh::Selector owned = ngpMesh.get_bulk_on_host().mesh_meta_data().locally_owned_part();
     CheckValueUsingNgpField<T> checkValueUsingNgpField(ngpField, expectedValue);
     stk::mesh::for_each_entity_run(ngpMesh, ngpField.get_rank(), owned, checkValueUsingNgpField);
+  }
+
+  template<typename T>
+  void check_field_data_value_on_host(const stk::mesh::BulkData& bulk,
+                                      const stk::mesh::Field<T>& hostField,
+                                      T expectedValue)
+  {
+    const stk::mesh::BucketVector& buckets = bulk.get_buckets(hostField.entity_rank(), hostField);
+
+    auto hostFieldData = hostField.data();
+    for (const stk::mesh::Bucket* bucket : buckets) {
+      for (const stk::mesh::Entity& entity : *bucket) {
+        auto value = hostFieldData.entity_values(entity);
+        EXPECT_EQ(value(0_comp), expectedValue);
+      }
+    }
   }
 
   template <typename ValueType>
@@ -188,24 +205,125 @@ public:
     get_bulk().update_field_data_states();
   }
 
-  stk::mesh::Field<double>* m_fieldNew;
-  stk::mesh::Field<double>* m_fieldOld;
+  void put_all_nodes_in_part(stk::mesh::BulkData& bulk, stk::mesh::Part& part)
+  {
+    stk::mesh::EntityVector allNodes;
+    bulk.get_entities(stk::topology::NODE_RANK, bulk.mesh_meta_data().universal_part(), allNodes);
+
+    bulk.batch_change_entity_parts(allNodes, {&part}, {});
+  }
+
+  stk::mesh::FieldVector m_fieldStates;
 };
+
+NGP_TEST_F(NgpMultiStateFieldTest, rotateOnDevice_twoStates)
+{
+  if (get_parallel_size() != 1) GTEST_SKIP();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
+  setup_mesh(2, 2, 2);
+
+  const double valueNew = 11.1;
+  const double valueOld = 22.2;
+  stk::mesh::field_fill(valueNew, get_field(stk::mesh::StateNew));
+  stk::mesh::field_fill(valueOld, get_field(stk::mesh::StateOld));
+
+  stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
+  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
+
+  check_field_data_value_on_device(ngpMesh, ngpFieldNew, valueNew);
+  check_field_data_value_on_device(ngpMesh, ngpFieldOld, valueOld);
+
+  const bool rotateDeviceNgpFieldStates = true;
+  get_bulk().update_field_data_states(rotateDeviceNgpFieldStates);
+
+  check_field_data_value_on_device(ngpMesh, ngpFieldNew, valueOld);
+  check_field_data_value_on_device(ngpMesh, ngpFieldOld, valueNew);
+}
+
+NGP_TEST_F(NgpMultiStateFieldTest, rotateOnDevice_threeStates)
+{
+  if (get_parallel_size() != 1) GTEST_SKIP();
+  const int numStates = 3;
+  setup_multistate_field(numStates);
+  setup_mesh(2, 2, 2);
+
+  const double valueNp1 = 11.1;
+  const double valueN   = 22.2;
+  const double valueNm1 = 33.3;
+  stk::mesh::field_fill(valueNp1, get_field(stk::mesh::StateNP1));
+  stk::mesh::field_fill(valueN,   get_field(stk::mesh::StateN));
+  stk::mesh::field_fill(valueNm1, get_field(stk::mesh::StateNM1));
+
+  stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
+  stk::mesh::NgpField<double>& ngpFieldNp1 = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNP1));
+  stk::mesh::NgpField<double>& ngpFieldN   = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateN));
+  stk::mesh::NgpField<double>& ngpFieldNm1 = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNM1));
+
+  check_field_data_value_on_device(ngpMesh, ngpFieldNp1, valueNp1);
+  check_field_data_value_on_device(ngpMesh, ngpFieldN,   valueN);
+  check_field_data_value_on_device(ngpMesh, ngpFieldNm1, valueNm1);
+
+  const bool rotateDeviceNgpFieldStates = true;
+  get_bulk().update_field_data_states(rotateDeviceNgpFieldStates);
+
+  check_field_data_value_on_device(ngpMesh, ngpFieldNp1, valueNm1);
+  check_field_data_value_on_device(ngpMesh, ngpFieldN,   valueNp1);
+  check_field_data_value_on_device(ngpMesh, ngpFieldNm1, valueN);
+}
+
+NGP_TEST_F(NgpMultiStateFieldTest, rotateOnDevice_fourStates)
+{
+  if (get_parallel_size() != 1) GTEST_SKIP();
+  const int numStates = 4;
+  setup_multistate_field(numStates);
+  setup_mesh(2, 2, 2);
+
+  const double valueNp1 = 11.1;
+  const double valueN   = 22.2;
+  const double valueNm1 = 33.3;
+  const double valueNm2 = 44.4;
+  stk::mesh::field_fill(valueNp1, get_field(stk::mesh::StateNP1));
+  stk::mesh::field_fill(valueN,   get_field(stk::mesh::StateN));
+  stk::mesh::field_fill(valueNm1, get_field(stk::mesh::StateNM1));
+  stk::mesh::field_fill(valueNm2, get_field(stk::mesh::StateNM2));
+
+  stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
+  stk::mesh::NgpField<double>& ngpFieldNp1 = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNP1));
+  stk::mesh::NgpField<double>& ngpFieldN   = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateN));
+  stk::mesh::NgpField<double>& ngpFieldNm1 = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNM1));
+  stk::mesh::NgpField<double>& ngpFieldNm2 = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNM2));
+
+  check_field_data_value_on_device(ngpMesh, ngpFieldNp1, valueNp1);
+  check_field_data_value_on_device(ngpMesh, ngpFieldN,   valueN);
+  check_field_data_value_on_device(ngpMesh, ngpFieldNm1, valueNm1);
+  check_field_data_value_on_device(ngpMesh, ngpFieldNm2, valueNm2);
+
+  const bool rotateDeviceNgpFieldStates = true;
+  get_bulk().update_field_data_states(rotateDeviceNgpFieldStates);
+
+  check_field_data_value_on_device(ngpMesh, ngpFieldNp1, valueNm2);
+  check_field_data_value_on_device(ngpMesh, ngpFieldN,   valueNp1);
+  check_field_data_value_on_device(ngpMesh, ngpFieldNm1, valueN);
+  check_field_data_value_on_device(ngpMesh, ngpFieldNm2, valueNm1);
+}
 
 NGP_TEST_F(NgpMultiStateFieldTest, multistateField_rotateDeviceStates_syncStatesUnchanged)
 {
   if (get_parallel_size() != 1) GTEST_SKIP();
-  setup_multistate_field();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
   setup_mesh(2, 2, 2);
 
   const double valueNew = 44.4;
   const double valueOld = 22.2;
-  stk::mesh::field_fill(valueNew, get_field_new());
-  stk::mesh::field_fill(valueOld, get_field_old());
+  stk::mesh::field_fill(valueNew, get_field(stk::mesh::StateNew));
+  stk::mesh::field_fill(valueOld, get_field(stk::mesh::StateOld));
 
   stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
-  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field_new());
-  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field_old());
+  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
 
   check_field_data_value_on_device(ngpMesh, ngpFieldNew, valueNew);
   check_field_data_value_on_device(ngpMesh, ngpFieldOld, valueOld);
@@ -225,17 +343,18 @@ NGP_TEST_F(NgpMultiStateFieldTest, multistateField_rotateDeviceStates_syncStates
 NGP_TEST_F(NgpMultiStateFieldTest, multistateField_copyHasCorrectDataAfterStateRotation)
 {
   if (get_parallel_size() != 1) GTEST_SKIP();
-  setup_multistate_field();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
   setup_mesh(2, 2, 2);
 
   const double valueNew = 44.4;
   const double valueOld = 22.2;
-  stk::mesh::field_fill(valueNew, get_field_new());
-  stk::mesh::field_fill(valueOld, get_field_old());
+  stk::mesh::field_fill(valueNew, get_field(stk::mesh::StateNew));
+  stk::mesh::field_fill(valueOld, get_field(stk::mesh::StateOld));
 
   stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
-  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field_new());
-  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field_old());
+  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
   stk::mesh::NgpField<double> copyOfNgpFieldNew(ngpFieldNew);
 
   check_field_data_value_on_device(ngpMesh, ngpFieldNew, valueNew);
@@ -252,20 +371,21 @@ NGP_TEST_F(NgpMultiStateFieldTest, multistateField_copyHasCorrectDataAfterStateR
   check_field_data_value_on_device(ngpMesh, copyOfNgpFieldNew, valueOld);
 }
 
-NGP_TEST_F(NgpMultiStateFieldTest, multistateField_copyHasWrongDataAfterDeviceStateRotation)
+NGP_TEST_F(NgpMultiStateFieldTest, multistateField_copyHasCorrectDataAfterDeviceStateRotation)
 {
   if (get_parallel_size() != 1) GTEST_SKIP();
-  setup_multistate_field();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
   setup_mesh(2, 2, 2);
 
   const double valueNew = 44.4;
   const double valueOld = 22.2;
-  stk::mesh::field_fill(valueNew, get_field_new());
-  stk::mesh::field_fill(valueOld, get_field_old());
+  stk::mesh::field_fill(valueNew, get_field(stk::mesh::StateNew));
+  stk::mesh::field_fill(valueOld, get_field(stk::mesh::StateOld));
 
   stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
-  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field_new());
-  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field_old());
+  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
   stk::mesh::NgpField<double> copyOfNgpFieldNew(ngpFieldNew);
 
   check_field_data_value_on_device(ngpMesh, ngpFieldNew, valueNew);
@@ -277,28 +397,24 @@ NGP_TEST_F(NgpMultiStateFieldTest, multistateField_copyHasWrongDataAfterDeviceSt
   check_field_data_value_on_device(ngpMesh, ngpFieldNew, valueOld);
   check_field_data_value_on_device(ngpMesh, ngpFieldOld, valueNew);
 
-#ifdef STK_USE_DEVICE_MESH
-  const double valueNewBecauseCopyOfDeviceFieldGotDisconnectedByDeviceRotation = valueNew;
-  check_field_data_value_on_device(ngpMesh, copyOfNgpFieldNew, valueNewBecauseCopyOfDeviceFieldGotDisconnectedByDeviceRotation);
-#else
   check_field_data_value_on_device(ngpMesh, copyOfNgpFieldNew, valueOld);
-#endif
 }
 
 NGP_TEST_F(NgpMultiStateFieldTest, persistentDeviceField_hasCorrectDataAfterStateRotation)
 {
   if (get_parallel_size() != 1) GTEST_SKIP();
-  setup_multistate_field();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
   setup_mesh(2, 2, 2);
 
   const double valueNew = 44.4;
   const double valueOld = 22.2;
-  stk::mesh::field_fill(valueNew, get_field_new());
-  stk::mesh::field_fill(valueOld, get_field_old());
+  stk::mesh::field_fill(valueNew, get_field(stk::mesh::StateNew));
+  stk::mesh::field_fill(valueOld, get_field(stk::mesh::StateOld));
 
   stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
-  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field_new());
-  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field_old());
+  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
 
   ClassWithNgpField* persistentDeviceClass = create_class_on_device(ngpFieldNew);
 
@@ -314,20 +430,21 @@ NGP_TEST_F(NgpMultiStateFieldTest, persistentDeviceField_hasCorrectDataAfterStat
   delete_class_on_device(persistentDeviceClass);
 }
 
-NGP_TEST_F(NgpMultiStateFieldTest, persistentDeviceField_hasWrongDataAfterDeviceStateRotation)
+NGP_TEST_F(NgpMultiStateFieldTest, persistentDeviceField_hasCorrectDataAfterDeviceStateRotation)
 {
   if (get_parallel_size() != 1) GTEST_SKIP();
-  setup_multistate_field();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
   setup_mesh(2, 2, 2);
 
   const double valueNew = 44.4;
   const double valueOld = 22.2;
-  stk::mesh::field_fill(valueNew, get_field_new());
-  stk::mesh::field_fill(valueOld, get_field_old());
+  stk::mesh::field_fill(valueNew, get_field(stk::mesh::StateNew));
+  stk::mesh::field_fill(valueOld, get_field(stk::mesh::StateOld));
 
   stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
-  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field_new());
-  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field_old());
+  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
 
   ClassWithNgpField* persistentDeviceClass = create_class_on_device(ngpFieldNew);
 
@@ -340,12 +457,9 @@ NGP_TEST_F(NgpMultiStateFieldTest, persistentDeviceField_hasWrongDataAfterDevice
   ngpFieldOld.sync_to_device();
 
   check_field_data_value_on_device(ngpMesh, ngpFieldNew, valueOld);
-#ifdef STK_USE_DEVICE_MESH
-  const double valueNewBecausePersistentDeviceFieldGotDisconnectedByDeviceRotation = valueNew;
-  check_field_data_value_on_device(ngpMesh, stk::topology::NODE_RANK, persistentDeviceClass, valueNewBecausePersistentDeviceFieldGotDisconnectedByDeviceRotation);
-#else
+  check_field_data_value_on_device(ngpMesh, ngpFieldOld, valueNew);
+
   check_field_data_value_on_device(ngpMesh, stk::topology::NODE_RANK, persistentDeviceClass, valueOld);
-#endif
 
   delete_class_on_device(persistentDeviceClass);
 }
@@ -353,11 +467,12 @@ NGP_TEST_F(NgpMultiStateFieldTest, persistentDeviceField_hasWrongDataAfterDevice
 NGP_TEST_F(NgpMultiStateFieldTest, persistentSyncToDeviceCountAfterStateRotation)
 {
   if (get_parallel_size() != 1) GTEST_SKIP();
-  setup_multistate_field();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
   setup_mesh(2, 2, 2);
 
-  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field_new());
-  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field_old());
+  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
 
   EXPECT_EQ(ngpFieldNew.num_syncs_to_device(), ngpFieldOld.num_syncs_to_device());
 
@@ -374,11 +489,12 @@ NGP_TEST_F(NgpMultiStateFieldTest, persistentSyncToDeviceCountAfterStateRotation
 NGP_TEST_F(NgpMultiStateFieldTest, persistentSyncToHostCountAfterStateRotation)
 {
   if (get_parallel_size() != 1) GTEST_SKIP();
-  setup_multistate_field();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
   setup_mesh(2, 2, 2);
 
-  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field_new());
-  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field_old());
+  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
 
   EXPECT_EQ(ngpFieldNew.num_syncs_to_device(), ngpFieldOld.num_syncs_to_device());
 
@@ -395,11 +511,12 @@ NGP_TEST_F(NgpMultiStateFieldTest, persistentSyncToHostCountAfterStateRotation)
 NGP_TEST_F(NgpMultiStateFieldTest, persistentModifyOnHostAfterStateRotation)
 {
   if (get_parallel_size() != 1) GTEST_SKIP();
-  setup_multistate_field();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
   setup_mesh(2, 2, 2);
 
-  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field_new());
-  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field_old());
+  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
   ngpFieldNew.clear_sync_state();
   ngpFieldOld.clear_sync_state();
 
@@ -413,3 +530,181 @@ NGP_TEST_F(NgpMultiStateFieldTest, persistentModifyOnHostAfterStateRotation)
   EXPECT_FALSE(ngpFieldNew.need_sync_to_device());
   EXPECT_TRUE(ngpFieldOld.need_sync_to_device());
 }
+
+NGP_TEST_F(NgpMultiStateFieldTest, createStateOldNgpFieldAfterRotation)
+{
+  if (get_parallel_size() != 1) GTEST_SKIP();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
+  setup_mesh(2, 2, 2);
+
+  const double valueOld = 2.0;
+  const double valueNew = 4.0;
+  stk::mesh::field_fill(valueNew, get_field(stk::mesh::StateNew));
+  stk::mesh::field_fill(valueOld, get_field(stk::mesh::StateOld));
+
+  stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
+  stk::mesh::NgpField<double>& ngpFieldNew = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+  check_field_data_value_on_device(ngpMesh, ngpFieldNew, valueNew);
+
+  get_bulk().update_field_data_states();
+  ngpFieldNew.modify_on_host();
+  ngpFieldNew.sync_to_device();
+
+  stk::mesh::NgpField<double>& ngpFieldOld = stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
+
+  check_field_data_value_on_device(ngpMesh, ngpFieldOld, valueNew);
+  check_field_data_value_on_device(ngpMesh, ngpFieldNew, valueOld);
+}
+
+NGP_TEST_F(NgpMultiStateFieldTest, multistateField_rotateAllStates_withMeshModification)
+{
+  if (get_parallel_size() != 1) GTEST_SKIP();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
+  setup_mesh(2, 2, 2);
+
+  const double valueOld = 2.0;
+  const double valueNew = 4.0;
+  stk::mesh::field_fill(valueOld, get_field(stk::mesh::StateOld));
+  stk::mesh::field_fill(valueNew, get_field(stk::mesh::StateNew));
+
+  stk::mesh::Part& testPart = *get_meta().get_part("test_part");
+  stk::mesh::Field<double>& fieldNew = *static_cast<stk::mesh::Field<double>*>(get_meta().get_field(stk::topology::NODE_RANK,
+                                                                                                    "myField"));
+  stk::mesh::Field<double>& fieldOld = fieldNew.field_of_state(stk::mesh::StateOld);
+
+  stk::mesh::NgpMesh* ngpMesh = &stk::mesh::get_updated_ngp_mesh(get_bulk());
+  stk::mesh::NgpField<double>* ngpFieldOld = &stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
+  stk::mesh::NgpField<double>* ngpFieldNew = &stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+
+  check_field_data_value_on_host(get_bulk(), fieldOld, valueOld);
+  check_field_data_value_on_host(get_bulk(), fieldNew, valueNew);
+  check_field_data_value_on_device(*ngpMesh, *ngpFieldOld, valueOld);
+  check_field_data_value_on_device(*ngpMesh, *ngpFieldNew, valueNew);
+
+  put_all_nodes_in_part(get_bulk(), testPart);
+  ngpFieldOld = &stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
+  ngpFieldNew = &stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+
+  const bool rotateDeviceNgpFieldStates = true;
+  get_bulk().update_field_data_states(rotateDeviceNgpFieldStates);
+
+  ngpMesh = &stk::mesh::get_updated_ngp_mesh(get_bulk());
+  check_field_data_value_on_host(get_bulk(), fieldOld, valueNew);
+  check_field_data_value_on_host(get_bulk(), fieldNew, valueOld);
+  check_field_data_value_on_device(*ngpMesh, *ngpFieldOld, valueNew);
+  check_field_data_value_on_device(*ngpMesh, *ngpFieldNew, valueOld);
+}
+
+// This is a meaningless test without separate device storage, because it explicitly exercises a fundamentally-broken
+// swap function that only partially rotates the data.  The HostMesh version of this function does nothing.
+// If in a unified-memory build, then leaving the other memory space unrotated and relying on syncs to fill in
+// the correct value will not work as expected.  It's not that the other memory space has an unrotated copy of
+// the data, but that the other memory space has a pointer back into the wrong state in the opposite memory
+// space.
+#if defined(STK_USE_DEVICE_MESH) && !defined(STK_UNIFIED_MEMORY)
+NGP_TEST_F(NgpMultiStateFieldTest, multistateField_useAwfulSwapFunction_withSyncsBackToHost)
+{
+  if (get_parallel_size() != 1) GTEST_SKIP();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
+  setup_mesh(2, 2, 2);
+
+  const double valueOld = 2.0;
+  const double valueNew = 4.0;
+  stk::mesh::field_fill(valueOld, get_field(stk::mesh::StateOld));
+  stk::mesh::field_fill(valueNew, get_field(stk::mesh::StateNew));
+
+  stk::mesh::Field<double>& fieldNew = *static_cast<stk::mesh::Field<double>*>(get_meta().get_field(stk::topology::NODE_RANK,
+                                                                                                    "myField"));
+  stk::mesh::Field<double>& fieldOld = fieldNew.field_of_state(stk::mesh::StateOld);
+
+  stk::mesh::NgpMesh& ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
+  stk::mesh::NgpField<double>* ngpFieldOld = &stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
+  stk::mesh::NgpField<double>* ngpFieldNew = &stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+
+  check_field_data_value_on_host(get_bulk(), fieldOld, valueOld);
+  check_field_data_value_on_host(get_bulk(), fieldNew, valueNew);
+  check_field_data_value_on_device(ngpMesh, *ngpFieldOld, valueOld);
+  check_field_data_value_on_device(ngpMesh, *ngpFieldNew, valueNew);
+
+  ngpFieldNew->swap(*ngpFieldOld);  /// This only swaps device data and not pointers back to host data
+
+  check_field_data_value_on_host(get_bulk(), fieldOld, valueOld);  // Unrotated values
+  check_field_data_value_on_host(get_bulk(), fieldNew, valueNew);
+  check_field_data_value_on_device(ngpMesh, *ngpFieldOld, valueNew);  // Rotated values
+  check_field_data_value_on_device(ngpMesh, *ngpFieldNew, valueOld);
+
+  ngpFieldOld->modify_on_device();
+  ngpFieldNew->modify_on_device();
+  ngpFieldOld->sync_to_host();  // Uses unrotated pointers to unrotated host data
+  ngpFieldNew->sync_to_host();
+
+  check_field_data_value_on_host(get_bulk(), fieldOld, valueNew);  // Overwritten values with correct rotated state
+  check_field_data_value_on_host(get_bulk(), fieldNew, valueOld);
+  check_field_data_value_on_device(ngpMesh, *ngpFieldOld, valueNew);  // Rotated values
+  check_field_data_value_on_device(ngpMesh, *ngpFieldNew, valueOld);
+}
+#endif
+
+NGP_TEST_F(NgpMultiStateFieldTest, multistateField_updateUnmodifiedBucket_afterMeshModification)
+{
+  if (get_parallel_size() != 1) GTEST_SKIP();
+  const int numStates = 2;
+  setup_multistate_field(numStates);
+  setup_mesh(2, 2, 2);
+
+  const double valueOld = 2.0;
+  const double valueNew = 4.0;
+  stk::mesh::field_fill(valueOld, get_field(stk::mesh::StateOld));
+  stk::mesh::field_fill(valueNew, get_field(stk::mesh::StateNew));
+
+  stk::mesh::Part& testPart = *get_meta().get_part("test_part");
+  stk::mesh::Field<double>& fieldNew = *static_cast<stk::mesh::Field<double>*>(get_meta().get_field(stk::topology::NODE_RANK,
+                                                                                                    "myField"));
+  stk::mesh::Field<double>& fieldOld = fieldNew.field_of_state(stk::mesh::StateOld);
+
+  stk::mesh::NgpMesh* ngpMesh = &stk::mesh::get_updated_ngp_mesh(get_bulk());
+  stk::mesh::NgpField<double>* ngpFieldOld = &stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateOld));
+  stk::mesh::NgpField<double>* ngpFieldNew = &stk::mesh::get_updated_ngp_field<double>(get_field(stk::mesh::StateNew));
+
+  check_field_data_value_on_host(get_bulk(), fieldOld, valueOld);
+  check_field_data_value_on_host(get_bulk(), fieldNew, valueNew);
+  check_field_data_value_on_device(*ngpMesh, *ngpFieldOld, valueOld);
+  check_field_data_value_on_device(*ngpMesh, *ngpFieldNew, valueNew);
+
+  // New node goes in new Bucket, leaving others alone
+  get_bulk().modification_begin();
+  {
+    const stk::mesh::Entity newNode = get_bulk().declare_node(1000, stk::mesh::PartVector{&testPart});
+    auto fieldOldData = fieldOld.data<stk::mesh::ReadWrite>();
+    auto fieldNewData = fieldNew.data<stk::mesh::ReadWrite>();
+    auto fieldOldValue = fieldOldData.entity_values(newNode);
+    auto fieldNewValue = fieldNewData.entity_values(newNode);
+    fieldOldValue(0_comp) = valueOld;
+    fieldNewValue(0_comp) = valueNew;
+  }
+  get_bulk().modification_end();
+
+  fieldNew.rotate_multistate_data();  // Don't rotate device data; DeviceFields are updated as part of rotating host pointers
+
+  fieldOld.modify_on_host();
+  fieldNew.modify_on_host();
+  fieldOld.sync_to_device();
+  fieldNew.sync_to_device();
+
+  ngpMesh = &stk::mesh::get_updated_ngp_mesh(get_bulk());
+  check_field_data_value_on_host(get_bulk(), fieldOld, valueNew);  // Rotated properly on host
+  check_field_data_value_on_host(get_bulk(), fieldNew, valueOld);
+  check_field_data_value_on_device(*ngpMesh, *ngpFieldOld, valueNew);  // Rotated data synced properly to device
+  check_field_data_value_on_device(*ngpMesh, *ngpFieldNew, valueOld);
+}
+
+
+
+
+
+
+
+

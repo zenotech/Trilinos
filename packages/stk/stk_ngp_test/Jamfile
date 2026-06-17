@@ -49,8 +49,6 @@ project votd
     $(sierra-warnings)
     <define>STK_BUILT_FOR_SIERRA
     <define>STK_BUILT_WITH_BJAM
-    <define>STK_SHOW_DEPRECATED_WARNINGS
-    <define>STK_HIDE_DEPRECATED_CODE
     <define>SIERRA_MIGRATION
     <include>$(stk_ngp_test-root-inc)
   : usage-requirements
@@ -162,7 +160,7 @@ lib stk_ngp_test
         [ glob $(stk_ngp_test-root)/stk_ngp_test/*.cpp ]
     ]
     /tpl/googletest//gtest
-    /tpl/trilinos//kokkoscore
+    /tpl/kokkos//kokkoscore
     /mpi//mpi
     /sierra/stk_util//stk_util_ngp
   :
@@ -188,7 +186,7 @@ lib stk_ngp_test_main
         [ glob $(stk_ngp_test-root)/stk_ngp_test/main/main.cpp ]
     ]
     /tpl/googletest//gtest
-    /tpl/trilinos//kokkoscore
+    /tpl/kokkos//kokkoscore
     /mpi//mpi
     /sierra/stk_util//stk_util_ngp
   :

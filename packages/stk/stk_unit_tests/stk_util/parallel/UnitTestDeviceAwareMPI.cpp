@@ -66,6 +66,27 @@ TEST(DeviceAwareMPI, falseIfOpenMpiButNoCuda)
 #endif
 }
 
+TEST(DeviceAwareMPI, UseSameAsHaveIfOverrideUnset)
+{
+  unsetenv("STK_USE_HOST_MPI_OVERRIDE");
+  EXPECT_EQ(stk::use_device_aware_mpi(), stk::have_device_aware_mpi());
+}
+
+TEST(DeviceAwareMPI, UseSameAsHaveIfOverrideFalse)
+{
+  unsetenv("STK_USE_HOST_MPI_OVERRIDE");
+  setenv("STK_USE_HOST_MPI_OVERRIDE", "false", 1);
+  EXPECT_EQ(stk::use_device_aware_mpi(), stk::have_device_aware_mpi());
+  unsetenv("STK_USE_HOST_MPI_OVERRIDE");
+}
+
+TEST(DeviceAwareMPI, UseFalseIfOverrideFalse)
+{
+  unsetenv("STK_USE_HOST_MPI_OVERRIDE");
+  setenv("STK_USE_HOST_MPI_OVERRIDE", "true", 1);
+  EXPECT_FALSE(stk::use_device_aware_mpi());
+  unsetenv("STK_USE_HOST_MPI_OVERRIDE");
+}
 TEST(DeviceAwareMPI, falseIfIntelMpi)
 {
 #if defined(I_MPI_VERSION)
@@ -99,7 +120,7 @@ void check_device_aware_mpi_send_recv(MPI_Comm comm)
     MPI_Status status;
     EXPECT_EQ( MPI_SUCCESS, MPI_Recv(recvBuf.data(), N, MPI_DOUBLE, otherProc, msgTag, comm, &status));
 
-    BufferViewType::HostMirror hostRecvBuf = Kokkos::create_mirror_view(recvBuf);
+    BufferViewType::host_mirror_type hostRecvBuf = Kokkos::create_mirror_view(recvBuf);
     Kokkos::deep_copy(hostRecvBuf, recvBuf);
     for(size_t i=0; i<N; ++i) {
       EXPECT_NEAR(goldValue, hostRecvBuf(i), tol);
@@ -156,7 +177,7 @@ void check_device_aware_mpi_isend_irecv_waitany(MPI_Comm comm)
     MPI_Waitany(numCommProcs, recvRequests.data(), &idx, MPI_STATUS_IGNORE);
     EXPECT_EQ(0, idx);
 
-    BufferViewType::HostMirror hostRecvBuf = Kokkos::create_mirror_view(recvBuf);
+    BufferViewType::host_mirror_type hostRecvBuf = Kokkos::create_mirror_view(recvBuf);
     Kokkos::deep_copy(hostRecvBuf, recvBuf);
     for(size_t i=0; i<N; ++i) {
       EXPECT_NEAR(goldValue, hostRecvBuf(i), tol);

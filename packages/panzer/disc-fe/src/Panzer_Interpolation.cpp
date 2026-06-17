@@ -33,9 +33,9 @@ removeSmallEntries(Teuchos::RCP<Tpetra::CrsMatrix<Scalar, LocalOrdinal, GlobalOr
   using col_idx_type = typename crs_matrix::local_graph_device_type::entries_type::non_const_type;
   using vals_type    = typename crs_matrix::local_matrix_device_type::values_type;
 
-  using ATS = Kokkos::ArithTraits<Scalar>;
+  using ATS = KokkosKernels::ArithTraits<Scalar>;
   using impl_SC  = typename ATS::val_type;
-  using impl_ATS = Kokkos::ArithTraits<impl_SC>;
+  using impl_ATS = KokkosKernels::ArithTraits<impl_SC>;
 
   auto lclA = A->getLocalMatrixDevice();
 
@@ -159,7 +159,7 @@ Teuchos::RCP<Thyra::LinearOpBase<double> > buildInterpolation(const Teuchos::RCP
   using Scalar = double;
 
   using STS = Teuchos::ScalarTraits<Scalar>;
-  using KAT = Kokkos::ArithTraits<Scalar>;
+  using KAT = KokkosKernels::ArithTraits<Scalar>;
   using OT  = Teuchos::OrdinalTraits<GlobalOrdinal>;
 
   using DeviceSpace = PHX::Device;
@@ -172,7 +172,6 @@ Teuchos::RCP<Thyra::LinearOpBase<double> > buildInterpolation(const Teuchos::RCP
   using tp_matrix = Tpetra::CrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal>;
   using tp_map = Tpetra::Map<LocalOrdinal, GlobalOrdinal>;
 #ifdef PANZER_HAVE_EPETRA_STACK
-  using ep_linObjContainer = panzer::BlockedEpetraLinearObjContainer;
   using ep_matrix = Epetra_CrsMatrix;
   using ep_map = Epetra_Map;
 #endif
@@ -564,7 +563,7 @@ Teuchos::RCP<Thyra::LinearOpBase<double> > buildInterpolation(const Teuchos::RCP
                                                std::cout << "Replacing (" << range_row << "," << row.colidx(kk) << ") = " << row.value(kk) << " with " << val << std::endl;
 #endif
 #ifdef PANZER_DEBUG
-                                               TEUCHOS_ASSERT(false);
+                                               Kokkos::abort("MiniEM interpolation worksetLoop failed!");
 #endif
                                              }
                                        }
@@ -690,7 +689,7 @@ Teuchos::RCP<Thyra::LinearOpBase<double> > buildInterpolation(const Teuchos::RCP
 
       // loop over element worksets
       std::vector<int> elementIds = range_ugi->getElementBlock(elementBlockIds[blockIter]);
-      Kokkos::View<int*,DeviceSpace>::HostMirror elementIds_h(elementIds.data(), elementIds.size());
+      Kokkos::View<int*,DeviceSpace>::host_mirror_type elementIds_h(elementIds.data(), elementIds.size());
       Kokkos::View<int*,DeviceSpace> elementIds_d("elementIds_d", elementIds_h.extent(0));
       Kokkos::deep_copy(elementIds_d, elementIds_h);
       for(std::size_t elemIter = 0; elemIter < elementIds_d.extent(0); elemIter += numCells) {

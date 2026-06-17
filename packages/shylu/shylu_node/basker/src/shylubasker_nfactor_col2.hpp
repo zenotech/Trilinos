@@ -21,10 +21,8 @@
 #include "shylubasker_nfactor_blk.hpp"
 #include "shylubasker_nfactor_col.hpp"
 
-#ifdef BASKER_KOKKOS
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Timer.hpp>
-#endif 
 
 #ifdef BASKER_DEBUG
 #include <assert.h>
@@ -44,11 +42,9 @@ namespace BaskerNS
   template <class Int, class Entry, class Exe_Space>
   struct kokkos_nfactor_sep2
   {
-    #ifdef BASKER_KOKKOS
     typedef Exe_Space                         execution_space;
     typedef Kokkos::TeamPolicy<Exe_Space>     TeamPolicy;
     typedef typename TeamPolicy::member_type  TeamMember;
-    #endif
     
     Basker<Int,Entry,Exe_Space> *basker;
     Int lvl;
@@ -64,35 +60,17 @@ namespace BaskerNS
     }
 
     BASKER_INLINE
-    #ifdef BASKER_KOKKOS
     void operator()(const TeamMember &thread) const
-    #else
-    void operator()(Int kid) const  
-    #endif
     {
-      #ifdef BASKER_KOKKOS
-      //Int kid = (Int)(thread.league_rank()*thread.team_size()+
-      //                thread.team_rank());
       Int kid = basker->t_get_kid(thread);
-
-      //team leader is not using
       Int team_leader = (Int)(thread.league_rank()*thread.team_size());
-      #else
-      Int team_leader = 0; //Note: come back and fix
-      #endif
 
       #ifdef HAVE_VTUNE
       __itt_pause();
       #endif
-
       {
-      #ifdef BASKER_KOKKOS
         basker->t_nfactor_sep2(kid, lvl, team_leader, thread);
-      #else
-      
-      #endif
       }
-
       #ifdef HAVE_VTUNE
       __itt_resume();
       #endif
@@ -152,7 +130,7 @@ namespace BaskerNS
     #ifdef BASKER_DEBUG_NFACTOR_COL2
     printf("\n\n  LVL=%d  ----- kid: %d -----\n\n", lvl, kid);
     #endif
-    // > Apply lower-triangular solve with L(1,1)
+    // > Apply lower-triangular solve with leaf L(1,1)
     //   to compute the first block U(1)(U_row) in the upper-triangular part
     int info = BASKER_SUCCESS;
     for(Int k = 0; k < ncol && info == BASKER_SUCCESS; ++k)
@@ -167,7 +145,7 @@ namespace BaskerNS
     }//over all columns / domains / old sublevel 0
 
     #ifdef BASKER_TIMER
-    printf("Time Upper-Col1(%d): %lf \n", (int)kid, timer.seconds()); fflush(stdout);
+    printf("Time Upper-Col1(%d): %lf (ncol=%d)\n", (int)kid, timer.seconds(), ncol); fflush(stdout);
     timer.reset();
     #endif
     //------Need because extend does not 
@@ -216,7 +194,7 @@ namespace BaskerNS
                  kid);
           #endif
 
-          // > Apply lower-triangular solve with next diagonal L(l,l)
+          // > Apply lower-triangular solve with next separator diagonal L(l,l)
           //   to compute next U(l)(U_row) in upper-triangular part
           info = t_upper_col_factor(kid, team_leader, 
                                     lvl, l, 
@@ -232,7 +210,7 @@ namespace BaskerNS
 
     }//for - over all sublevel 1...lvl-2
     #ifdef BASKER_TIMER
-    printf("Time Upper-Col(%d): %lf \n", (int)kid, timer.seconds());
+    printf("Time Upper-Col(%d): %lf (ncol=%d, l=1:%d)\n", (int)kid, timer.seconds(), ncol,lvl-1);
     fflush(stdout); timer.reset();
     #endif
 
@@ -255,7 +233,7 @@ namespace BaskerNS
       }
     }
     #endif
-    #ifdef BASKER_TIMER
+    #ifdef BASKER_DEBUG_NFACTOR_COL2
     printf("\n done with UPPER, kid: %d \n\n", kid);
     printf("\n\n======= LOWER, KID: %d ======= \n\n", kid);
     fflush(stdout);
@@ -907,7 +885,7 @@ namespace BaskerNS
          L_row < LL_size(L_col);
          X_row+=(lteam_size), L_row+=(lteam_size))
     {
-      #ifdef BASKER_TIMER
+      #ifdef BASKER_DEBUG_NFACTOR_COL2
       printf("OFF_DIAG_LOWER. kid: %d k: %d  U(%d, %d).nnz = %d  L(%d, %d) X(%d, %d) pivot: %f \n", 
              kid, k, U_col, U_row, LU(U_col)(U_row).nnz, L_col, L_row, X_col, X_row, pivot);
       #endif

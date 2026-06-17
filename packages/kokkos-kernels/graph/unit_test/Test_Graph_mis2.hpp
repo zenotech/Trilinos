@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <gtest/gtest.h>
 #include <random>
@@ -157,8 +144,8 @@ void test_mis2_coarsening(lno_t numVerts, size_type nnz, lno_t bandwidth, lno_t 
         symRowmap, symEntries, labels, numClusters, coarseRowmapNC, coarseEntriesNC, false);
     KokkosGraph::Experimental::graph_explicit_coarsen<device, rowmap_t, entries_t, entries_t, rowmap_t, entries_t>(
         symRowmap, symEntries, labels, numClusters, coarseRowmapC, coarseEntriesC, true);
-    EXPECT_EQ(coarseRowmapC.extent(0), numClusters + 1);
-    EXPECT_EQ(coarseRowmapNC.extent(0), numClusters + 1);
+    EXPECT_EQ(coarseRowmapC.extent(0), size_t(numClusters) + 1);
+    EXPECT_EQ(coarseRowmapNC.extent(0), size_t(numClusters) + 1);
     // Check that coarse graph doesn't have more edges than fine graph
     EXPECT_LE(coarseEntriesC.extent(0), symEntries.extent(0));
     EXPECT_LE(coarseEntriesNC.extent(0), symEntries.extent(0));
@@ -175,7 +162,7 @@ void test_mis2_coarsening(lno_t numVerts, size_type nnz, lno_t bandwidth, lno_t 
         uniqueEntries.insert(hostEntriesNC(j));
       }
       size_type compressedRowLen = hostRowmapC(i + 1) - hostRowmapC(i);
-      ASSERT_EQ(uniqueEntries.size(), compressedRowLen);
+      ASSERT_EQ(uniqueEntries.size(), size_t(compressedRowLen));
       auto it = uniqueEntries.begin();
       for (size_type j = hostRowmapC(i); j < hostRowmapC(i + 1); j++) {
         EXPECT_EQ(*it, hostEntriesC(j));
@@ -200,18 +187,18 @@ void test_mis2_coarsening_zero_rows() {
   lno_t numClusters;
   auto labels = KokkosGraph::graph_mis2_coarsen<device, rowmap_t, entries_t>(fineRowmap, fineEntries, numClusters);
   EXPECT_EQ(numClusters, 0);
-  EXPECT_EQ(labels.extent(0), 0);
+  EXPECT_EQ(labels.extent(0), size_t(0));
   // coarsen, should also produce a graph with 0 rows/entries
   rowmap_t coarseRowmap;
   entries_t coarseEntries;
   KokkosGraph::Experimental::graph_explicit_coarsen<device, rowmap_t, entries_t, entries_t, rowmap_t, entries_t>(
       fineRowmap, fineEntries, labels, 0, coarseRowmap, coarseEntries, false);
-  EXPECT_LE(coarseRowmap.extent(0), 1);
-  EXPECT_EQ(coarseEntries.extent(0), 0);
+  EXPECT_LE(coarseRowmap.extent(0), size_t(1));
+  EXPECT_EQ(coarseEntries.extent(0), size_t(0));
   KokkosGraph::Experimental::graph_explicit_coarsen<device, rowmap_t, entries_t, entries_t, rowmap_t, entries_t>(
       fineRowmap, fineEntries, labels, 0, coarseRowmap, coarseEntries, true);
-  EXPECT_LE(coarseRowmap.extent(0), 1);
-  EXPECT_EQ(coarseEntries.extent(0), 0);
+  EXPECT_LE(coarseRowmap.extent(0), size_t(1));
+  EXPECT_EQ(coarseEntries.extent(0), size_t(0));
 }
 
 #define EXECUTE_TEST(SCALAR, ORDINAL, OFFSET, DEVICE)                                                  \

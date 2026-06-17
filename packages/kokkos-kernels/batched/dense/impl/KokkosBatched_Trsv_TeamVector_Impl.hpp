@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSBATCHED_TRSV_TEAMVECTOR_IMPL_HPP
 #define KOKKOSBATCHED_TRSV_TEAMVECTOR_IMPL_HPP
 
@@ -42,9 +29,8 @@ struct TeamVectorTrsv<MemberType, Uplo::Lower, Trans::NoTranspose, ArgDiag, Algo
   template <typename ScalarType, typename AViewType, typename bViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member, const ScalarType alpha, const AViewType &A,
                                            const bViewType &b) {
-    return TeamVectorTrsvInternalLower<Algo::Trsv::Unblocked>::invoke(member, ArgDiag::use_unit_diag, A.extent(0),
-                                                                      alpha, A.data(), A.stride_0(), A.stride_1(),
-                                                                      b.data(), b.stride_0());
+    return TeamVectorTrsvInternalLower<Algo::Trsv::Unblocked>::invoke(
+        member, ArgDiag::use_unit_diag, A.extent(0), alpha, A.data(), A.stride(0), A.stride(1), b.data(), b.stride(0));
   }
 };
 
@@ -57,9 +43,8 @@ struct TeamVectorTrsv<MemberType, Uplo::Lower, Trans::Transpose, ArgDiag, Algo::
   template <typename ScalarType, typename AViewType, typename bViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member, const ScalarType alpha, const AViewType &A,
                                            const bViewType &b) {
-    return TeamVectorTrsvInternalUpper<Algo::Trsv::Unblocked>::invoke(member, ArgDiag::use_unit_diag, A.extent(1),
-                                                                      alpha, A.data(), A.stride_1(), A.stride_0(),
-                                                                      b.data(), b.stride_0());
+    return TeamVectorTrsvInternalUpper<Algo::Trsv::Unblocked>::invoke(
+        member, ArgDiag::use_unit_diag, A.extent(1), alpha, A.data(), A.stride(1), A.stride(0), b.data(), b.stride(0));
   }
 };
 
@@ -72,9 +57,8 @@ struct TeamVectorTrsv<MemberType, Uplo::Upper, Trans::NoTranspose, ArgDiag, Algo
   template <typename ScalarType, typename AViewType, typename bViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member, const ScalarType alpha, const AViewType &A,
                                            const bViewType &b) {
-    return TeamVectorTrsvInternalUpper<Algo::Trsv::Unblocked>::invoke(member, ArgDiag::use_unit_diag, A.extent(0),
-                                                                      alpha, A.data(), A.stride_0(), A.stride_1(),
-                                                                      b.data(), b.stride_0());
+    return TeamVectorTrsvInternalUpper<Algo::Trsv::Unblocked>::invoke(
+        member, ArgDiag::use_unit_diag, A.extent(0), alpha, A.data(), A.stride(0), A.stride(1), b.data(), b.stride(0));
   }
 };
 
@@ -87,9 +71,8 @@ struct TeamVectorTrsv<MemberType, Uplo::Upper, Trans::Transpose, ArgDiag, Algo::
   template <typename ScalarType, typename AViewType, typename bViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member, const ScalarType alpha, const AViewType &A,
                                            const bViewType &b) {
-    return TeamVectorTrsvInternalLower<Algo::Trsv::Unblocked>::invoke(member, ArgDiag::use_unit_diag, A.extent(1),
-                                                                      alpha, A.data(), A.stride_1(), A.stride_0(),
-                                                                      b.data(), b.stride_0());
+    return TeamVectorTrsvInternalLower<Algo::Trsv::Unblocked>::invoke(
+        member, ArgDiag::use_unit_diag, A.extent(1), alpha, A.data(), A.stride(1), A.stride(0), b.data(), b.stride(0));
   }
 };
 

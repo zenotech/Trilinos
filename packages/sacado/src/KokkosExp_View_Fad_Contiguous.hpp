@@ -148,11 +148,7 @@ namespace Sacado {
 
 #include "Sacado_Traits.hpp"
 #include "Kokkos_Core.hpp"
-#if KOKKOS_VERSION >= 40499
 #include "View/Kokkos_ViewMapping.hpp"
-#else
-#include "impl/Kokkos_ViewMapping.hpp"
-#endif
 
 //----------------------------------------------------------------------------
 
@@ -694,6 +690,12 @@ public:
     { return m_impl_offset.stride_6(); }
   KOKKOS_INLINE_FUNCTION constexpr size_t stride_7() const
     { return m_impl_offset.stride_7(); }
+
+  template< typename iType >
+  KOKKOS_INLINE_FUNCTION constexpr std::enable_if_t<std::is_integral_v<iType>,
+                                                    size_t>
+  stride( iType const s ) const
+    { return m_impl_offset.stride(s) ; }
 
   template< typename iType >
   KOKKOS_INLINE_FUNCTION void stride( iType * const s ) const

@@ -9,6 +9,7 @@
 #include <Akri_DiagWriter.hpp>
 #include <Akri_MathUtil.hpp>
 #include <stk_math/StkVector.hpp>
+#include <boost/cstdint.hpp>
 #include <boost/math/tools/toms748_solve.hpp>
 #include <stk_util/util/ReportHandler.hpp>
 #include <vector>
@@ -26,8 +27,9 @@ double compute_parametric_square_distance(const stk::math::Vector3d childPCoords
   return dist2;
 }
 
+template<typename NODECOORDCONTAINER>
 stk::math::Vector3d
-get_parametric_coordinates_of_point(const std::vector<stk::math::Vector3d> & nodeCoords, const stk::math::Vector3d & pt)
+get_parametric_coordinates_of_point(const NODECOORDCONTAINER & nodeCoords, const stk::math::Vector3d & pt)
 {
   if (nodeCoords.size() == 3)
   {
@@ -109,13 +111,13 @@ std::pair<bool, double> find_root( const std::function<double(const double)> & f
   return {success, compute_linear_root(f, result.first, result.second)};
 }
 
-std::pair<bool, double> find_bracketed_root_newton_raphson( const std::function<std::pair<double,double>(const double)> & f,
+std::pair<bool, double>
+find_bracketed_root_newton_raphson(const std::function<std::pair<double, double>(const double)> & f,
     double x,
     double fx,
     double dfx,
     double xa,
     double xb,
-    double fa,
     double fb,
     const unsigned maxIters,
     const double fTol)
@@ -142,7 +144,6 @@ std::pair<bool, double> find_bracketed_root_newton_raphson( const std::function<
     if (fx*fb < 0.)
     {
       xa = x;
-      fa = fx;
     }
     else
     {
@@ -157,14 +158,14 @@ std::pair<bool, double> find_bracketed_root_newton_raphson( const std::function<
   return {true, x};
 }
 
-void attempt_to_bracket_root_newton_raphson( const std::function<std::pair<double,double>(const double)> & f,
+void attempt_to_bracket_root_newton_raphson(
+    const std::function<std::pair<double, double>(const double)> & f,
     const double guess,
     double & x,
     double & fx,
     double & dfx,
     double & xa,
     double & xb,
-    double & fa,
     double & fb,
     bool & solnIsConvergedAtX,
     bool & solnIsBracketed,
@@ -183,7 +184,7 @@ void attempt_to_bracket_root_newton_raphson( const std::function<std::pair<doubl
 
   xa = x;
   xb = x;
-  fa = fx;
+  double fa = fx;
   fb = fx;
 
   unsigned iter = 0;
@@ -248,9 +249,10 @@ std::pair<bool, double> find_root_newton_raphson( const std::function<std::pair<
     const unsigned maxIters,
     const double fTol)
 {
-  double x, fx, dfx, xa, xb, fa, fb;
+  double x, fx, dfx, xa, xb, fb;
   bool solnIsConvergedAtX, solnIsBracketed;
-  attempt_to_bracket_root_newton_raphson(f, guess, x, fx, dfx, xa, xb, fa, fb, solnIsConvergedAtX, solnIsBracketed, maxIters, fTol);
+  attempt_to_bracket_root_newton_raphson(
+      f, guess, x, fx, dfx, xa, xb, fb, solnIsConvergedAtX, solnIsBracketed, maxIters, fTol);
 
   if (solnIsConvergedAtX)
     return {true, x};
@@ -258,7 +260,7 @@ std::pair<bool, double> find_root_newton_raphson( const std::function<std::pair<
   if (!solnIsBracketed)
     return {false, guess};
 
-  return find_bracketed_root_newton_raphson(f, x, fx, dfx, xa, xb, fa, fb, maxIters, fTol);
+  return find_bracketed_root_newton_raphson(f, x, fx, dfx, xa, xb, fb, maxIters, fTol);
 }
 
 double find_quadratic_crossing( const double d0, const double d1, const double d2 )
@@ -289,6 +291,11 @@ double find_quadratic_crossing( const double d0, const double d1, const double d
       return (c/q);
     }
 }
+
+// Explicit template instantiation
+template stk::math::Vector3d get_parametric_coordinates_of_point(const std::vector<stk::math::Vector3d> & nodeCoords, const stk::math::Vector3d & pt);
+template stk::math::Vector3d get_parametric_coordinates_of_point(const std::array<stk::math::Vector3d,3> & nodeCoords, const stk::math::Vector3d & pt);
+template stk::math::Vector3d get_parametric_coordinates_of_point(const std::array<stk::math::Vector3d,4> & nodeCoords, const stk::math::Vector3d & pt);
 
 }
 

@@ -1,21 +1,8 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
-#ifndef _KOKKOS_TWOSTAGE_GS_IMP_HPP
-#define _KOKKOS_TWOSTAGE_GS_IMP_HPP
+#ifndef KOKKOSSPARSE_TWOSTAGE_GS_IMP_HPP
+#define KOKKOSSPARSE_TWOSTAGE_GS_IMP_HPP
 
 #include <KokkosKernels_config.h>
 #include "Kokkos_Core.hpp"
@@ -75,7 +62,7 @@ class TwostageGaussSeidel {
   using single_vector_view_t   = Kokkos::View<scalar_t *, Kokkos::LayoutLeft, input_device_t, input_memory_t>;
   using internal_vector_view_t = typename TwoStageGaussSeidelHandleType::vector_view_t;
 
-  using ST    = Kokkos::ArithTraits<scalar_t>;
+  using ST    = KokkosKernels::ArithTraits<scalar_t>;
   using mag_t = typename ST::mag_type;
 
  private:
@@ -116,9 +103,9 @@ class TwostageGaussSeidel {
   struct TwostageGaussSeidel_functor {
    public:
     // input
-    bool two_stage;
-    bool compact_form;
-    bool diagos_given;
+    bool two_stage    = false;
+    bool compact_form = false;
+    bool diagos_given = false;
     const_ordinal_t num_rows;
     input_row_map_view_t rowmap_view;
     input_entries_view_t column_view;
@@ -143,7 +130,7 @@ class TwostageGaussSeidel {
     output_entries_view_t entries_a2;
     output_values_view_t values_a2;
     // for computing residual norm with
-    bool forward_sweep;
+    bool forward_sweep = true;
     internal_vector_view_t localX;
     internal_vector_view_t localB;
 
@@ -387,7 +374,7 @@ class TwostageGaussSeidel {
     // functor for storing both valuesL & valuesU (with parallel_for)
     KOKKOS_INLINE_FUNCTION
     void operator()(const Tag_valuesLU &, const ordinal_t i) const {
-      const_scalar_t one = Kokkos::ArithTraits<scalar_t>::one();
+      const_scalar_t one = KokkosKernels::ArithTraits<scalar_t>::one();
       ordinal_t nnzL     = row_map(i);
       ordinal_t nnzU     = row_map2(i);
       ordinal_t nnzLa    = 0;
@@ -688,8 +675,8 @@ class TwostageGaussSeidel {
       auto sptrsv_algo = handle->get_gs_sptrsvL_handle()->get_sptrsv_handle()->get_algorithm();
       if (sptrsv_algo != SPTRSVAlgorithm::SPTRSV_CUSPARSE) {  // symbolic with CuSparse needs
                                                               // values
-        sptrsv_symbolic(handle->get_gs_sptrsvL_handle(), rowmap_viewL, crsmatL.graph.entries);
-        sptrsv_symbolic(handle->get_gs_sptrsvU_handle(), rowmap_viewU, crsmatU.graph.entries);
+        KokkosSparse::sptrsv_symbolic(handle->get_gs_sptrsvL_handle(), rowmap_viewL, crsmatL.graph.entries);
+        KokkosSparse::sptrsv_symbolic(handle->get_gs_sptrsvU_handle(), rowmap_viewU, crsmatU.graph.entries);
       }
     }
   }
@@ -763,8 +750,10 @@ class TwostageGaussSeidel {
             rowmap_viewU, column_viewU, values_viewU);
 
         // now do symbolic
-        sptrsv_symbolic(handle->get_gs_sptrsvL_handle(), rowmap_viewL, crsmatL.graph.entries, values_viewL);
-        sptrsv_symbolic(handle->get_gs_sptrsvU_handle(), rowmap_viewU, crsmatU.graph.entries, values_viewU);
+        KokkosSparse::sptrsv_symbolic(handle->get_gs_sptrsvL_handle(), rowmap_viewL, crsmatL.graph.entries,
+                                      values_viewL);
+        KokkosSparse::sptrsv_symbolic(handle->get_gs_sptrsvU_handle(), rowmap_viewU, crsmatU.graph.entries,
+                                      values_viewU);
       }
     }
   }
@@ -777,8 +766,8 @@ class TwostageGaussSeidel {
              y_value_array_type localB,  // in
              bool init_zero_x_vector = false, int numIter = 1, scalar_t omega = ST::one(), bool apply_forward = true,
              bool apply_backward = true, bool /*update_y_vector*/ = true) {
-    const_scalar_t one  = Kokkos::ArithTraits<scalar_t>::one();
-    const_scalar_t zero = Kokkos::ArithTraits<scalar_t>::zero();
+    const_scalar_t one  = KokkosKernels::ArithTraits<scalar_t>::one();
+    const_scalar_t zero = KokkosKernels::ArithTraits<scalar_t>::zero();
 #ifdef KOKKOSSPARSE_IMPL_TIME_TWOSTAGE_GS
     double tic;
     Kokkos::Timer timer;
@@ -895,8 +884,8 @@ class TwostageGaussSeidel {
             auto localZj = Kokkos::subview(localZ, Kokkos::ALL(), range_type(j, j + 1));
             single_vector_view_t Rj(localRj.data(), num_rows);
             single_vector_view_t Zj(localZj.data(), num_rows);
-            sptrsv_solve(handle->get_gs_sptrsvL_handle(), crsmatL.graph.row_map, crsmatL.graph.entries, crsmatL.values,
-                         Rj, Zj);
+            KokkosSparse::sptrsv_solve(handle->get_gs_sptrsvL_handle(), crsmatL.graph.row_map, crsmatL.graph.entries,
+                                       crsmatL.values, Rj, Zj);
           }
         } else {
           using namespace KokkosSparse::Experimental;
@@ -907,8 +896,8 @@ class TwostageGaussSeidel {
             auto localZj = Kokkos::subview(localZ, Kokkos::ALL(), range_type(j, j + 1));
             single_vector_view_t Rj(localRj.data(), num_rows);
             single_vector_view_t Zj(localZj.data(), num_rows);
-            sptrsv_solve(handle->get_gs_sptrsvU_handle(), crsmatU.graph.row_map, crsmatU.graph.entries, crsmatU.values,
-                         Rj, Zj);
+            KokkosSparse::sptrsv_solve(handle->get_gs_sptrsvU_handle(), crsmatU.graph.row_map, crsmatU.graph.entries,
+                                       crsmatU.values, Rj, Zj);
           }
         }
 

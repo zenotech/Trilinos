@@ -40,7 +40,7 @@ template <> struct GemmTriangular<Trans::Transpose, Trans::NoTranspose, Uplo::Up
       if (m == n) {
         const ordinal_type b = 32;
         value_type *aptr = A.data(), *bptr = B.data(), *cptr = C.data();
-        const int as1 = A.stride_1(), bs1 = B.stride_1(), cs1 = C.stride_1();
+        const int as1 = A.stride(1), bs1 = B.stride(1), cs1 = C.stride(1);
         for (ordinal_type i = 0; i < m; i += b) {
           const ordinal_type m2 = i + b, mm = (m2 > m ? m : m2), nn = mm - i;
           value_type *aaptr = aptr, *bbptr = bptr + i * bs1, *ccptr = cptr + i * cs1;
@@ -73,9 +73,10 @@ template <> struct GemmTriangular<Trans::Transpose, Trans::NoTranspose, Uplo::Up
 
     if (m > 0 && n > 0 && k > 0) {
       if (m == n) {
-        const ordinal_type b = 256;
+        char *b_env = getenv("TACHO_BLOCK_SIZE");
+        const ordinal_type b = (b_env == NULL ? 256 : atoi(b_env));
         value_type *aptr = A.data(), *bptr = B.data(), *cptr = C.data();
-        const int as1 = A.stride_1(), bs1 = B.stride_1(), cs1 = C.stride_1();
+        const int as1 = A.stride(1), bs1 = B.stride(1), cs1 = C.stride(1);
         if (m < 2 * b) {
           Blas<value_type>::gemm(handle, Trans::Transpose::cublas_param, Trans::NoTranspose::cublas_param, m, n, k,
                                  value_type(alpha), aptr, as1, bptr, bs1, value_type(beta), cptr, cs1);
@@ -116,7 +117,7 @@ template <> struct GemmTriangular<Trans::Transpose, Trans::NoTranspose, Uplo::Up
       if (m == n) {
         const ordinal_type b = 256;
         value_type *aptr = A.data(), *bptr = B.data(), *cptr = C.data();
-        const int as1 = A.stride_1(), bs1 = B.stride_1(), cs1 = C.stride_1();
+        const int as1 = A.stride(1), bs1 = B.stride(1), cs1 = C.stride(1);
         if (m < 2 * b) {
           Blas<value_type>::gemm(handle, Trans::Transpose::rocblas_param, Trans::NoTranspose::rocblas_param, m, n, k,
                                  value_type(alpha), aptr, as1, bptr, bs1, value_type(beta), cptr, cs1);

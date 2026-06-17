@@ -120,33 +120,43 @@ void pack_distribution_factor(const stk::mesh::BulkData& bulk,
                               const stk::mesh::FieldBase* distFact,
                               stk::mesh::Entity side)
 {
-    stk::mesh::EntityKey key = bulk.entity_key(side);
-    buf.pack<stk::mesh::EntityKey>(key);
+  stk::mesh::EntityKey key = bulk.entity_key(side);
+  buf.pack<stk::mesh::EntityKey>(key);
 
-    const stk::mesh::Bucket & bucket = bulk.bucket(side);
-    const unsigned size = field_bytes_per_entity(*distFact, bucket);
-    if (size) {
-        unsigned char * const ptr = reinterpret_cast<unsigned char *>(stk::mesh::field_data(*distFact , side));
-        buf.pack<unsigned char>(ptr , size);
+  stk::mesh::entity_bytes_execute<const std::byte>(*distFact, side,
+    [&](auto& entityBytes) {
+      const unsigned size = entityBytes.num_bytes();
+      if (size) {
+        for (stk::mesh::ByteIdx idx : entityBytes.bytes()) {
+          buf.pack<std::byte>(entityBytes(idx));
+        }
+      }
     }
+  );
 }
 
 void unpack_distribution_factor(const stk::mesh::BulkData& bulk,
                                 CommBuffer& buf,
                                 const stk::mesh::FieldBase* distFact)
 {
-    stk::mesh::EntityKey key;
-    buf.unpack<stk::mesh::EntityKey>(key);
+  stk::mesh::EntityKey key;
+  buf.unpack<stk::mesh::EntityKey>(key);
 
-    stk::mesh::Entity side = bulk.get_entity(key);
-    STK_ThrowRequire(bulk.is_valid(side));
-    const stk::mesh::Bucket & bucket = bulk.bucket(side);
-    const unsigned size = field_bytes_per_entity( *distFact, bucket );
-    if (size)
-    {
-        unsigned char * ptr = reinterpret_cast<unsigned char *>( stk::mesh::field_data(*distFact , side));
-        buf.unpack<unsigned char>(ptr , size);
+  stk::mesh::Entity side = bulk.get_entity(key);
+  STK_ThrowRequire(bulk.is_valid(side));
+
+  stk::mesh::entity_bytes_execute<std::byte>(*distFact, side,
+    [&](auto& entityBytes) {
+      const unsigned size = entityBytes.num_bytes();
+      if (size) {
+        for(stk::mesh::ByteIdx idx : entityBytes.bytes()) {
+          std::byte thisByte;
+          buf.unpack<std::byte>(thisByte);
+          entityBytes(idx) = thisByte;
+        }
+      }
     }
+  );
 }
 
 void communicate_shared_side_entity_fields(const stk::mesh::BulkData& bulk,
@@ -180,14 +190,6 @@ void communicate_shared_side_entity_fields(const stk::mesh::BulkData& bulk,
     }
 }
 
-stk::mesh::EntityRank get_side_rank(Ioss::Region* region, Ioss::SideBlock *block)
-{
-    bool useShellAllFaceSides = region->property_exists("ENABLE_ALL_FACE_SIDES_SHELL");
-    int par_dimen = block->topology()->parametric_dimension();
-    stk::mesh::EntityRank side_rank = par_dimen == 1 ? stk::topology::EDGE_RANK : stk::topology::FACE_RANK;
-    return (block->parent_element_topology()->is_shell() && useShellAllFaceSides) ? stk::topology::FACE_RANK : side_rank;
-}
-
 template <typename INT>
 void process_surface_entity_df(const Ioss::SideSet* sset, stk::mesh::BulkData & bulk)
 {
@@ -204,7 +206,6 @@ void process_surface_entity_df(const Ioss::SideSet* sset, stk::mesh::BulkData & 
     for (size_t i=0; i < block_count; i++) {
         Ioss::SideBlock *block = sset->get_block(i);
         if (stk::io::include_entity(block)) {
-
             stk::mesh::Part * sb_part = get_part_for_grouping_entity(*region, meta, block);
             if (sb_part == nullptr){
                 sb_part = get_part_for_grouping_entity(*region, meta, sset);
@@ -223,7 +224,7 @@ void process_surface_entity_df(const Ioss::SideSet* sset, stk::mesh::BulkData & 
             //       be the same and this could fail (a sideset of mixed edges and faces)
             int par_dimen = block->topology()->parametric_dimension();
 
-            stk::mesh::EntityRank side_rank = get_side_rank(region, block);
+            stk::mesh::EntityRank side_rank = get_side_rank(block);
 
             // Would be nice to do:
             //    std::vector<stk::mesh::Entity> sides ;
@@ -254,7 +255,7 @@ void process_surface_entity_df(const Ioss::SideSet* sset, stk::mesh::BulkData & 
 
                   Ioss::ElementTopology *ioss_topo = Ioss::ElementTopology::factory(sideTopo.name(), false);
                   par_dimen = ioss_topo->parametric_dimension();
-                  side_rank = get_side_rank(region, block);
+                  side_rank = get_side_rank(block);
                 }
                 STKIORequire(par_dimen == 1 || par_dimen == 2);
 
@@ -675,6 +676,7 @@ void write_global(std::shared_ptr<Ioss::Region> output_region, const std::string
                      "The field named '" << globalVarName << "' does not exist "
                      "on output region "  << output_region->name());
     size_t comp_count = output_region->get_fieldref(globalVarName).raw_storage()->component_count();
+    (void)comp_count;
     STK_ThrowErrorMsgIf (comp_count != globalVarData.size(),
                      "On output region "  << output_region->name() <<
                      ", the field named '" << globalVarName << "' was registered with size "

@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSLAPACK_TRTRI_HPP_
 #define KOKKOSLAPACK_TRTRI_HPP_
 
@@ -49,8 +36,8 @@ namespace KokkosLapack {
 // source: https://software.intel.com/en-us/mkl-developer-reference-c-trtri
 template <class AViewType>
 int trtri(const char uplo[], const char diag[], const AViewType& A) {
-  static_assert(Kokkos::is_view<AViewType>::value, "AViewType must be a Kokkos::View.");
-  static_assert(static_cast<int>(AViewType::rank) == 2, "AViewType must have rank 2.");
+  static_assert(Kokkos::is_view_v<AViewType>, "AViewType must be a Kokkos::View.");
+  static_assert(static_cast<int>(AViewType::rank()) == 2, "AViewType must have rank 2.");
 
   // Check validity of indicator argument
   bool valid_uplo = (uplo[0] == 'U') || (uplo[0] == 'u') || (uplo[0] == 'L') || (uplo[0] == 'l');

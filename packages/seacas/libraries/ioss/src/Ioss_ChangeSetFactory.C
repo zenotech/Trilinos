@@ -1,4 +1,4 @@
-// Copyright(C) 2024 National Technology & Engineering Solutions
+// Copyright(C) 2024, 2025 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -7,18 +7,11 @@
 #include "Ioss_ChangeSet.h"
 #include "Ioss_ChangeSetFactory.h"
 #include "Ioss_Utils.h" // for IOSS_ERROR
-#include "Ioss_Version.h"
-#include <fmt/format.h>
 #include <fmt/ostream.h>
-#include <fmt/ranges.h>
-#include <map>     // for _Rb_tree_iterator, etc
-#include <ostream> // for basic_ostream, etc
-#include <set>
+#include <map>    // for _Rb_tree_iterator, etc
 #include <string> // for char_traits, string, etc
 
 #include "Ioss_CodeTypes.h"
-#include "Ioss_DBUsage.h" // for DatabaseUsage
-#include "Ioss_PropertyManager.h"
 #include "Ioss_Region.h"
 
 namespace {
@@ -63,8 +56,11 @@ std::shared_ptr<Ioss::ChangeSet> Ioss::ChangeSetFactory::create(Ioss::Region *re
                          "       Was Ioss::Init::Initializer() called?\n\n");
       IOSS_ERROR(errmsg);
     }
-    else {
-      iter = registry()->find("ioss");
+    iter = registry()->find("ioss");
+    if (iter == registry()->end()) {
+      std::ostringstream errmsg;
+      fmt::print(errmsg, "ERROR: Could not locate correct change set types.\n\n");
+      IOSS_ERROR(errmsg);
     }
   }
 
@@ -89,8 +85,11 @@ std::shared_ptr<Ioss::ChangeSet> Ioss::ChangeSetFactory::create(Ioss::DatabaseIO
                          "       Was Ioss::Init::Initializer() called?\n\n");
       IOSS_ERROR(errmsg);
     }
-    else {
-      iter = registry()->find("ioss");
+    iter = registry()->find("ioss");
+    if (iter == registry()->end()) {
+      std::ostringstream errmsg;
+      fmt::print(errmsg, "ERROR: Could not locate correct change set types.\n\n");
+      IOSS_ERROR(errmsg);
     }
   }
 

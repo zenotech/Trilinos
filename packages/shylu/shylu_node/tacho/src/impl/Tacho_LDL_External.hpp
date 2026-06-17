@@ -40,7 +40,7 @@ template <> struct LDL<Uplo::Lower, Algo::External> {
       const ordinal_type m = A.extent(0);
       if (m > 0) {
         /// factorize LDL
-        Lapack<value_type>::sytrf('L', m, A.data(), A.stride_1(), P.data(), W.data(), W.extent(0), &r_val);
+        Lapack<value_type>::sytrf('L', m, A.data(), A.stride(1), P.data(), W.data(), W.extent(0), &r_val);
         TACHO_TEST_FOR_EXCEPTION(r_val, std::runtime_error, "LAPACK (sytrf) returns non-zero error code.");
       }
     } else {
@@ -167,6 +167,13 @@ template <> struct LDL<Uplo::Lower, Algo::External> {
   }
 };
 
+template <typename ArgUplo> struct LDL_nopiv<ArgUplo, Algo::External> {
+  // just call serial for now
+  template <typename MemberType, typename ViewTypeA>
+  KOKKOS_INLINE_FUNCTION static int invoke(MemberType &member, const ViewTypeA &A) {
+    return LDL_nopiv<ArgUplo, Algo::Serial>::invoke(member, A);
+  }
+};
 } // namespace Tacho
 
 #endif

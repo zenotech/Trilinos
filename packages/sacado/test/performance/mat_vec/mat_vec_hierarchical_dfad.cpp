@@ -107,7 +107,7 @@ check_deriv_hierarchical_dfad(const ViewTypeA& A, const ViewTypeB& b, const View
 {
   const double tol = 1.0e-14;
   typedef typename ViewTypeC::value_type value_type;
-  typename ViewTypeC::HostMirror h_c = Kokkos::create_mirror_view(c);
+  typename ViewTypeC::host_mirror_type h_c = Kokkos::create_mirror_view(c);
   Kokkos::deep_copy(h_c, c);
   const size_t m = A.extent(0);
   const size_t n = A.extent(1);
@@ -146,8 +146,8 @@ do_time_fad_hierarchical_dfad(const size_t m, const size_t n, const size_t p,
   // FadType a(p, 1.0);
   // for (size_t k=0; k<p; ++k)
   //   a.fastAccessDx(k) = 1.0;
-  Kokkos::deep_copy(typename ConViewTypeA::array_type(A), 1.0);
-  Kokkos::deep_copy(typename ConViewTypeB::array_type(b), 1.0);
+  Kokkos::deep_copy(typename ConViewTypeA::type(A), 1.0);
+  Kokkos::deep_copy(typename ConViewTypeB::type(b), 1.0);
 
   Kokkos::Timer wall_clock;
   Perf perf;
@@ -222,8 +222,8 @@ do_time_fad_hierarchical_dfad_scratch(
   // FadType a(p, 1.0);
   // for (size_t k=0; k<p; ++k)
   //   a.fastAccessDx(k) = 1.0;
-  Kokkos::deep_copy(typename ConViewTypeA::array_type(A), 1.0);
-  Kokkos::deep_copy(typename ConViewTypeB::array_type(b), 1.0);
+  Kokkos::deep_copy(typename ConViewTypeA::type(A), 1.0);
+  Kokkos::deep_copy(typename ConViewTypeB::type(b), 1.0);
 
   Kokkos::Timer wall_clock;
   Perf perf;

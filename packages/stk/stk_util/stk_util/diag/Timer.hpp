@@ -277,18 +277,6 @@ public:
         return m_accumulatedLap;
     }
 
-    /**
-     * Member function <b>dump</b> prints the value of the Metric to the
-     * diagnostic writer.
-     *
-     * @param dout    a <b>Writer</b> reference to the diagnostic
-     *        writer to write to.
-     *
-     * @return      a <b>Writer</b> reference to the diagnostic
-     *        writer.
-     */
-    Writer &dump(Writer &dout) const;
-
     typename MetricTraits<T>::Type    m_lapStart;    ///< Most recent start time/count
     typename MetricTraits<T>::Type    m_lapStop;    ///< Most recent stop or lap time/count
     typename MetricTraits<T>::Type    m_accumulatedLap;  ///< Accumulated time/count
@@ -457,16 +445,6 @@ public:
    */
   void checkpoint() const;
 
-  /**
-   * Member function <b>dump</b> writes the timer to the specified
-   * diagnostic writer.
-   *
-   * @param dout    a <b>Writer</b> variable reference to write the timer to.
-   *
-   * @return      a <b>Writer</b> reference to <i>dout</i>.
-   */
-  Writer &dump(Writer& dout) const;
-
 private:
   TimerImpl *    m_timerImpl;      ///< Reference to the actual timer
 };
@@ -481,44 +459,16 @@ Marshal &operator<<(Marshal &mout, const Timer::Metric<T> &t) {
 inline Marshal &operator<<(Marshal &mout, const Timer &t) {
   mout << t.getName() << t.getTimerMask() << t.getSubtimerLapCount()
        << t.getMetric<LapCount>() << t.getMetric<CPUTime>() << t.getMetric<WallTime>()
-       << t.getMetric<MPICount>() << t.getMetric<MPIByteCount>() << t.getMetric<HeapAlloc>();
+       << t.getMetric<MPICount>() << t.getMetric<MPIByteCount>()
+#ifndef STK_HIDE_DEPRECATED_CODE // Delete after Nov 2025
+       << t.getMetric<HeapAlloc>()
+#endif
+       ;
 
   mout << t.getTimerList();
 
   return mout;
 }
-
-/**
- * @brief Function <b>operator<<</b> writes a timer to the diagnostic stream.
- *
- * @param dout      a <b>Writer</b> reference to the diagnostic writer to print
- *        to.
- *
- * @param timer      a <b>Timer::Metric</b> const reference to the timer
- *        to print.
- *
- * @return      a <b>Writer</b> reference to <b>dout</b>.
- */
-template <class T>
-inline Writer &operator<<(Writer &dout, const Timer::Metric<T> &timer) {
-  return timer.dump(dout);
-}
-
-/**
- * Function <b>operator<<</b> writes a timer metric to the diagnostic stream.
- *
- * @param dout      a <b>Writer</b> reference to the diagnostic writer to print
- *        to.
- *
- * @param timer      a <b>Timer::Metric</b> const reference to the timer
- *        to print.
- *
- * @return      a <b>Writer</b> reference to <b>dout</b>.
- */
-inline Writer &operator<<(Writer &dout, const Timer &timer) {
-  return timer.dump(dout);
-}
-
 
 /**
  * Class <b>TimeBlock</b> is a time sentry for timing a statement block.  The
@@ -788,7 +738,7 @@ public:
    * @return			a <b>Mask</b> value of the bitmask corresponding to the
    *				mask string.
    */
-  Mask parse(const char *mask_string) const;
+  Mask parse(const char *mask_string) const override;
 
   /**
    * Member function <b>parseArg</b> parses the argument and its argument values.
@@ -799,7 +749,7 @@ public:
    * @param arg			a <b>std::string</b> const reference to the argument
    *				values.
    */
-  virtual void parseArg(const std::string &name, const std::string &arg) const;
+  virtual void parseArg(const std::string &name, const std::string &arg) const override;
 
   mutable stk::diag::MetricsMask        m_metricsSetMask;
   mutable stk::diag::MetricsMask        m_metricsMask;

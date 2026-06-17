@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSBATCHED_EIGENDECOMPOSITION_SERIAL_INTERNAL_HPP
 #define KOKKOSBATCHED_EIGENDECOMPOSITION_SERIAL_INTERNAL_HPP
 
@@ -71,7 +58,7 @@ struct SerialEigendecompositionInternal {
                   "Serial eigendecomposition on device and/or without LAPACK "
                   "is not implemented yet");
     //       typedef RealType real_type;
-    //       typedef Kokkos::ArithTraits<real_type> ats;
+    //       typedef KokkosKernels::ArithTraits<real_type> ats;
 
     //       const real_type one(1), zero(0), tol = 1e2*ats::epsilon();
     //       //const Kokkos::pair<real_type,real_type> identity(one, zero);
@@ -338,7 +325,7 @@ struct SerialEigendecompositionInternal {
   inline static int host_invoke(const int m, RealType* A, const int as0, const int as1, RealType* er, const int ers,
                                 RealType* ei, const int eis, RealType* UL, const int uls0, const int uls1, RealType* UR,
                                 const int urs0, const int urs1, RealType* w, const int wlen) {
-#if defined(__KOKKOSBATCHED_ENABLE_LAPACKE__) || defined(KOKKOSBATCHED_IMPL_ENABLE_INTEL_MKL)
+#if defined(KOKKOSBATCHED_IMPL_ENABLE_LAPACKE) || defined(KOKKOSBATCHED_IMPL_ENABLE_INTEL_MKL)
     int matrix_layout(0), lda(0), uls(0), urs(0);
     if (as0 == 1) {
       assert(uls0 == 1 && "UL is not column major");

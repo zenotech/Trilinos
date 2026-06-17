@@ -46,11 +46,12 @@ Eval::Eval(VariableMap::Resolver & resolver, const std::string & expression, Var
     m_expression(expression),
     m_syntaxStatus(false),
     m_parseStatus(false),
-    m_fpErrorBehavior(FPErrorBehavior::Warn),
+    m_fpWarningIssued(false),
     m_headNode(nullptr),
     m_arrayOffsetType(arrayOffsetType),
     m_parsedEval(nullptr)
 {
+  set_fp_error_behavior(FPErrorBehavior::WarnOnce);
   initialize_function_map();
 }
 
@@ -59,11 +60,12 @@ Eval::Eval(const std::string & expression, Variable::ArrayOffset arrayOffsetType
     m_expression(expression),
     m_syntaxStatus(false),
     m_parseStatus(false),
-    m_fpErrorBehavior(FPErrorBehavior::Warn),
+    m_fpWarningIssued(false),
     m_headNode(nullptr),
     m_arrayOffsetType(arrayOffsetType),
     m_parsedEval(nullptr)
 {
+  set_fp_error_behavior(FPErrorBehavior::WarnOnce);
   initialize_function_map();
 }
 
@@ -74,6 +76,8 @@ Eval::Eval(const Eval& otherEval)
     m_expression(otherEval.m_expression),
     m_syntaxStatus(otherEval.m_syntaxStatus),
     m_parseStatus(otherEval.m_parseStatus),
+    m_fpErrorBehavior(otherEval.m_fpErrorBehavior),
+    m_fpWarningIssued(otherEval.m_fpWarningIssued),
     m_headNode(otherEval.m_headNode),
     m_nodes(otherEval.m_nodes),
     m_evaluationNodes(otherEval.m_evaluationNodes),
@@ -188,6 +192,10 @@ Eval::evaluate() const
     throw std::runtime_error(std::string("Expression '") + m_expression + "' did not parse successfully");
   }
 
+  bool fpWarningPreviouslyIssued = get_fp_warning_issued();
+  if (m_fpErrorBehavior != FPErrorBehavior::WarnOnce) {
+    m_fpWarningIssued = false;
+  }
   double returnValue = 0.0;
   try
   {
@@ -201,12 +209,14 @@ Eval::evaluate() const
       }
       returnValue = m_evaluationNodes.back()->getResult();
     }
-
+    
+    print_expression_if_fp_warning(fpWarningPreviouslyIssued);
   }
   catch(expression_evaluation_exception &)
   {
     throw std::runtime_error(std::string("Expression '") + m_expression + "' did not evaluate successfully");
   }
+  
   return returnValue;
 }
 
@@ -287,6 +297,7 @@ Eval::get_independent_variable_names() const
 int
 Eval::get_variable_index(const std::string & variable) const
 {
+  
   const auto variableIter = m_variableMap.find(variable);
   STK_ThrowRequireMsg(variableIter != m_variableMap.end(), "Variable " + variable + " Not Found in VariableMap");
   return variableIter->second->get_index();
@@ -309,6 +320,19 @@ Eval::get_last_node_index() const
 {
   return (!m_evaluationNodes.empty()) ? m_evaluationNodes.back()->m_currentNodeIndex : -1;
 }
+
+void
+Eval::set_fp_error_behavior(FPErrorBehavior flag) 
+{
+  const char* env_var = std::getenv("STK_EXPREVAL_FP_ERROR_BEHAVIOR");
+  if (env_var)
+  {
+    flag = fp_error_behavior_string_to_enum(env_var);
+  }
+
+  m_fpErrorBehavior = flag; 
+}
+
 
 FunctionType
 Eval::get_function_type(const std::string& functionName) const
@@ -372,6 +396,7 @@ Eval::initialize_function_map()
   m_functionMap["haversine_pulse"] = FunctionType::HAVERSINE_PULSE;
   m_functionMap["point2d"] = FunctionType::POINT2D;
   m_functionMap["point3d"] = FunctionType::POINT3D;
+  m_functionMap["relative_error"] = FunctionType::RELATIVE_ERROR;
 
   m_functionMap["exponential_pdf"] = FunctionType::EXPONENTIAL_PDF;
   m_functionMap["log_uniform_pdf"] = FunctionType::LOG_UNIFORM_PDF;
@@ -547,6 +572,42 @@ Eval::parse(const std::string &expr)
   setExpression(expr);
   parse();
 }
+
+void
+Eval::print_expression_if_fp_warning(bool fpWarningPreviouslyIssued) const
+{
+  if (get_fp_warning_issued() &&
+     (get_fp_error_behavior() == FPErrorBehavior::Warn ||
+     (get_fp_error_behavior() == FPErrorBehavior::WarnOnce && !fpWarningPreviouslyIssued)))
+  {
+    std::cerr << "a floating point exception (converted to warning) was raised during evaluation of expression:\n"
+              << m_expression << std::endl;
+  }
+}
+
+Eval::FPErrorBehavior fp_error_behavior_string_to_enum(const std::string& str)
+{
+  if (str == "Ignore")
+  {
+     return Eval::FPErrorBehavior::Ignore; 
+  } else if (str == "Warn")
+  {
+    return Eval::FPErrorBehavior::Warn;
+  } else if (str == "WarnOnce")
+  {
+    return Eval::FPErrorBehavior::WarnOnce;
+  } else if (str == "Error")
+  {
+    return Eval::FPErrorBehavior::Error;
+  }
+  else
+  {
+    STK_ThrowRequireMsg(false, "unable to convert string " + str + " to FPErrorBehavior enum");
+  }
+
+  return Eval::FPErrorBehavior::Error; // appease the compiler
+}
+
 
 }
 }

@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 /// \author Kyungjoo Kim (kyukim@sandia.gov)
 
 #include <iomanip>
@@ -169,23 +156,23 @@ void Trsm(const int NN) {
               switch (test) {
                 case 0:
                   cblas_dtrsm(CblasRowMajor, CblasLeft, CblasLower, CblasNoTrans, CblasUnit, BlkSize, NumCols, 1.0,
-                              (double *)aa.data(), aa.stride_0(), (double *)bb.data(), bb.stride_0());
+                              (double *)aa.data(), aa.stride(0), (double *)bb.data(), bb.stride(0));
                   break;
                 case 1:
                   cblas_dtrsm(CblasRowMajor, CblasLeft, CblasLower, CblasNoTrans, CblasNonUnit, BlkSize, NumCols, 1.0,
-                              (double *)aa.data(), aa.stride_0(), (double *)bb.data(), bb.stride_0());
+                              (double *)aa.data(), aa.stride(0), (double *)bb.data(), bb.stride(0));
                   break;
                 case 2:
                   cblas_dtrsm(CblasRowMajor, CblasRight, CblasUpper, CblasNoTrans, CblasUnit, BlkSize, NumCols, 1.0,
-                              (double *)aa.data(), aa.stride_0(), (double *)bb.data(), bb.stride_0());
+                              (double *)aa.data(), aa.stride(0), (double *)bb.data(), bb.stride(0));
                   break;
                 case 3:
                   cblas_dtrsm(CblasRowMajor, CblasRight, CblasUpper, CblasNoTrans, CblasNonUnit, BlkSize, NumCols, 1.0,
-                              (double *)aa.data(), aa.stride_0(), (double *)bb.data(), bb.stride_0());
+                              (double *)aa.data(), aa.stride(0), (double *)bb.data(), bb.stride(0));
                   break;
                 case 4:
                   cblas_dtrsm(CblasRowMajor, CblasLeft, CblasUpper, CblasNoTrans, CblasNonUnit, BlkSize, NumCols, 1.0,
-                              (double *)aa.data(), aa.stride_0(), (double *)bb.data(), bb.stride_0());
+                              (double *)aa.data(), aa.stride(0), (double *)bb.data(), bb.stride(0));
                   break;
               }
             });
@@ -200,7 +187,8 @@ void Trsm(const int NN) {
       double sum = 0;
       for (int i = 0, iend = b.extent(0); i < iend; ++i)
         for (int j = 0, jend = b.extent(1); j < jend; ++j)
-          for (int k = 0, kend = b.extent(2); k < kend; ++k) sum += Kokkos::ArithTraits<value_type>::abs(bmat(i, j, k));
+          for (int k = 0, kend = b.extent(2); k < kend; ++k)
+            sum += KokkosKernels::ArithTraits<value_type>::abs(bmat(i, j, k));
 
       std::cout << std::setw(10) << "MKL TRSM"
                 << " BlkSize = " << std::setw(3) << BlkSize << " NumCols = " << std::setw(3) << NumCols
@@ -228,8 +216,8 @@ void Trsm(const int NN) {
       MKL_INT blksize[1] = {BlkSize};
       MKL_INT numcols[1] = {NumCols};
 
-      MKL_INT lda[1] = {a.stride_1()};
-      MKL_INT ldb[1] = {b.stride_1()};
+      MKL_INT lda[1] = {a.stride(1)};
+      MKL_INT ldb[1] = {b.stride(1)};
 
       double one[1]           = {1.0};
       MKL_INT size_per_grp[1] = {N * VectorLength};
@@ -309,7 +297,7 @@ void Trsm(const int NN) {
       for (int i = 0, iend = bref.extent(0); i < iend; ++i)
         for (int j = 0, jend = bref.extent(1); j < jend; ++j)
           for (int k = 0, kend = bref.extent(2); k < kend; ++k)
-            diff += Kokkos::ArithTraits<value_type>::abs(bref(i, j, k) - b(i, j, k));
+            diff += KokkosKernels::ArithTraits<value_type>::abs(bref(i, j, k) - b(i, j, k));
 
       std::cout << std::setw(10) << "MKL Batch"
                 << " BlkSize = " << std::setw(3) << BlkSize << " NumCols = " << std::setw(3) << NumCols
@@ -355,7 +343,7 @@ void Trsm(const int NN) {
               MKL_DIAG diag        = MKL_UNIT;
 
               mkl_dtrsm_compact(MKL_ROW_MAJOR, side, uplo, transA, diag, BlkSize, NumCols, one,
-                                (const double *)a.data(), a.stride_1(), (double *)b.data(), b.stride_1(), format,
+                                (const double *)a.data(), a.stride(1), (double *)b.data(), b.stride(1), format,
                                 (MKL_INT)N * VectorLength);
               break;
             }
@@ -366,7 +354,7 @@ void Trsm(const int NN) {
               MKL_DIAG diag        = MKL_NONUNIT;
 
               mkl_dtrsm_compact(MKL_ROW_MAJOR, side, uplo, transA, diag, BlkSize, NumCols, one,
-                                (const double *)a.data(), a.stride_1(), (double *)b.data(), b.stride_1(), format,
+                                (const double *)a.data(), a.stride(1), (double *)b.data(), b.stride(1), format,
                                 (MKL_INT)N * VectorLength);
               break;
             }
@@ -377,7 +365,7 @@ void Trsm(const int NN) {
               MKL_DIAG diag        = MKL_UNIT;
 
               mkl_dtrsm_compact(MKL_ROW_MAJOR, side, uplo, transA, diag, BlkSize, NumCols, one,
-                                (const double *)a.data(), a.stride_1(), (double *)b.data(), b.stride_1(), format,
+                                (const double *)a.data(), a.stride(1), (double *)b.data(), b.stride(1), format,
                                 (MKL_INT)N * VectorLength);
               break;
             }
@@ -388,7 +376,7 @@ void Trsm(const int NN) {
               MKL_DIAG diag        = MKL_NONUNIT;
 
               mkl_dtrsm_compact(MKL_ROW_MAJOR, side, uplo, transA, diag, BlkSize, NumCols, one,
-                                (const double *)a.data(), a.stride_1(), (double *)b.data(), b.stride_1(), format,
+                                (const double *)a.data(), a.stride(1), (double *)b.data(), b.stride(1), format,
                                 (MKL_INT)N * VectorLength);
               break;
             }
@@ -399,7 +387,7 @@ void Trsm(const int NN) {
               MKL_DIAG diag        = MKL_NONUNIT;
 
               mkl_dtrsm_compact(MKL_ROW_MAJOR, side, uplo, transA, diag, BlkSize, NumCols, one,
-                                (const double *)a.data(), a.stride_1(), (double *)b.data(), b.stride_1(), format,
+                                (const double *)a.data(), a.stride(1), (double *)b.data(), b.stride(1), format,
                                 (MKL_INT)N * VectorLength);
               break;
             }
@@ -416,7 +404,8 @@ void Trsm(const int NN) {
         for (int i = 0, iend = bref.extent(0); i < iend; ++i)
           for (int j = 0, jend = bref.extent(1); j < jend; ++j)
             for (int k = 0, kend = bref.extent(2); k < kend; ++k)
-              diff += Kokkos::ArithTraits<value_type>::abs(bref(i, j, k) - b(i / VectorLength, j, k)[i % VectorLength]);
+              diff += KokkosKernels::ArithTraits<value_type>::abs(bref(i, j, k) -
+                                                                  b(i / VectorLength, j, k)[i % VectorLength]);
 
         std::cout << std::setw(10) << "MKL Cmpt"
                   << " BlkSize = " << std::setw(3) << BlkSize << " NumCols = " << std::setw(3) << NumCols
@@ -492,7 +481,7 @@ void Trsm(const int NN) {
   //     for (int i=0,iend=bref.extent(0);i<iend;++i)
   //       for (int j=0,jend=bref.extent(1);j<jend;++j)
   //         for (int k=0,kend=bref.extent(2);k<kend;++k)
-  //           diff += Kokkos::ArithTraits<value_type>::abs(bref(i,j,k) -
+  //           diff += KokkosKernels::ArithTraits<value_type>::abs(bref(i,j,k) -
   //           b(i,j,k));
 
   //     std::cout << std::setw(10) << "KK Scalar"
@@ -566,7 +555,8 @@ void Trsm(const int NN) {
       for (int i = 0, iend = bref.extent(0); i < iend; ++i)
         for (int j = 0, jend = bref.extent(1); j < jend; ++j)
           for (int k = 0, kend = bref.extent(2); k < kend; ++k)
-            diff += Kokkos::ArithTraits<value_type>::abs(bref(i, j, k) - b(i / VectorLength, j, k)[i % VectorLength]);
+            diff += KokkosKernels::ArithTraits<value_type>::abs(bref(i, j, k) -
+                                                                b(i / VectorLength, j, k)[i % VectorLength]);
 
       std::cout << std::setw(10) << "KK Vector"
                 << " BlkSize = " << std::setw(3) << BlkSize << " NumCols = " << std::setw(3) << NumCols

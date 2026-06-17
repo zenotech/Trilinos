@@ -10,9 +10,12 @@ endif()
 SET(HEADERS_NEED_IO
   ElemGraphMultipleSharedSidesUtils.hpp
   BulkDataTester.hpp
+  DeviceBucketTestUtils.hpp
   FaceCreationTestUtils.hpp
   FaceTestingUtils.hpp
   GeneratedMeshToFile.hpp
+  MeshFixture.hpp
+  MockSearchMesh.hpp
   ReadWriteSidesetTester.hpp
   StkMeshFromGeneratedMesh.hpp
   TextMeshAdjacencyGraph.hpp
@@ -30,11 +33,14 @@ SET(HEADERS_NEED_IO
   TextMeshUtils.hpp
   TextMesh.hpp
   ioUtils.hpp
+  meshCreationHelpers.hpp
   exampleMeshes.h
   )
+
 SET(SOURCES_NEED_IO
   BulkDataTester.cpp
   ConstructedMesh.cpp
+  DeviceBucketTestUtils.cpp
   FaceTestingUtils.cpp
   GenerateALefRAMesh.cpp
   GeneratedMeshToFile.cpp
@@ -46,11 +52,26 @@ SET(SOURCES_NEED_IO
   meshCreationHelpers.cpp
   )
 
+SET(HEADERS_NEED_SEARCHUTIL_AND_IO
+  UnitTestSearchUtils.hpp
+  )
+
+SET(SOURCES_NEED_SEARCHUTIL_AND_IO
+  UnitTestSearchUtils.cpp
+  )
+
+SET(HEADERS_NEED_TRANSFERUTIL
+  UnitTestTransferUtils.hpp
+  )
+SET(SOURCES_NEED_TRANSFERUTIL
+  UnitTestTransferUtils.cpp
+  )
+  
 SET(HEADERS_NEED_MESH_BUT_NOT_IO
   BuildMesh.hpp
   BucketTester.hpp
+  DebugWriter.hpp
   FieldEvaluator.hpp
-  MeshFixture.hpp
   MeshFileFixture.hpp
   MeshUtilsForBoundingVolumes.hpp
   ParticleUtils.hpp
@@ -79,11 +100,14 @@ SET(HEADERS
   AssemblyUtils.hpp
   CommandLineArgs.hpp
   getOption.h
+  ObjectLifetimeSpy.hpp
   StkReportRedirector.hpp
   stringAndNumberComparisons.hpp
+  timer.hpp
   )
 SET(SOURCES
   AssemblyUtils.cpp
+  ObjectLifetimeSpy.cpp
   StkReportRedirector.cpp
   stringAndNumberComparisons.cpp
   )
@@ -97,6 +121,16 @@ ENDIF()
 IF(${PROJECT_NAME}_ENABLE_STKMesh)
   LIST(APPEND SOURCES ${SOURCES_NEED_MESH_BUT_NOT_IO})
   LIST(APPEND HEADERS ${HEADERS_NEED_MESH_BUT_NOT_IO})
+ENDIF()
+
+IF(${PROJECT_NAME}_ENABLE_STKSearchUtil AND ${PROJECT_NAME}_ENABLE_STKIO)
+  LIST(APPEND SOURCES ${SOURCES_NEED_SEARCHUTIL_AND_IO})
+  LIST(APPEND HEADERS ${HEADERS_NEED_SEARCHUTIL_AND_IO})
+ENDIF()
+
+IF(${PROJECT_NAME}_ENABLE_STKTransferUtil)
+  LIST(APPEND SOURCES ${SOURCES_NEED_TRANSFERUTIL})
+  LIST(APPEND HEADERS ${HEADERS_NEED_TRANSFERUTIL})
 ENDIF()
 
 IF(${PROJECT_NAME}_ENABLE_STKIO)
@@ -136,6 +170,14 @@ else()
     target_link_libraries(stk_unit_test_utils PUBLIC stk_ngp_test)
   endif()
 
+  if(STK_ENABLE_STKSearchUtil)
+    target_link_libraries(stk_unit_test_utils PUBLIC stk_search_util)
+  endif()
+
+  if(STK_ENABLE_STKTransferUtil)
+    target_link_libraries(stk_unit_test_utils PUBLIC stk_transfer_util)
+  endif()
+  
   target_link_libraries(stk_unit_test_utils PUBLIC stk_util_parallel)
 
   find_package(GTest REQUIRED)
@@ -163,7 +205,7 @@ if (NOT DEFINED STK_ENABLE_UnitMain)
 endif()
 
 if (STK_ENABLE_UnitMain)
-  FILE(GLOB UNIT_MAIN_SOURCES unit_main_lib/*.cpp)
+  FILE(GLOB UNIT_MAIN_SOURCES CONFIGURE_DEPENDS unit_main_lib/*.cpp)
 
   if(HAVE_STK_Trilinos)
     TRIBITS_ADD_LIBRARY(stk_unit_main

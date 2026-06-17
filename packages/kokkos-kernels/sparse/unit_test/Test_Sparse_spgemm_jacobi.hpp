@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <gtest/gtest.h>
 #include <Kokkos_Core.hpp>
@@ -80,8 +67,9 @@ int run_spgemm_jacobi(crsMat_t input_mat, crsMat_t input_mat2, scalar_type omega
   lno_nnz_view_t entriesC;
   scalar_view_t valuesC;
 
-  spgemm_symbolic(&kh, num_rows_1, num_rows_2, num_cols_2, input_mat.graph.row_map, input_mat.graph.entries, false,
-                  input_mat2.graph.row_map, input_mat2.graph.entries, false, row_mapC);
+  KokkosSparse::spgemm_symbolic(&kh, num_rows_1, num_rows_2, num_cols_2, input_mat.graph.row_map,
+                                input_mat.graph.entries, false, input_mat2.graph.row_map, input_mat2.graph.entries,
+                                false, row_mapC);
 
   size_t c_nnz_size = kh.get_spgemm_handle()->get_c_nnz();
   if (c_nnz_size) {
@@ -153,7 +141,7 @@ bool is_same_mat(crsMat_t output_mat1, crsMat_t output_mat2) {
     return false;
   }
 
-  typedef typename Kokkos::ArithTraits<typename scalar_view_t::non_const_value_type>::mag_type eps_type;
+  typedef typename KokkosKernels::ArithTraits<typename scalar_view_t::non_const_value_type>::mag_type eps_type;
   eps_type eps = std::is_same<eps_type, float>::value ? 2 * 1e-3 : 1e-7;
 
   is_identical = KokkosKernels::Impl::kk_is_relatively_identical_view<scalar_view_t, scalar_view_t, eps_type,

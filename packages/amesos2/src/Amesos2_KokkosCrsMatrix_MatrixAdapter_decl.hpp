@@ -121,11 +121,18 @@ namespace Amesos2 {
 
     template<typename KV_S, typename KV_GO, typename KV_GS, typename host_ordinal_type_array, typename host_scalar_type_array>
     LocalOrdinal gather_impl(KV_S& nzvals, KV_GO& indices, KV_GS& pointers,
+                             host_ordinal_type_array &perm_g2l,
+                             host_ordinal_type_array &recvCountRows, host_ordinal_type_array &recvDisplRows,
                              host_ordinal_type_array &recvCounts, host_ordinal_type_array &recvDispls,
                              host_ordinal_type_array &transpose_map, host_scalar_type_array &nzvals_t,
                              bool column_major, EPhase current_phase) const;
-  };
 
+    //! Print a description of this adapter to the given output stream
+    void
+    describe (Teuchos::FancyOStream& os,
+              const Teuchos::EVerbosityLevel verbLevel =
+              Teuchos::Describable::verbLevel_default) const;
+  };
 } // end namespace Amesos2
 
 #endif  // AMESOS2_KOKKOSCRSMATRIX_MATRIXADAPTER_DECL_HPP

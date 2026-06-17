@@ -245,30 +245,15 @@ parallel_comm()
 }
 
 MPI_Comm
-parallel_intercomm()
-{
-  return stk::EnvData::instance().m_interComm;
-}
-
-MPI_Comm
 parallel_world_comm()
 {
   return stk::EnvData::instance().m_worldComm;
 }
 
-int peer_group() 
+MPI_Comm
+parallel_intercomm()
 {
-  return stk::EnvData::instance().m_execMap[EXEC_TYPE_PEER].m_rootProcessor;
-}
-
-bool
-is_comm_valid()
-{
-  stk::EnvData &env_data = stk::EnvData::instance();
-  if (env_data.m_parallelComm == MPI_COMM_NULL) {
-    return false;
-  }
-  return true;
+  return stk::EnvData::instance().m_interComm;
 }
 
 void
@@ -362,7 +347,7 @@ get_param(
 void
 set_param(
   const char *          option,
-  const std::string &   value) {
+  const std::string &   /*value*/) {
 
   int argc = 1;
   const char *s = std::strcpy(new char[std::strlen(option) + 1], option);

@@ -79,13 +79,15 @@ public:
   using numeric_tools_levelset_var2_type = NumericToolsLevelSet<value_type, device_type, 2>;
 
 private:
-  enum : int { Cholesky = 1, LDL = 2, SymLU = 3, LU = 4 };
+  enum : int { LDL_nopiv = 0, Cholesky = 1, LDL = 2, SymLU = 3, LU = 4 };
 
   // ** solver mode
+  ordinal_type _method_setup;
   ordinal_type _method;
 
   // ** ordering options
-  ordinal_type _order_connected_graph_separately;
+  bool _order_connected_graph_separately;
+  int _graph_algo_type;
 
   // ** problem
   ordinal_type _m;
@@ -149,24 +151,37 @@ private:
   ordinal_type _verbose;             // print
   ordinal_type _small_problem_thres; // smaller than this, use lapack
 
+#ifdef TACHO_DEPRECATED_PARAMETERS
   // // ** tasking options
   ordinal_type _serial_thres_size; // serialization threshold size
   ordinal_type _mb;                // block size for byblocks algorithms
   ordinal_type _nb;                // panel size for panel algorithms
   ordinal_type _front_update_mode; // front update mode 0 - lock, 1 - atomic
+#endif
 
   // ** levelset options
+#ifdef TACHO_DEPRECATED_PARAMETERS
   bool _levelset;                    // use level set code instead of tasking
+#endif
   ordinal_type _device_level_cut;    // above this level, matrices are computed on device
   ordinal_type _device_factor_thres; // bigger than this threshold, device function is used
   ordinal_type _device_solve_thres;  // bigger than this threshold, device function is used
   ordinal_type _variant;             // algorithmic variant in levelset 0: naive, 1: invert diagonals
   ordinal_type _nstreams;            // on cuda, multi streams are used
+  bool _team_on_user_stream;         // run team/batched kernel on user steram-0
 
+  int _shift_diag;                   // shift diagonal with small perturbation
+  mag_type _shift;
+  value_type_array _dv;
+
+  int _replace_tiny_pivot;           // replace tiny pivot
   mag_type _pivot_tol;               // tolerance for tiny pivot perturbation
+  bool _store_transpose;             // store transpose explicitly
 
+#ifdef TACHO_DEPRECATED_PARAMETERS
   // parallelism and memory constraint is made via this parameter
   ordinal_type _max_num_superblocks; // # of superblocks in the memoyrpool
+#endif
 
 public:
   Driver();
@@ -185,12 +200,14 @@ public:
   void setSmallProblemThresholdsize(const ordinal_type small_problem_thres = 1024);
   void setMatrixType(const int symmetric, // 0 - unsymmetric, 1 - structure sym, 2 - symmetric
                      const bool is_positive_definite);
-  void setSolutionMethod(const int method); /// 1 - cholesky, 2 - LDL, 3 - LU
+  void setSolutionMethod(const int method);      /// 1 - cholesky, 2 - LDL, 3 - LU
+  void setFactorizationMethod(const int method); /// 1 - cholesky, 2 - LDL, 3 - LU
 
   ///
   /// Graph options
   ///
-  void setOrderConnectedGraphSeparately(const ordinal_type order_connected_graph_separately = 1);
+  void setOrderConnectedGraphSeparately(const bool order_connected_graph_separately = true);
+  void setGraphAlgorithmType(const int graph_algo_type);
 
   ///
   /// tasking options
@@ -208,12 +225,15 @@ public:
   void setLevelSetOptionDeviceLevelCut(const ordinal_type device_level_cut);
   void setLevelSetOptionDeviceFunctionThreshold(const ordinal_type device_factor_thres,
                                                 const ordinal_type device_solve_thres);
-  void setLevelSetOptionNumStreams(const ordinal_type nstreams);
+  void setLevelSetOptionNumStreams(const ordinal_type nstreams, const bool team_on_user_stream = false);
   void setLevelSetOptionAlgorithmVariant(const ordinal_type variant);
 
+  void shiftDiagonal(const int option = 1);
+  mag_type currentShift() { return _shift; }
   void setPivotTolerance(const mag_type pivot_tol);
   void useNoPivotTolerance();
-  void useDefaultPivotTolerance();
+  void useDefaultPivotTolerance(const int option = 1);
+  void storeExplicitTranspose(bool flag);
 
   ///
   /// get interface
@@ -430,16 +450,19 @@ public:
   int initialize();
 
   int factorize(const value_type_array &ax);
-  int factorize_small_host(const value_type_array &ax);
+  int factorize(const value_type_array &ax, ordinal_type method);
+  int factorize_small_host(const value_type_array &ax, const mag_type shift);
 
   int solve(const value_type_matrix &x, const value_type_matrix &b, const value_type_matrix &t);
   int solve_small_host(const value_type_matrix &x, const value_type_matrix &b, const value_type_matrix &t);
 
-  double computeRelativeResidual(const value_type_array &ax, const value_type_matrix &x, const value_type_matrix &b);
+  double computeRelativeResidual(const value_type_array &ax, const value_type_matrix &x, const value_type_matrix &b, const mag_type shift = 0.0);
   void   computeSpMV(const value_type_array &ax, const value_type_matrix &x, value_type_matrix &b);
 
   int exportFactorsToCrsMatrix(crs_matrix_type &A);
   int release();
+
+  void printParameters();
 };
 
 } // namespace Tacho

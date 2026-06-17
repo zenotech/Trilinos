@@ -1,5 +1,5 @@
 /*
- * Copyright(C) 1999-2024 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2025 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
  *
@@ -212,15 +212,29 @@ int F2C(exopen, EXOPEN)(char *path, int *mode, int *cpu_word_size, int *io_word_
   }
   (void)ex_nstrncpy(name, path, pathlen);
 
-  int idexo;
-  if ((idexo = ex_open(name, *mode, cpu_word_size, io_word_size, version)) != EX_FATAL) {
-    free(name);
-    *ierr = 0;
-    return (idexo);
-  }
+  int idexo = ex_open(name, *mode, cpu_word_size, io_word_size, version);
   free(name);
-  *ierr = EX_FATAL;
-  return (EX_FATAL);
+
+  /*
+   * See if file contains change sets.  If it does, then offset `idexo` to point to the first change
+   * set.
+   */
+
+  if (idexo != EX_FATAL) {
+    int num_change_sets = ex_inquire_int(idexo, EX_INQ_NUM_CHILD_GROUPS);
+    if (num_change_sets >= 1) {
+      fprintf(stderr,
+              " *** WARNING: Input database contains %d change sets.  Unless otherwise specified, "
+              "reading from first change set.\n",
+              num_change_sets);
+      idexo++;
+    }
+    *ierr = 0;
+  }
+  else {
+    *ierr = EX_FATAL;
+  }
+  return idexo;
 }
 
 /*!
@@ -2426,7 +2440,14 @@ void F2C(exgatm, EXGATM)(int *idexo, real *time_values, int *ierr)
 void F2C(exinq, EXINQ)(int *idexo, int *req_info, void_int *ret_int, float *ret_float,
                        char *ret_char, int *ierr, int ret_charlen)
 {
-  *ierr = ex_inquire(*idexo, (ex_inquiry)*req_info, ret_int, ret_float, ret_char);
+  if (ex_int64_status(*idexo) & EX_INQ_INT64_API) {
+    *((int64_t *)ret_int) = 0;
+  }
+  else {
+    *((int *)ret_int) = 0;
+  }
+  *ret_float = 0.0f;
+  *ierr      = ex_inquire(*idexo, (ex_inquiry)*req_info, ret_int, ret_float, ret_char);
   EX_UNUSED(ret_charlen);
 }
 

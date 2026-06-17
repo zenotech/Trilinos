@@ -58,18 +58,19 @@ void testTemperatureFieldSetCorrectly(const stk::mesh::Field<double> &temperatur
 {
   const stk::mesh::BulkData &stkMeshBulkData = temperatureField.get_mesh();
 
+  auto temperatureFieldData = temperatureField.data();
   stk::mesh::for_each_entity_run(stkMeshBulkData, stk::topology::NODE_RANK, boundaryNodesSelector,
-    [&](const stk::mesh::BulkData& bulk, stk::mesh::Entity node) {
-      const double *temperature = stk::mesh::field_data(temperatureField, node);
-      EXPECT_EQ(prescribedTemperatureValue, *temperature);
+    [&](const stk::mesh::BulkData& /*bulk*/, stk::mesh::Entity node) {
+      auto temperatureValues = temperatureFieldData.entity_values(node);
+      EXPECT_EQ(prescribedTemperatureValue, temperatureValues());
     });
 
   stk::mesh::Selector nonBoundaryNodes = !boundaryNodesSelector;
 
   stk::mesh::for_each_entity_run(stkMeshBulkData, stk::topology::NODE_RANK, nonBoundaryNodes,
-    [&](const stk::mesh::BulkData& bulk, stk::mesh::Entity node) {
-      const double *temperature = stk::mesh::field_data(temperatureField, node);
-      EXPECT_EQ(0.0, *temperature);
+    [&](const stk::mesh::BulkData& /*bulk*/, stk::mesh::Entity node) {
+      auto temperatureValues = temperatureFieldData.entity_values(node);
+      EXPECT_EQ(0.0, temperatureValues());
     });
 }
 }

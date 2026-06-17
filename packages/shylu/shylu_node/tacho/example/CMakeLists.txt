@@ -24,6 +24,7 @@ TRIBITS_ADD_EXECUTABLE(
   NOEXESUFFIX
   NOEXEPREFIX
   SOURCES Tacho_ExampleDriver_double.cpp
+  CATEGORIES BASIC PERFORMANCE
   COMM serial mpi
 )
 TRIBITS_ADD_EXECUTABLE(
@@ -78,5 +79,49 @@ TRIBITS_COPY_FILES_TO_BINARY_DIR(Tacho_SimpleSparseTest_File
         SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}
         DEST_DIR ${CMAKE_CURRENT_BINARY_DIR}
         NOEXEPREFIX
+        CATEGORIES BASIC PERFORMANCE
 )
 
+
+#
+# Performance Test
+#
+TRIBITS_ADD_TEST(
+  Tacho_ExampleDriverDouble.x
+  ARGS "--niters=100 --nfacts=1 --nsolves=5 --default --method=chol --variant=2"
+  NAME "Tacho_ExampleDriverDouble_Chol_v2"
+  NOEXESUFFIX
+  NOEXEPREFIX
+  NUM_MPI_PROCS 1
+  CATEGORIES BASIC PERFORMANCE
+)
+
+TRIBITS_ADD_TEST(
+  Tacho_ExampleDriverDouble.x
+  ARGS "--niters=100 --nfacts=1 --nsolves=5 --default --method=chol --variant=3"
+  NAME "Tacho_ExampleDriverDouble_Chol_v3"
+  NOEXESUFFIX
+  NOEXEPREFIX
+  NUM_MPI_PROCS 1
+  CATEGORIES BASIC PERFORMANCE
+)
+
+TRIBITS_ADD_TEST(
+  Tacho_ExampleDriverDouble.x
+  ARGS "--niters=100 --nfacts=1 --nsolves=5 --default --method=lu --variant=2"
+  NAME "Tacho_ExampleDriverDouble_LU_v2"
+  NOEXESUFFIX
+  NOEXEPREFIX
+  NUM_MPI_PROCS 1
+  CATEGORIES BASIC PERFORMANCE
+)
+
+TRIBITS_ADD_TEST(
+  Tacho_ExampleDriverDouble.x
+  ARGS "--niters=100 --nfacts=1 --nsolves=5 --default --method=lu --variant=3"
+  NAME "Tacho_ExampleDriverDouble_LU_v3"
+  NOEXESUFFIX
+  NOEXEPREFIX
+  NUM_MPI_PROCS 1
+  CATEGORIES BASIC PERFORMANCE
+)

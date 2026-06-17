@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOSBLAS_HOST_TPL_HPP_
 #define KOKKOSBLAS_HOST_TPL_HPP_
@@ -22,7 +9,7 @@
 /// \author Kyungjoo Kim (kyukim@sandia.gov)
 
 #include "KokkosKernels_config.h"
-#include "Kokkos_ArithTraits.hpp"
+#include "KokkosKernels_ArithTraits.hpp"
 
 #if defined(KOKKOSKERNELS_ENABLE_TPL_BLAS)
 #if defined(KOKKOSKERNELS_ENABLE_TPL_MKL)
@@ -40,7 +27,7 @@ using KK_INT = int;
 
 template <typename T>
 struct HostBlas {
-  typedef Kokkos::ArithTraits<T> ats;
+  typedef KokkosKernels::ArithTraits<T> ats;
   typedef typename ats::mag_type mag_type;
 
   static void scal(KK_INT n, const T alpha,
@@ -57,7 +44,7 @@ struct HostBlas {
   static void axpy(KK_INT n, const T alpha, const T *x, KK_INT x_inc,
                    /* */ T *y, KK_INT y_inc);
 
-  static void rot(KK_INT const N, T *X, KK_INT const incx, T *Y, KK_INT const incy, mag_type *c, mag_type *s);
+  static void rot(KK_INT const N, T *X, KK_INT const incx, T *Y, KK_INT const incy, mag_type *c, T *s);
 
   static void rotg(T *a, T *b, mag_type *c, T *s);
 

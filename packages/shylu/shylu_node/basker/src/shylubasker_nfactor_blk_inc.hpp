@@ -16,10 +16,8 @@
 #include "shylubasker_types.hpp"
 #include "shylubasker_stats.hpp"
 
-#ifdef BASKER_KOKKOS
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Timer.hpp>
-#endif 
 
 namespace BaskerNS
 {
@@ -27,11 +25,9 @@ namespace BaskerNS
   template <class Int, class Entry, class Exe_Space>
   struct kokkos_nfactor_domain_inc_lvl
   {
-    #ifdef BASKER_KOKKOS
     typedef Exe_Space                        execution_space;
     typedef Kokkos::TeamPolicy<Exe_Space>    TeamPolicy;
     typedef typename TeamPolicy::member_type TeamMember;
-    #endif
 
     Basker<Int,Entry,Exe_Space> *basker;
 
@@ -42,19 +38,9 @@ namespace BaskerNS
     { basker = _basker;}
 
     BASKER_INLINE
-    #ifdef BASKER_KOKKOS
     void operator()(const TeamMember &thread) const
-    #else
-    void operator()(Int kid) const
-    #endif
     {
-      #ifdef BASKER_KOKKOS
-      //Int kid = (Int)(thread.league_rank()*thread.team_size()+
-      //	      thread.team_rank());
       Int kid = basker->t_get_kid(thread);
-      #endif
-
-
       #ifdef BASKER_DEBUG_NFACTOR_BLK
       printf("\n-----------BLK---Kid: %d -------------\n",
 	     kid);
@@ -71,11 +57,9 @@ namespace BaskerNS
   template <class Int, class Entry, class Exe_Space>
   struct kokkos_nfactor_domain_remalloc_inc_lvl
   {
-    #ifdef BASKER_KOKKOS
     typedef Exe_Space                        execution_space;
     typedef Kokkos::TeamPolicy<Exe_Space>    TeamPolicy;
     typedef typename TeamPolicy::member_type TeamMember;
-    #endif
 
     Basker<Int,Entry,Exe_Space> *basker;
     INT_1DARRAY                 thread_start;
@@ -94,19 +78,9 @@ namespace BaskerNS
     }
 
     BASKER_INLINE
-    #ifdef BASKER_KOKKOS
     void operator()(const TeamMember &thread) const
-    #else
-    void operator()(Int kid) const
-    #endif
     {
-      #ifdef BASKER_KOKKOS
-      //Int kid = (Int)(thread.league_rank()*thread.team_size()+
-      //	      thread.team_rank());
       Int kid = basker->t_get_kid(thread);
-      #endif
-
-
       if(thread_start(kid) != BASKER_MAX_IDX)
 	{
 
@@ -376,14 +350,14 @@ namespace BaskerNS
     if((maxindex == BASKER_MAX_IDX) || (pivot == (Entry)(0)) )
             {
 	      if(Options.verbose == BASKER_TRUE)
-		{
-	      cout << endl << endl;
-	      cout << "---------------------------"<<endl;
-              cout << "Error: Matrix is singular, blk" << endl;
-              cout << "MaxIndex: " << maxindex << " pivot " 
-                   << pivot << endl;
-              cout << "lcnt: " << lcnt << endl;
-		}
+              {
+                std::cout << std::endl << std::endl;
+	        std::cout << "---------------------------"<< std::endl;
+                std::cout << "Error: Matrix is singular, blk" << std::endl;
+                std::cout << "MaxIndex: " << maxindex << " pivot " 
+                          << pivot << std::endl;
+                std::cout << "lcnt: " << lcnt << std::endl;
+              }
 	      thread_array(kid).error_type =
 		BASKER_ERROR_SINGULAR;
 	      thread_array(kid).error_blk  = b;
@@ -801,7 +775,7 @@ namespace BaskerNS
 		      {
 		
 			INC_LVL_TEMP(i+brow) =
-			  min(inc_lvl+L.inc_lvl(i1)+1,
+			  std::min(inc_lvl+L.inc_lvl(i1)+1,
 			      INC_LVL_TEMP(i+brow));
 		
 		      
@@ -851,7 +825,7 @@ namespace BaskerNS
 		    else
 		      {
 			INC_LVL_TEMP(i+brow) =
-			  min(inc_lvl+L.inc_lvl(i1)+1,
+			  std::min(inc_lvl+L.inc_lvl(i1)+1,
 			      INC_LVL_TEMP(i+brow));
 			//printf("kid: %d settwo: %d \n",
 			       //kid, INC_LVL_TEMP(i+brow));
@@ -879,7 +853,7 @@ namespace BaskerNS
 	    else
 	      {
 		INC_LVL_TEMP(j+brow) =
-		  min(inc_lvl, INC_LVL_TEMP(j+brow));
+		  std::min(inc_lvl, INC_LVL_TEMP(j+brow));
 		//printf("kid: %d j: %d set four: %d \n",
 		//   kid, j+brow, INC_LVL_TEMP(j+brow));
 	      }
@@ -1317,7 +1291,7 @@ namespace BaskerNS
 	    else
 	      {
 		INC_LVL_TEMP(j+brow) =
-		  min(inc_lvl, INC_LVL_TEMP(j+brow));
+		  std::min(inc_lvl, INC_LVL_TEMP(j+brow));
 	      }
 	    
 	    #ifdef BASKER_DEBUG_NFACTOR_BLK_INC
@@ -1996,7 +1970,7 @@ namespace BaskerNS
 	      }
 	    else
 	      {
-		stack[jj] = min(temp_cal, stack[jj]);
+		stack[jj] = std::min(temp_cal, stack[jj]);
 	      }
 
 
@@ -2359,17 +2333,17 @@ namespace BaskerNS
             {
 
 	      if(Options.verbose == BASKER_TRUE)
-		{
-	      cout << endl << endl;
-	      cout << "---------------------------"
-		   <<endl;
+              {
+	        std::cout << std::endl << std::endl;
+	        std::cout << "---------------------------"
+		          << std::endl;
 	     
-              cout << "Error: Matrix is singular, blk" 
-		   << endl;
-              cout << "MaxIndex: " 
-		   << maxindex << " pivot " 
-                   << pivot << endl;
-		}
+                std::cout << "Error: Matrix is singular, blk" 
+		          << std::endl;
+                std::cout << "MaxIndex: " 
+		          << maxindex << " pivot " 
+                          << pivot << std::endl;
+              }
               return 2;
             }          
 
@@ -3124,7 +3098,7 @@ namespace BaskerNS
 	       
 	    if(stack[jj] != BASKER_MAX_IDX)
 	      {
-	    stack[jj] = min(stack[jj], temp);
+	    stack[jj] = std::min(stack[jj], temp);
 	      }
 	    else
 	      {
@@ -3245,7 +3219,7 @@ namespace BaskerNS
       {
 	printf("no enough memory in dense \n");
 //	printf("kid: %ld llnnz: %ld lnnz: %ld \n",kid, llnnz, lnnz);
-  std::cout << "kid: " << kid
+        std::cout << "kid: " << kid
             << " llnz: " << llnnz
             << " lnz: " << lnnz << std::endl;
 
@@ -3407,7 +3381,7 @@ namespace BaskerNS
 	      }
 	    else
 	      {
-		stack[jj] = min(temp_cal, stack[jj]);
+		stack[jj] = std::min(temp_cal, stack[jj]);
 	      }
 
 
@@ -3535,7 +3509,7 @@ namespace BaskerNS
 	      }
 	    else
 	      {
-		stack[jj] = min(nflvl, stack[jj]);
+		stack[jj] = std::min(nflvl, stack[jj]);
 	      }
 
             //if((kid==2)||(kid==3))
@@ -3687,7 +3661,7 @@ namespace BaskerNS
 	      }
 	    else
 	      {
-		stack[jj] = min(nflvl, stack[jj]);
+		stack[jj] = std::min(nflvl, stack[jj]);
 	      }
 	    
 	    /*
@@ -3891,7 +3865,7 @@ namespace BaskerNS
                     //	   stack[jj], stackL[jj], kid);
 		    
                     // }
-		    stackL[jj] = min(stackL[jj], stack[jj]);
+		    stackL[jj] = std::min(stackL[jj], stack[jj]);
 		    stack[jj]  = stackL[jj];
 		    
 		  }//if stack(j) != BASKER_MAX_IDX

@@ -17,9 +17,11 @@
 #include <map>
 
 #include "Sacado.hpp"
+#if !defined(KOKKOS_ENABLE_IMPL_VIEW_LEGACY)
 #include "Kokkos_View_Fad.hpp"
 #include "Kokkos_DynRankView_Fad.hpp"
 #include "Kokkos_DynRankView.hpp"
+#endif
 #include "KokkosSparse_CrsMatrix.hpp"
 #include "Kokkos_Random.hpp"
 
@@ -75,9 +77,9 @@ namespace phalanx_test {
     P = Kokkos::View<double**,PHX::Device>("P",num_cells,num_ip);
     T = Kokkos::View<double**,PHX::Device>("T",num_cells,num_ip);
 
-    Kokkos::View<double**,PHX::Device>::HostMirror host_rho = Kokkos::create_mirror_view(rho);
-    Kokkos::View<double**,PHX::Device>::HostMirror host_P = Kokkos::create_mirror_view(P);
-    Kokkos::View<double**,PHX::Device>::HostMirror host_T = Kokkos::create_mirror_view(T);
+    Kokkos::View<double**,PHX::Device>::host_mirror_type host_rho = Kokkos::create_mirror_view(rho);
+    Kokkos::View<double**,PHX::Device>::host_mirror_type host_P = Kokkos::create_mirror_view(P);
+    Kokkos::View<double**,PHX::Device>::host_mirror_type host_T = Kokkos::create_mirror_view(T);
 
     std::unordered_map<std::string,std::any> data_container;
     data_container["rho"] = rho;
@@ -85,7 +87,7 @@ namespace phalanx_test {
     Kokkos::View<double**,PHX::Device> rhoInAnotherEvaluator =
       std::any_cast<Kokkos::View<double**,PHX::Device> >(data_container["rho"]);
 
-    Kokkos::View<double**,PHX::Device>::HostMirror host_rhoInAnotherEvaluator = host_rho;
+    Kokkos::View<double**,PHX::Device>::host_mirror_type host_rhoInAnotherEvaluator = host_rho;
 
     for (int i=0; i< num_cells; i++){
        for (int j=0; j< num_ip; j++){
@@ -168,14 +170,14 @@ namespace phalanx_test {
     T = Kokkos::View<FadType**,PHX::Device>("T",num_cells,num_ip,deriv_dim);
     k = Kokkos::View<FadType*,PHX::Device>("k",1,deriv_dim);
 
-    Kokkos::View<FadType**,PHX::Device>::HostMirror host_rho;
-    Kokkos::View<FadType**,PHX::Device>::HostMirror host_P;
-    Kokkos::View<FadType**,PHX::Device>::HostMirror host_T;
-    Kokkos::View<FadType*,PHX::Device>::HostMirror host_k;
-    host_rho = Kokkos::View<FadType**,PHX::Device>::HostMirror("host_rho",num_cells,num_ip,deriv_dim);
-    host_P = Kokkos::View<FadType**,PHX::Device>::HostMirror("host_P",num_cells,num_ip,deriv_dim);
-    host_T = Kokkos::View<FadType**,PHX::Device>::HostMirror("host_T",num_cells,num_ip,deriv_dim);
-    host_k = Kokkos::View<FadType*,PHX::Device>::HostMirror("host_k",1,deriv_dim);
+    Kokkos::View<FadType**,PHX::Device>::host_mirror_type host_rho;
+    Kokkos::View<FadType**,PHX::Device>::host_mirror_type host_P;
+    Kokkos::View<FadType**,PHX::Device>::host_mirror_type host_T;
+    Kokkos::View<FadType*,PHX::Device>::host_mirror_type host_k;
+    host_rho = Kokkos::View<FadType**,PHX::Device>::host_mirror_type("host_rho",num_cells,num_ip,deriv_dim);
+    host_P = Kokkos::View<FadType**,PHX::Device>::host_mirror_type("host_P",num_cells,num_ip,deriv_dim);
+    host_T = Kokkos::View<FadType**,PHX::Device>::host_mirror_type("host_T",num_cells,num_ip,deriv_dim);
+    host_k = Kokkos::View<FadType*,PHX::Device>::host_mirror_type("host_k",1,deriv_dim);
 
     std::unordered_map<std::string,std::any> data_container;
     data_container["rho"] = rho;
@@ -183,7 +185,7 @@ namespace phalanx_test {
     Kokkos::View<FadType**,PHX::Device> rhoInAnotherEvaluator =
       std::any_cast<Kokkos::View<FadType**,PHX::Device> >(data_container["rho"]);
 
-    Kokkos::View<FadType**,PHX::Device>::HostMirror host_rhoInAnotherEvaluator = host_rho;
+    Kokkos::View<FadType**,PHX::Device>::host_mirror_type host_rhoInAnotherEvaluator = host_rho;
 
     for (int i=0; i< num_cells; i++){
        for (int j=0; j< num_ip; j++){
@@ -393,7 +395,7 @@ namespace phalanx_test {
     Kokkos::parallel_for(num_cells,ComputeRho<double,execution_space>(rho,P,T,k));
     typename PHX::Device().fence();
 
-    Kokkos::View<double**,PHX::Device>::HostMirror host_rho = Kokkos::create_mirror_view(rho);
+    Kokkos::View<double**,PHX::Device>::host_mirror_type host_rho = Kokkos::create_mirror_view(rho);
     Kokkos::deep_copy(host_rho,rho);
     typename PHX::Device().fence();
 
@@ -581,6 +583,7 @@ namespace phalanx_test {
 	  TEST_FLOATING_EQUALITY(host_f(i).fastAccessDx(0),3.0,tol);
 	}
 
+#ifdef KOKKOS_ENABLE_IMPL_VIEW_LEGACY
 	Kokkos::parallel_for(num_cells,KOKKOS_LAMBDA (const int i) {
 	    f[i].val() = 3.0;
 	    f[i].fastAccessDx(0) = 4.0;
@@ -591,6 +594,7 @@ namespace phalanx_test {
 	  TEST_FLOATING_EQUALITY(host_f[i].val(),3.0,tol);
 	  TEST_FLOATING_EQUALITY(host_f[i].fastAccessDx(0),4.0,tol);
 	}
+#endif
       }
 
     }
@@ -611,11 +615,13 @@ namespace phalanx_test {
     KOKKOS_INLINE_FUNCTION
     void operator () (const int i) const
     {
-      a_[i].val() = static_cast<double>(i);
-      a_[i].fastAccessDx(0) = 1.;
-      b_[i].val() = 1.0;
-      b_[i].fastAccessDx(0) = 1.;
-      c_[i] = a_[i]*b_[i];
+      for (size_t j=0; j < a_.extent(1); ++j) {
+        a_(i,j).val() = static_cast<double>(i + j);
+        a_(i,j).fastAccessDx(0) = 1.;
+        b_(i,j).val() = 1.0;
+        b_(i,j).fastAccessDx(0) = 1.;
+        c_(i,j) = a_(i,j)*b_(i,j);
+      }
     }
   };
 
@@ -637,21 +643,24 @@ namespace phalanx_test {
       TEST_EQUALITY(b.rank(),2);
       TEST_EQUALITY(c.rank(),2);
 
-      Kokkos::parallel_for(a.size(), AssignFad<Kokkos::DynRankView<FadType,PHX::Device>>(a,b,c));
+      Kokkos::parallel_for(a.extent(0), AssignFad<Kokkos::DynRankView<FadType,PHX::Device>>(a,b,c));
       Kokkos::fence();
       auto host_c = Kokkos::create_mirror_view(c);
       Kokkos::deep_copy(host_c,c);
 
       TEST_EQUALITY(c.rank(),2);
       TEST_EQUALITY(Kokkos::dimension_scalar(c),2);
+#if !defined(SACADO_HAS_NEW_KOKKOS_VIEW_IMPL)
       TEST_EQUALITY(c.impl_map().dimension_scalar(),2);
+#endif
 
-      // verify for bracket access
       double tol = std::numeric_limits<double>::epsilon() * 100.0;
-      for (int i = 0; i < num_cells*num_ip; ++i) {
-      	out << "i=" << i << ",val=" << host_c[i].val() << ",fad=" << host_c[i].fastAccessDx(1) << std::endl;
-      	TEST_FLOATING_EQUALITY(host_c[i].val(),static_cast<double>(i),tol);
-      	TEST_FLOATING_EQUALITY(host_c[i].fastAccessDx(0),static_cast<double>(i+1),tol);
+      for (int i = 0; i < num_cells; ++i) {
+        for (int j = 0; j < num_ip; ++j) {
+          out << "(" << i << "," << j << ") val=" << host_c(i, j).val() << ",fad=" << host_c(i,j).fastAccessDx(1) << std::endl;
+          TEST_FLOATING_EQUALITY(host_c(i,j).val(),static_cast<double>(i+j),tol);
+          TEST_FLOATING_EQUALITY(host_c(i,j).fastAccessDx(0),static_cast<double>(i+j+1),tol);
+        }
       }
     }
   }

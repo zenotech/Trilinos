@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <cstdlib>
 #include <iostream>
@@ -66,26 +53,31 @@ void run_gauss_seidel(Handle &kh, crsMat_t input_mat, vec_t x_vector, vec_t y_ve
   const size_t num_cols = input_mat.numCols();
   const int apply_count = 2;
 
-  gauss_seidel_symbolic(&kh, num_rows, num_cols, input_mat.graph.row_map, input_mat.graph.entries, is_symmetric_graph);
-  gauss_seidel_numeric(&kh, num_rows, num_cols, input_mat.graph.row_map, input_mat.graph.entries, input_mat.values,
-                       is_symmetric_graph);
+  KokkosSparse::gauss_seidel_symbolic(&kh, num_rows, num_cols, input_mat.graph.row_map, input_mat.graph.entries,
+                                      is_symmetric_graph);
+  KokkosSparse::gauss_seidel_numeric(&kh, num_rows, num_cols, input_mat.graph.row_map, input_mat.graph.entries,
+                                     input_mat.values, is_symmetric_graph);
 
   switch (apply_type) {
     case 0:
-      symmetric_gauss_seidel_apply(&kh, num_rows, num_cols, input_mat.graph.row_map, input_mat.graph.entries,
-                                   input_mat.values, x_vector, y_vector, false, true, omega, apply_count);
+      KokkosSparse::symmetric_gauss_seidel_apply(&kh, num_rows, num_cols, input_mat.graph.row_map,
+                                                 input_mat.graph.entries, input_mat.values, x_vector, y_vector, false,
+                                                 true, omega, apply_count);
       break;
     case 1:
-      forward_sweep_gauss_seidel_apply(&kh, num_rows, num_cols, input_mat.graph.row_map, input_mat.graph.entries,
-                                       input_mat.values, x_vector, y_vector, false, true, omega, apply_count);
+      KokkosSparse::forward_sweep_gauss_seidel_apply(&kh, num_rows, num_cols, input_mat.graph.row_map,
+                                                     input_mat.graph.entries, input_mat.values, x_vector, y_vector,
+                                                     false, true, omega, apply_count);
       break;
     case 2:
-      backward_sweep_gauss_seidel_apply(&kh, num_rows, num_cols, input_mat.graph.row_map, input_mat.graph.entries,
-                                        input_mat.values, x_vector, y_vector, false, true, omega, apply_count);
+      KokkosSparse::backward_sweep_gauss_seidel_apply(&kh, num_rows, num_cols, input_mat.graph.row_map,
+                                                      input_mat.graph.entries, input_mat.values, x_vector, y_vector,
+                                                      false, true, omega, apply_count);
       break;
     default:
-      symmetric_gauss_seidel_apply(&kh, num_rows, num_cols, input_mat.graph.row_map, input_mat.graph.entries,
-                                   input_mat.values, x_vector, y_vector, false, true, omega, apply_count);
+      KokkosSparse::symmetric_gauss_seidel_apply(&kh, num_rows, num_cols, input_mat.graph.row_map,
+                                                 input_mat.graph.entries, input_mat.values, x_vector, y_vector, false,
+                                                 true, omega, apply_count);
       break;
   }
 }
@@ -118,7 +110,7 @@ void run_gauss_seidel(crsMat_t input_mat, GSAlgorithm gs_algorithm, vec_t x_vect
     kh.set_gs_twostage(!classic, input_mat.numRows());
     if (classic) {
       // two-stage with SpTRSV supports only omega = one
-      omega = Kokkos::ArithTraits<scalar_t>::one();
+      omega = KokkosKernels::ArithTraits<scalar_t>::one();
     }
   } else {
     kh.create_gs_handle(GS_DEFAULT, coloringAlgo);
@@ -137,35 +129,35 @@ void run_gauss_seidel_streams(std::vector<ExecSpace> &instances, std::vector<Han
                               int apply_type,  // 0 for symmetric, 1 for forward, 2 for backward.
                               int nstreams = 1) {
   for (int i = 0; i < nstreams; i++) {
-    gauss_seidel_symbolic(instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(),
-                          input_mat[i].graph.row_map, input_mat[i].graph.entries, is_symmetric_graph);
-    gauss_seidel_numeric(instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(),
-                         input_mat[i].graph.row_map, input_mat[i].graph.entries, input_mat[i].values,
-                         is_symmetric_graph);
+    KokkosSparse::gauss_seidel_symbolic(instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(),
+                                        input_mat[i].graph.row_map, input_mat[i].graph.entries, is_symmetric_graph);
+    KokkosSparse::gauss_seidel_numeric(instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(),
+                                       input_mat[i].graph.row_map, input_mat[i].graph.entries, input_mat[i].values,
+                                       is_symmetric_graph);
   }
 
   const int apply_count = 2;
   for (int i = 0; i < nstreams; i++) {
     switch (apply_type) {
       case 0:
-        symmetric_gauss_seidel_apply(instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(),
-                                     input_mat[i].graph.row_map, input_mat[i].graph.entries, input_mat[i].values,
-                                     x_vector[i], y_vector[i], false, true, omega, apply_count);
+        KokkosSparse::symmetric_gauss_seidel_apply(
+            instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(), input_mat[i].graph.row_map,
+            input_mat[i].graph.entries, input_mat[i].values, x_vector[i], y_vector[i], false, true, omega, apply_count);
         break;
       case 1:
-        forward_sweep_gauss_seidel_apply(instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(),
-                                         input_mat[i].graph.row_map, input_mat[i].graph.entries, input_mat[i].values,
-                                         x_vector[i], y_vector[i], false, true, omega, apply_count);
+        KokkosSparse::forward_sweep_gauss_seidel_apply(
+            instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(), input_mat[i].graph.row_map,
+            input_mat[i].graph.entries, input_mat[i].values, x_vector[i], y_vector[i], false, true, omega, apply_count);
         break;
       case 2:
-        backward_sweep_gauss_seidel_apply(instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(),
-                                          input_mat[i].graph.row_map, input_mat[i].graph.entries, input_mat[i].values,
-                                          x_vector[i], y_vector[i], false, true, omega, apply_count);
+        KokkosSparse::backward_sweep_gauss_seidel_apply(
+            instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(), input_mat[i].graph.row_map,
+            input_mat[i].graph.entries, input_mat[i].values, x_vector[i], y_vector[i], false, true, omega, apply_count);
         break;
       default:
-        symmetric_gauss_seidel_apply(instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(),
-                                     input_mat[i].graph.row_map, input_mat[i].graph.entries, input_mat[i].values,
-                                     x_vector[i], y_vector[i], false, true, omega, apply_count);
+        KokkosSparse::symmetric_gauss_seidel_apply(
+            instances[i], &kh[i], input_mat[i].numRows(), input_mat[i].numCols(), input_mat[i].graph.row_map,
+            input_mat[i].graph.entries, input_mat[i].values, x_vector[i], y_vector[i], false, true, omega, apply_count);
         break;
     }
   }
@@ -177,7 +169,7 @@ void test_gauss_seidel_rank1(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
   using namespace Test;
   typedef typename KokkosSparse::CrsMatrix<scalar_t, lno_t, device, void, size_type> crsMat_t;
   typedef typename crsMat_t::values_type::non_const_type scalar_view_t;
-  typedef typename Kokkos::ArithTraits<scalar_t>::mag_type mag_t;
+  typedef typename KokkosKernels::ArithTraits<scalar_t>::mag_type mag_t;
   srand(245);
   lno_t numCols      = numRows;
   crsMat_t input_mat = KokkosSparse::Impl::kk_generate_diagonally_dominant_sparse_matrix<crsMat_t>(
@@ -197,8 +189,8 @@ void test_gauss_seidel_rank1(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
   // which is why we just test GS_DEFAULT.
   int apply_count = 3;  // test symmetric, forward, backward
   scalar_view_t x_vector(Kokkos::view_alloc(Kokkos::WithoutInitializing, "x vector"), nv);
-  const scalar_t one  = Kokkos::ArithTraits<scalar_t>::one();
-  const scalar_t zero = Kokkos::ArithTraits<scalar_t>::zero();
+  const scalar_t one  = KokkosKernels::ArithTraits<scalar_t>::one();
+  const scalar_t zero = KokkosKernels::ArithTraits<scalar_t>::zero();
   //*** Point-coloring version ****
   for (int apply_type = 0; apply_type < apply_count; ++apply_type) {
     Kokkos::Timer timer1;
@@ -253,7 +245,7 @@ void test_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
   typedef typename KokkosSparse::CrsMatrix<scalar_t, lno_t, device, void, size_type> crsMat_t;
   typedef Kokkos::View<scalar_t **, KokkosKernels::default_layout, device> scalar_view2d_t;
   typedef Kokkos::View<scalar_t **, KokkosKernels::default_layout, Kokkos::HostSpace> host_scalar_view2d_t;
-  typedef typename Kokkos::ArithTraits<scalar_t>::mag_type mag_t;
+  typedef typename KokkosKernels::ArithTraits<scalar_t>::mag_type mag_t;
 
   lno_t numCols      = numRows;
   crsMat_t input_mat = KokkosSparse::Impl::kk_generate_diagonally_dominant_sparse_matrix<crsMat_t>(
@@ -276,10 +268,10 @@ void test_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
     for (lno_t j = 0; j < nv; j++) {
       sum += solution_x(j, i) * solution_x(j, i);
     }
-    initial_norms[i] = Kokkos::ArithTraits<mag_t>::sqrt(Kokkos::ArithTraits<scalar_t>::abs(sum));
+    initial_norms[i] = KokkosKernels::ArithTraits<mag_t>::sqrt(KokkosKernels::ArithTraits<scalar_t>::abs(sum));
   }
   int apply_count     = 3;  // test symmetric, forward, backward
-  const scalar_t zero = Kokkos::ArithTraits<scalar_t>::zero();
+  const scalar_t zero = KokkosKernels::ArithTraits<scalar_t>::zero();
   //*** Point-coloring version ****
   for (int apply_type = 0; apply_type < apply_count; ++apply_type) {
     Kokkos::Timer timer1;
@@ -293,7 +285,7 @@ void test_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
         scalar_t diff = x_host(j, i) - solution_x(j, i);
         diffDot += diff * diff;
       }
-      mag_t res = Kokkos::ArithTraits<mag_t>::sqrt(Kokkos::ArithTraits<scalar_t>::abs(diffDot));
+      mag_t res = KokkosKernels::ArithTraits<mag_t>::sqrt(KokkosKernels::ArithTraits<scalar_t>::abs(diffDot));
       EXPECT_LT(res, initial_norms[i]);
     }
   }
@@ -314,7 +306,7 @@ void test_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
             scalar_t diff = x_host(j, i) - solution_x(j, i);
             diffDot += diff * diff;
           }
-          mag_t res = Kokkos::ArithTraits<mag_t>::sqrt(Kokkos::ArithTraits<scalar_t>::abs(diffDot));
+          mag_t res = KokkosKernels::ArithTraits<mag_t>::sqrt(KokkosKernels::ArithTraits<scalar_t>::abs(diffDot));
           EXPECT_LT(res, initial_norms[i]);
         }
       }
@@ -332,7 +324,7 @@ void test_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
         scalar_t diff = x_host(j, i) - solution_x(j, i);
         diffDot += diff * diff;
       }
-      mag_t res = Kokkos::ArithTraits<mag_t>::sqrt(Kokkos::ArithTraits<scalar_t>::abs(diffDot));
+      mag_t res = KokkosKernels::ArithTraits<mag_t>::sqrt(KokkosKernels::ArithTraits<scalar_t>::abs(diffDot));
       EXPECT_LT(res, initial_norms[i]);
     }
   }
@@ -348,7 +340,7 @@ void test_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
         scalar_t diff = x_host(j, i) - solution_x(j, i);
         diffDot += diff * diff;
       }
-      mag_t res = Kokkos::ArithTraits<mag_t>::sqrt(Kokkos::ArithTraits<scalar_t>::abs(diffDot));
+      mag_t res = KokkosKernels::ArithTraits<mag_t>::sqrt(KokkosKernels::ArithTraits<scalar_t>::abs(diffDot));
       EXPECT_LT(res, initial_norms[i]);
     }
   }
@@ -356,8 +348,8 @@ void test_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth, lno_
 
 template <typename scalar_t, typename lno_t, typename size_type, typename device>
 void test_sequential_sor(lno_t numRows, size_type nnz, lno_t bandwidth, lno_t row_size_variance) {
-  const scalar_t zero = Kokkos::ArithTraits<scalar_t>::zero();
-  const scalar_t one  = Kokkos::ArithTraits<scalar_t>::one();
+  const scalar_t zero = KokkosKernels::ArithTraits<scalar_t>::zero();
+  const scalar_t one  = KokkosKernels::ArithTraits<scalar_t>::one();
   srand(245);
   typedef typename device::execution_space exec_space;
   typedef typename KokkosSparse::CrsMatrix<scalar_t, lno_t, device, void, size_type> crsMat_t;
@@ -408,7 +400,7 @@ void test_sequential_sor(lno_t numRows, size_type nnz, lno_t bandwidth, lno_t ro
   // Check against gold solution
   scalar_t xSq             = KokkosBlas::dot(x, x);
   scalar_t solnDot         = KokkosBlas::dot(x, xgold);
-  double scaledSolutionDot = Kokkos::ArithTraits<scalar_t>::abs(solnDot / xSq);
+  double scaledSolutionDot = KokkosKernels::ArithTraits<scalar_t>::abs(solnDot / xSq);
   EXPECT_TRUE(0.99 < scaledSolutionDot);
 }
 
@@ -484,12 +476,13 @@ void test_gauss_seidel_empty() {
       entries_type entries("Entries", 0);
       scalar_view_t values("Values", 0);
       // also, make sure graph symmetrization doesn't crash on zero rows
-      gauss_seidel_symbolic(&kh, nRows, nRows, rowmap, entries, false);
-      gauss_seidel_numeric(&kh, nRows, nRows, rowmap, entries, values, false);
+      KokkosSparse::gauss_seidel_symbolic(&kh, nRows, nRows, rowmap, entries, false);
+      KokkosSparse::gauss_seidel_numeric(&kh, nRows, nRows, rowmap, entries, values, false);
       scalar_view_t x("X", nRows);
       scalar_view_t y("Y", nRows);
       scalar_t omega(0.9);
-      symmetric_gauss_seidel_apply(&kh, nRows, nRows, rowmap, entries, values, x, y, false, true, omega, 3);
+      KokkosSparse::symmetric_gauss_seidel_apply(&kh, nRows, nRows, rowmap, entries, values, x, y, false, true, omega,
+                                                 3);
       kh.destroy_gs_handle();
     }
   }
@@ -502,8 +495,8 @@ void test_gauss_seidel_long_rows(lno_t numRows, lno_t numLongRows, lno_t nnzPerS
   typedef typename crsMat_t::values_type::non_const_type scalar_view_t;
   typedef typename crsMat_t::index_type::non_const_type entries_view_t;
   typedef typename crsMat_t::row_map_type::non_const_type rowmap_view_t;
-  typedef typename Kokkos::ArithTraits<scalar_t>::mag_type mag_t;
-  const scalar_t one = Kokkos::ArithTraits<scalar_t>::one();
+  typedef typename KokkosKernels::ArithTraits<scalar_t>::mag_type mag_t;
+  const scalar_t one = KokkosKernels::ArithTraits<scalar_t>::one();
   srand(245);
   std::vector<size_type> rowmap = {0};
   std::vector<lno_t> entries;
@@ -582,8 +575,8 @@ void test_gauss_seidel_custom_coloring(lno_t numRows, lno_t nnzPerRow) {
   using namespace Test;
   typedef typename KokkosSparse::CrsMatrix<scalar_t, lno_t, device, void, size_type> crsMat_t;
   typedef typename crsMat_t::values_type::non_const_type scalar_view_t;
-  typedef typename Kokkos::ArithTraits<scalar_t>::mag_type mag_t;
-  const scalar_t one = Kokkos::ArithTraits<scalar_t>::one();
+  typedef typename KokkosKernels::ArithTraits<scalar_t>::mag_type mag_t;
+  const scalar_t one = KokkosKernels::ArithTraits<scalar_t>::one();
   size_type nnz      = nnzPerRow * numRows;
   crsMat_t input_mat = KokkosSparse::Impl::kk_generate_diagonally_dominant_sparse_matrix<crsMat_t>(
       numRows, numRows, nnz, 0, numRows / 10, 2.0 * one);
@@ -617,7 +610,7 @@ void test_gauss_seidel_streams_rank1(lno_t numRows, size_type nnz, lno_t bandwid
   using namespace Test;
   using crsMat_t        = typename KokkosSparse::CrsMatrix<scalar_t, lno_t, device, void, size_type>;
   using scalar_view_t   = typename crsMat_t::values_type::non_const_type;
-  using mag_t           = typename Kokkos::ArithTraits<scalar_t>::mag_type;
+  using mag_t           = typename KokkosKernels::ArithTraits<scalar_t>::mag_type;
   using execution_space = typename device::execution_space;
 
   using const_size_type = const size_type;
@@ -650,8 +643,8 @@ void test_gauss_seidel_streams_rank1(lno_t numRows, size_type nnz, lno_t bandwid
   std::vector<scalar_view_t> y_vector_v(nstreams);
   std::vector<mag_t> initial_norm_res_v(nstreams);
 
-  const scalar_t one  = Kokkos::ArithTraits<scalar_t>::one();
-  const scalar_t zero = Kokkos::ArithTraits<scalar_t>::zero();
+  const scalar_t one  = KokkosKernels::ArithTraits<scalar_t>::one();
+  const scalar_t zero = KokkosKernels::ArithTraits<scalar_t>::zero();
 
   for (int i = 0; i < nstreams; i++) {
     input_mat_v[i] = KokkosSparse::Impl::kk_generate_diagonally_dominant_sparse_matrix<crsMat_t>(

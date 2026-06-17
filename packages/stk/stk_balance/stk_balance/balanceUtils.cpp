@@ -35,17 +35,17 @@ BalanceSettings::BalanceSettings()
     m_graphEdgeWeightMultiplier(DefaultSettings::graphEdgeWeightMultiplier)
 {}
 
-size_t BalanceSettings::getNumNodesRequiredForConnection(stk::topology element1Topology, stk::topology element2Topology) const
+size_t BalanceSettings::getNumNodesRequiredForConnection(stk::topology /*element1Topology*/, stk::topology /*element2Topology*/) const
 {
   return 1;
 }
 
-double BalanceSettings::getGraphEdgeWeight(stk::topology element1Topology, stk::topology element2Topology) const
+double BalanceSettings::getGraphEdgeWeight(stk::topology /*element1Topology*/, stk::topology /*element2Topology*/) const
 {
   return 1;
 }
 
-int BalanceSettings::getGraphVertexWeight(stk::topology type) const
+int BalanceSettings::getGraphVertexWeight(stk::topology /*type*/) const
 {
   return 1;
 }
@@ -53,10 +53,11 @@ int BalanceSettings::getGraphVertexWeight(stk::topology type) const
 double BalanceSettings::getFieldVertexWeight(const stk::mesh::BulkData &bulkData, stk::mesh::Entity entity, int criteria_index) const
 {
     const stk::mesh::Field<double> &field = *getVertexWeightField(bulkData, criteria_index);
-    const double *weight = stk::mesh::field_data(field, entity);
-    if (weight != nullptr) {
-      STK_ThrowRequireWithSierraHelpMsg(*weight >= 0);
-      return *weight;
+    if (field.defined_on(entity)) {
+      auto fieldData = field.data();
+      auto weight = fieldData.entity_values(entity);
+      STK_ThrowRequireWithSierraHelpMsg(weight() >= 0);
+      return weight();
     }
     else {
       return m_defaultFieldWeight;
@@ -105,19 +106,19 @@ bool BalanceSettings::includeSearchResultsInGraph() const
   return false;
 }
 
-void BalanceSettings::setIncludeSearchResultsInGraph(bool doContactSearch) 
+void BalanceSettings::setIncludeSearchResultsInGraph(bool /*doContactSearch*/) 
 {
 }
 
-double BalanceSettings::getToleranceForFaceSearch(const stk::mesh::BulkData & mesh,
-                                                  const stk::mesh::FieldBase & coordField,
-                                                  const stk::mesh::Entity * faceNodes,
-                                                  const unsigned numFaceNodes) const
+double BalanceSettings::getToleranceForFaceSearch(const stk::mesh::BulkData & /*mesh*/,
+                                                  const stk::mesh::FieldBase & /*coordField*/,
+                                                  const stk::mesh::Entity * /*faceNodes*/,
+                                                  const unsigned /*numFaceNodes*/) const
 {
   return 0.0;
 }
 
-void BalanceSettings::setToleranceFunctionForFaceSearch(std::shared_ptr<stk::balance::FaceSearchTolerance> faceSearchTolerance)
+void BalanceSettings::setToleranceFunctionForFaceSearch(std::shared_ptr<stk::balance::FaceSearchTolerance> /*faceSearchTolerance*/)
 {
 }
 
@@ -160,6 +161,22 @@ const BlockWeightMultipliers &
 BalanceSettings::getVertexWeightBlockMultipliers() const
 {
   return m_vertexWeightBlockMultipliers;
+}
+
+void BalanceSettings::setCohesiveElements(const std::string & blockName)
+{
+  m_cohesiveElements.push_back(blockName);
+}
+
+const CohesiveElements &
+BalanceSettings::getCohesiveElements() const
+{
+  return m_cohesiveElements;
+}
+
+bool BalanceSettings::hasCohesiveElements() const
+{
+  return !m_cohesiveElements.empty();
 }
 
 bool BalanceSettings::isIncrementalRebalance() const
@@ -213,7 +230,7 @@ double BalanceSettings::getImbalanceTolerance() const
   return 1.01;
 }
 
-void BalanceSettings::setDecompMethod(const std::string& method)
+void BalanceSettings::setDecompMethod(const std::string& /*method*/)
 {
 }
 
@@ -254,10 +271,10 @@ void BalanceSettings::setNumCriteria(int num_criteria)
   m_vertexWeightFields.resize(m_numCriteria); 
 }
 
-void BalanceSettings::modifyDecomposition(DecompositionChangeList & decomp) const
+void BalanceSettings::modifyDecomposition(DecompositionChangeList & /*decomp*/) const
 {}
 
-double BalanceSettings::getParticleRadius(stk::mesh::Entity particle) const
+double BalanceSettings::getParticleRadius(stk::mesh::Entity /*particle*/) const
 {
   return 0.5;
 }
@@ -310,17 +327,17 @@ std::string BalanceSettings::getVertexConnectivityWeightFieldName() const
   return "stk_balance_vertex_connectivity_weight";
 }
 
-stk::mesh::Part * BalanceSettings::getSpiderPart(const stk::mesh::BulkData & stkMeshBulkData) const
+stk::mesh::Part * BalanceSettings::getSpiderPart(const stk::mesh::BulkData & /*stkMeshBulkData*/) const
 {
   return nullptr;
 }
 
-const stk::mesh::Field<int> * BalanceSettings::getSpiderVolumeConnectivityCountField(const stk::mesh::BulkData & stkMeshBulkData) const
+const stk::mesh::Field<int> * BalanceSettings::getSpiderVolumeConnectivityCountField(const stk::mesh::BulkData & /*stkMeshBulkData*/) const
 {
   return nullptr;
 }
 
-const stk::mesh::Field<int> * BalanceSettings::getOutputSubdomainField(const stk::mesh::BulkData & stkMeshBulkData) const
+const stk::mesh::Field<int> * BalanceSettings::getOutputSubdomainField(const stk::mesh::BulkData & /*stkMeshBulkData*/) const
 {
   return nullptr;
 }

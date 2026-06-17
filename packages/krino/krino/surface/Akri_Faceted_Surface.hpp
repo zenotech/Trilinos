@@ -111,13 +111,15 @@ public:
   std::vector<FACET> & get_facets() { return myLocalFacets; }
 
   virtual stk::math::Vector3d closest_point(const stk::math::Vector3d &x) const override;
+  virtual bool can_approximate_closest_point_normal() const override { return true; }
+  virtual stk::math::Vector3d closest_point_normal(const stk::math::Vector3d &x) const override;
 
 public:
   stk::math::Vector3d pseudo_normal_at_closest_point(const stk::math::Vector3d &x) const;
   const FACET * get_closest_facet(const stk::math::Vector3d &x) const;
 
 private:
-  virtual void build_local_facets(const BoundingBox & proc_bbox) {}
+  virtual void build_local_facets(const BoundingBox & /*proc_bbox*/) {}
   
   std::vector<FACET> myLocalFacets;
 

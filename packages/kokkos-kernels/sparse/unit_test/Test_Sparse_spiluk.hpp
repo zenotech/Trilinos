@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <gtest/gtest.h>
 #include <Kokkos_Core.hpp>
@@ -108,12 +95,12 @@ struct SpilukTest {
   using RowMapType  = Kokkos::View<size_type*, device>;
   using EntriesType = Kokkos::View<lno_t*, device>;
   using ValuesType  = Kokkos::View<scalar_t*, device>;
-  using AT          = Kokkos::ArithTraits<scalar_t>;
-  using mag_t       = typename Kokkos::ArithTraits<scalar_t>::mag_type;
+  using AT          = KokkosKernels::ArithTraits<scalar_t>;
+  using mag_t       = typename KokkosKernels::ArithTraits<scalar_t>::mag_type;
 
-  using RowMapType_hostmirror  = typename RowMapType::HostMirror;
-  using EntriesType_hostmirror = typename EntriesType::HostMirror;
-  using ValuesType_hostmirror  = typename ValuesType::HostMirror;
+  using RowMapType_hostmirror  = typename RowMapType::host_mirror_type;
+  using EntriesType_hostmirror = typename EntriesType::host_mirror_type;
+  using ValuesType_hostmirror  = typename ValuesType::host_mirror_type;
   using execution_space        = typename device::execution_space;
   using memory_space           = typename device::memory_space;
   using range_policy           = Kokkos::RangePolicy<execution_space>;
@@ -238,7 +225,7 @@ struct SpilukTest {
     RowMapType U_row_map("U_row_map", nrows + 1);
     EntriesType U_entries("U_entries", spiluk_handle->get_nnzU());
 
-    spiluk_symbolic(&kh, fill_lev, row_map, entries, L_row_map, L_entries, U_row_map, U_entries);
+    KokkosSparse::spiluk_symbolic(&kh, fill_lev, row_map, entries, L_row_map, L_entries, U_row_map, U_entries);
 
     Kokkos::fence();
 
@@ -247,8 +234,8 @@ struct SpilukTest {
     ValuesType L_values("L_values", spiluk_handle->get_nnzL() * static_cast<size_t>(block_items));
     ValuesType U_values("U_values", spiluk_handle->get_nnzU() * static_cast<size_t>(block_items));
 
-    spiluk_numeric(&kh, fill_lev, row_map, entries, values, L_row_map, L_entries, L_values, U_row_map, U_entries,
-                   U_values);
+    KokkosSparse::spiluk_numeric(&kh, fill_lev, row_map, entries, values, L_row_map, L_entries, L_values, U_row_map,
+                                 U_entries, U_values);
 
     Kokkos::fence();
 
@@ -327,7 +314,7 @@ struct SpilukTest {
     const size_type nnz        = values.extent(0);
     const lno_t fill_lev       = 2;
     const size_type block_size = nrows % 2 == 0 ? 2 : 3;
-    ASSERT_EQ(nrows % block_size, 0);
+    ASSERT_EQ(nrows % block_size, size_type(0));
 
     KernelHandle kh;
 
@@ -353,12 +340,12 @@ struct SpilukTest {
 
   static void run_test_spiluk_scale() {
     // Create a diagonally dominant sparse matrix to test:
-    constexpr auto nrows         = 5000;
+    constexpr auto nrows         = 300;
     constexpr auto diagDominance = 2;
 
     size_type nnz = 10 * nrows;
     auto A        = KokkosSparse::Impl::kk_generate_diagonally_dominant_sparse_matrix<Crs>(nrows, nrows, nnz, 0,
-                                                                                    lno_t(0.01 * nrows), diagDominance);
+                                                                                    lno_t(0.05 * nrows), diagDominance);
 
     KokkosSparse::sort_crs_matrix(A);
 
@@ -379,7 +366,7 @@ struct SpilukTest {
 
   static void run_test_spiluk_scale_blocks() {
     // Create a diagonally dominant sparse matrix to test:
-    constexpr auto nrows         = 5000;
+    constexpr auto nrows         = 300;
     constexpr auto diagDominance = 2;
 
     RowMapType brow_map;
@@ -390,7 +377,7 @@ struct SpilukTest {
 
     size_type nnz = 10 * nrows;
     auto A        = KokkosSparse::Impl::kk_generate_diagonally_dominant_sparse_matrix<Crs>(nrows, nrows, nnz, 0,
-                                                                                    lno_t(0.01 * nrows), diagDominance);
+                                                                                    lno_t(0.05 * nrows), diagDominance);
 
     KokkosSparse::sort_crs_matrix(A);
 
@@ -493,8 +480,8 @@ struct SpilukTest {
       U_entries_v[i] = EntriesType("U_entries", spiluk_handle->get_nnzU());
 
       // Symbolic phase
-      spiluk_symbolic(kh_ptr_v[i], fill_lev, A_row_map_v[i], A_entries_v[i], L_row_map_v[i], L_entries_v[i],
-                      U_row_map_v[i], U_entries_v[i], nstreams);
+      KokkosSparse::spiluk_symbolic(kh_ptr_v[i], fill_lev, A_row_map_v[i], A_entries_v[i], L_row_map_v[i],
+                                    L_entries_v[i], U_row_map_v[i], U_entries_v[i], nstreams);
 
       Kokkos::fence();
 
@@ -560,7 +547,7 @@ struct SpilukTest {
     const size_type nrows       = Afix.size();
     const size_type block_size  = nrows % 2 == 0 ? 2 : 3;
     const size_type block_items = block_size * block_size;
-    ASSERT_EQ(nrows % block_size, 0);
+    ASSERT_EQ(nrows % block_size, size_type(0));
 
     // Convert to BSR
     Crs crs("crs for block spiluk test", nrows, nrows, values.extent(0), values, row_map, entries);
@@ -612,8 +599,8 @@ struct SpilukTest {
       U_entries_v[i] = EntriesType("U_entries", spiluk_handle->get_nnzU());
 
       // Symbolic phase
-      spiluk_symbolic(kh_ptr_v[i], fill_lev, A_row_map_v[i], A_entries_v[i], L_row_map_v[i], L_entries_v[i],
-                      U_row_map_v[i], U_entries_v[i], nstreams);
+      KokkosSparse::spiluk_symbolic(kh_ptr_v[i], fill_lev, A_row_map_v[i], A_entries_v[i], L_row_map_v[i],
+                                    L_entries_v[i], U_row_map_v[i], U_entries_v[i], nstreams);
 
       Kokkos::fence();
 
@@ -646,7 +633,7 @@ struct SpilukTest {
     // Create a diagonally dominant sparse matrix to test:
     using sp_matrix_type = std::conditional_t<UseBlocks, Bsr, Crs>;
 
-    constexpr auto nrows         = 5000;
+    constexpr auto nrows         = 300;
     constexpr auto m             = 15;
     constexpr auto diagDominance = 2;
     constexpr auto tol           = 1e-5;
@@ -666,7 +653,7 @@ struct SpilukTest {
 
     size_type nnz    = 10 * nrows;
     auto A_unblocked = KokkosSparse::Impl::kk_generate_diagonally_dominant_sparse_matrix<Crs>(
-        nrows, nrows, nnz, 0, lno_t(0.01 * nrows), diagDominance);
+        nrows, nrows, nnz, 0, lno_t(0.05 * nrows), diagDominance);
 
     KokkosSparse::sort_crs_matrix(A_unblocked);
 

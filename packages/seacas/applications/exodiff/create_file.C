@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2024 National Technology & Engineering Solutions
+// Copyright(C) 1999-2025 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -8,15 +8,15 @@
 #include "Tolerance.h"          // for Tolerance, etc
 #include "exo_entity.h"         // for Exo_Entity, EXOTYPE
 #include "exodusII.h"
-#include "fmt/color.h"
-#include "fmt/ostream.h"
-#include "smart_assert.h" // for SMART_ASSERT
-#include "stringx.h"      // for find_string, etc
+#include "stringx.h" // for find_string, etc
 #include "util.h"
 #include <cstddef> // for size_t
 #include <cstdio>  // for nullptr
-#include <string>  // for string, char_traits, etc
-#include <vector>  // for vector
+#include <fmt/color.h>
+#include <fmt/ostream.h>
+#include <smart_assert.h> // for SMART_ASSERT
+#include <string>         // for string, char_traits, etc
+#include <vector>         // for vector
 template <typename INT> class Exo_Read;
 
 namespace {
@@ -400,21 +400,33 @@ namespace {
           if (!interFace.quiet_flag) {
             std::ostringstream diff;
             fmt::print(diff,
-                       "exodiff: DIFFERENCE .. The {} variable \"{}\" is not in the second file.\n",
+                       "exodiff: DIFFERENCE .. The {} variable \"{}\" is in the first file, but "
+                       "not the second file.\n",
                        type, name);
             DIFF_OUT(diff);
           }
         }
       }
       else {
-        *diff_found = true;
-        if (!interFace.quiet_flag) {
-          std::ostringstream diff;
-          fmt::print(
-              diff,
-              "exodiff: DIFFERENCE .. Specified {} variable \"{}\" is not in the first file.\n",
-              type, name);
-          DIFF_OUT(diff);
+        // Variable is in `names`, but not in `var_names1`.  This is a difference unless the file
+        // has changesets in which case the variable might exist in a different change set.  In this
+        // case, we check that if the variable does not exist in in either `var_names1` or
+        // `var_names2` and there are change sets, there is no diff.
+        if (interFace.has_change_sets &&
+            (interFace.summary_flag ||
+             find_string(var_names2, name, interFace.nocase_var_names) < 0)) {
+          // OK that variable not found in file1 and file2
+        }
+        else {
+          *diff_found = true;
+          if (!interFace.quiet_flag) {
+            std::ostringstream diff;
+            fmt::print(
+                diff,
+                "exodiff: DIFFERENCE .. Specified {} variable \"{}\" is not in the first file.\n",
+                type, name);
+            DIFF_OUT(diff);
+          }
         }
       }
     }

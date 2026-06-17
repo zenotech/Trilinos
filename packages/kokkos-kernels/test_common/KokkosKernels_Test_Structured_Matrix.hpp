@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOSKERNELS_TEST_STRUCTURE_MATRIX_HPP
 #define KOKKOSKERNELS_TEST_STRUCTURE_MATRIX_HPP
@@ -955,10 +942,8 @@ struct fill_3D_matrix_functor {
                  4 * (numXEdge + numYEdge + numZEdge) * edgeStencilLength + 8 * cornerStencilLength;
     numEntriesPerGridPlane = numZFace * interiorStencilLength + 2 * numXEdge * faceStencilLength +
                              2 * numYEdge * faceStencilLength + 4 * edgeStencilLength;
-    ;
     numEntriesBottomPlane = numZFace * faceStencilLength + 2 * numXEdge * edgeStencilLength +
                             2 * numYEdge * edgeStencilLength + 4 * cornerStencilLength;
-    ;
     numEntriesPerGridRow     = numXEdge * interiorStencilLength + 2 * faceStencilLength;
     numEntriesFrontRow       = numXEdge * faceStencilLength + 2 * edgeStencilLength;
     numEntriesBottomFrontRow = numXEdge * edgeStencilLength + 2 * cornerStencilLength;

@@ -244,8 +244,8 @@ bool testAtomic(const TagType& tag, Teuchos::FancyOStream& out)
   typedef Kokkos::View<FadType*,Layout,Device> ViewType;
   typedef Kokkos::View<FadType,Layout,Device> ScalarViewType;
   typedef typename ViewType::size_type size_type;
-  typedef typename ViewType::HostMirror host_view_type;
-  typedef typename ScalarViewType::HostMirror host_scalar_view_type;
+  typedef typename ViewType::host_mirror_type host_view_type;
+  typedef typename ScalarViewType::host_mirror_type host_scalar_view_type;
 
   const size_type num_rows = global_num_rows;
   const size_type fad_size = global_fad_size;
@@ -389,6 +389,8 @@ TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL(
 
 using Kokkos::LayoutLeft;
 using Kokkos::LayoutRight;
+
+#ifndef SACADO_DISABLE_FAD_VIEW_SPEC
 typedef Kokkos::LayoutContiguous<Kokkos::LayoutLeft> LeftContiguous;
 typedef Kokkos::LayoutContiguous<Kokkos::LayoutRight> RightContiguous;
 
@@ -397,6 +399,11 @@ typedef Kokkos::LayoutContiguous<Kokkos::LayoutRight> RightContiguous;
   VIEW_FAD_TESTS_FLD( F, LayoutRight, D )                               \
   VIEW_FAD_TESTS_FLD( F, LeftContiguous, D )                            \
   VIEW_FAD_TESTS_FLD( F, RightContiguous, D )
+#else
+#define VIEW_FAD_TESTS_FD( F, D )                                       \
+  VIEW_FAD_TESTS_FLD( F, LayoutLeft, D )                                \
+  VIEW_FAD_TESTS_FLD( F, LayoutRight, D )
+#endif
 
 // Full set of atomics only implemented for new design
 #if SACADO_ENABLE_NEW_DESIGN

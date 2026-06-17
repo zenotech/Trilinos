@@ -28,7 +28,14 @@
 #undef KOKKOS_IMPL_PUBLIC_INCLUDE_NOTDEFINED_CORE
 #endif
 
-namespace Kokkos {
+#if (KOKKOS_VERSION > 40700) && !defined(KOKKOS_ENABLE_IMPL_VIEW_LEGACY) \
+&& !defined(SACADO_DISABLE_FAD_VIEW_SPEC) 
+#define SACADO_HAS_NEW_KOKKOS_VIEW_IMPL
+#endif
+
+
+#ifdef SACADO_HAS_NEW_KOKKOS_VIEW_IMPL
+namespace Sacado {
 
 // Whether a given type is a view with Sacado FAD scalar type
 template <typename view_type>
@@ -36,6 +43,20 @@ struct is_view_fad;
 
 }
 
+namespace Kokkos {
+using Sacado::is_view_fad;
+}
+#else
+namespace Kokkos {
+
+// Whether a given type is a view with Sacado FAD scalar type
+template <typename view_type>
+struct is_view_fad;
+
+}
+#endif
+
+#ifndef SACADO_HAS_NEW_KOKKOS_VIEW_IMPL
 // Make sure the user really wants these View specializations
 #if defined(HAVE_SACADO_VIEW_SPEC) && !defined(SACADO_DISABLE_FAD_VIEW_SPEC)
 
@@ -86,7 +107,7 @@ typename std::enable_if<
       Kokkos::Impl::ViewSpecializeSacadoFadContiguous >::value ) &&
     !std::is_same< typename Kokkos::ViewTraits<T,P...>::array_layout,
       Kokkos::LayoutStride >::value,
-  typename Kokkos::View<T,P...>::HostMirror>::type
+  typename Kokkos::View<T,P...>::host_mirror_type>::type
 create_mirror(const Kokkos::View<T,P...> & src);
 
 template< class T , class ... P >
@@ -98,7 +119,7 @@ typename std::enable_if<
       Kokkos::Impl::ViewSpecializeSacadoFadContiguous >::value ) &&
     std::is_same< typename Kokkos::ViewTraits<T,P...>::array_layout,
       Kokkos::LayoutStride >::value,
-  typename Kokkos::View<T,P...>::HostMirror>::type
+  typename Kokkos::View<T,P...>::host_mirror_type>::type
 create_mirror(const Kokkos::View<T,P...> & src);
 
 template<class Space, class T, class ... P,
@@ -120,7 +141,7 @@ typename std::enable_if<
       Kokkos::Impl::ViewSpecializeSacadoFadContiguous >::value ) &&
     !std::is_same< typename Kokkos::ViewTraits<T,P...>::array_layout,
       Kokkos::LayoutStride >::value,
-  typename Kokkos::View<T,P...>::HostMirror>::type
+  typename Kokkos::View<T,P...>::host_mirror_type>::type
 create_mirror(Kokkos::Impl::WithoutInitializing_t wi,
               const Kokkos::View<T,P...> & src);
 
@@ -133,7 +154,7 @@ typename std::enable_if<
       Kokkos::Impl::ViewSpecializeSacadoFadContiguous >::value ) &&
     std::is_same< typename Kokkos::ViewTraits<T,P...>::array_layout,
       Kokkos::LayoutStride >::value,
-  typename Kokkos::View<T,P...>::HostMirror>::type
+  typename Kokkos::View<T,P...>::host_mirror_type>::type
 create_mirror(Kokkos::Impl::WithoutInitializing_t wi,
               const Kokkos::View<T,P...> & src);
 
@@ -376,6 +397,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy_contiguous(
 } // namespace Kokkos
 
 #endif // defined(HAVE_SACADO_VIEW_SPEC) && !defined(SACADO_DISABLE_FAD_VIEW_SPEC)
+#endif
 
 #endif // defined(HAVE_SACADO_KOKKOS)
 

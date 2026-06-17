@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #include <iostream>
 #include "KokkosKernels_config.h"
 #include "KokkosKernels_default_types.hpp"
@@ -351,8 +338,8 @@ void run_spgemm(int argc, char** argv, perf_test::CommonInputParams) {
       sequential_kh.set_dynamic_scheduling(true);
     }
 
-    spgemm_symbolic(&sequential_kh, m, n, k, A.graph.row_map, A.graph.entries, TRANSPOSEFIRST, B.graph.row_map,
-                    B.graph.entries, TRANSPOSESECOND, row_mapC_ref);
+    KokkosSparse::spgemm_symbolic(&sequential_kh, m, n, k, A.graph.row_map, A.graph.entries, TRANSPOSEFIRST,
+                                  B.graph.row_map, B.graph.entries, TRANSPOSESECOND, row_mapC_ref);
 
     ExecSpace().fence();
 
@@ -360,10 +347,10 @@ void run_spgemm(int argc, char** argv, perf_test::CommonInputParams) {
     entriesC_ref         = lno_nnz_view_t(Kokkos::view_alloc(Kokkos::WithoutInitializing, "entriesC"), c_nnz_size);
     valuesC_ref          = scalar_view_t(Kokkos::view_alloc(Kokkos::WithoutInitializing, "valuesC"), c_nnz_size);
 
-    spgemm_numeric(&sequential_kh, m, n, k, A.graph.row_map, A.graph.entries, A.values, TRANSPOSEFIRST,
+    KokkosSparse::spgemm_numeric(&sequential_kh, m, n, k, A.graph.row_map, A.graph.entries, A.values, TRANSPOSEFIRST,
 
-                   B.graph.row_map, B.graph.entries, B.values, TRANSPOSESECOND, row_mapC_ref, entriesC_ref,
-                   valuesC_ref);
+                                 B.graph.row_map, B.graph.entries, B.values, TRANSPOSESECOND, row_mapC_ref,
+                                 entriesC_ref, valuesC_ref);
     ExecSpace().fence();
 
     C_ref = crsMat_t("CorrectC", m, k, valuesC_ref.extent(0), valuesC_ref, row_mapC_ref, entriesC_ref);
@@ -398,8 +385,8 @@ void run_spgemm(int argc, char** argv, perf_test::CommonInputParams) {
     valuesC  = scalar_view_t("valuesC (empty)", 0);
 
     Kokkos::Timer timer1;
-    spgemm_symbolic(&kh, m, n, k, A.graph.row_map, A.graph.entries, TRANSPOSEFIRST, B.graph.row_map, B.graph.entries,
-                    TRANSPOSESECOND, row_mapC);
+    KokkosSparse::spgemm_symbolic(&kh, m, n, k, A.graph.row_map, A.graph.entries, TRANSPOSEFIRST, B.graph.row_map,
+                                  B.graph.entries, TRANSPOSESECOND, row_mapC);
 
     ExecSpace().fence();
     double symbolic_time = timer1.seconds();
@@ -411,8 +398,9 @@ void run_spgemm(int argc, char** argv, perf_test::CommonInputParams) {
       entriesC = lno_nnz_view_t(Kokkos::view_alloc(Kokkos::WithoutInitializing, "entriesC"), c_nnz_size);
       valuesC  = scalar_view_t(Kokkos::view_alloc(Kokkos::WithoutInitializing, "valuesC"), c_nnz_size);
     }
-    spgemm_numeric(&kh, m, n, k, A.graph.row_map, A.graph.entries, A.values, TRANSPOSEFIRST, B.graph.row_map,
-                   B.graph.entries, B.values, TRANSPOSESECOND, row_mapC, entriesC, valuesC);
+    KokkosSparse::spgemm_numeric(&kh, m, n, k, A.graph.row_map, A.graph.entries, A.values, TRANSPOSEFIRST,
+                                 B.graph.row_map, B.graph.entries, B.values, TRANSPOSESECOND, row_mapC, entriesC,
+                                 valuesC);
 
     ExecSpace().fence();
     double numeric_time = timer3.seconds();

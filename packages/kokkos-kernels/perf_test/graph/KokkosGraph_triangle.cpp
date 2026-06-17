@@ -1,21 +1,9 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #include <iostream>
 #include "KokkosKernels_IOUtils.hpp"
 #include "KokkosGraph_Triangle.hpp"
+#include "KokkosSparse_StaticCrsGraph.hpp"
 #include "KokkosSparse_CrsMatrix.hpp"
 #include "KokkosSparse_IOUtils.hpp"  //for read_kokkos_crst_graph
 #include "KokkosKernels_TestStringUtils.hpp"
@@ -232,7 +220,7 @@ void run_experiment(int argc, char **argv, perf_test::CommonInputParams) {
   using device_t  = Kokkos::Device<exec_space, mem_space>;
   using lno_t     = KokkosKernels::default_lno_t;
   using size_type = KokkosKernels::default_size_type;
-  using graph_t   = Kokkos::StaticCrsGraph<lno_t, KokkosKernels::default_layout, device_t, void, size_type>;
+  using graph_t   = StaticCrsGraph<lno_t, KokkosKernels::default_layout, device_t, void, size_type>;
   using KernelHandle =
       KokkosKernels::Experimental::KokkosKernelsHandle<size_type, lno_t, lno_t, exec_space, mem_space, mem_space>;
 

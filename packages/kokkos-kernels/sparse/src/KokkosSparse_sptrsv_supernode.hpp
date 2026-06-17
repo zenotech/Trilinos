@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 /// \file KokkosSparse_sptrsv.hpp
 /// \brief Parallel sparse triangular solve
@@ -70,8 +57,7 @@ graph_t deep_copy_graph(host_graph_t &host_graph) {
   // copy graph to device
   Kokkos::deep_copy(rowmap_view, row_map);
   Kokkos::deep_copy(column_view, entries);
-  graph_t static_graph(column_view, rowmap_view);
-  return static_graph;
+  return graph_t(column_view, rowmap_view);
 }
 
 /* =========================================================================================
@@ -559,8 +545,7 @@ host_graph_t generate_supernodal_graph(bool col_major, graph_t &graph, int nsupe
   std::cout << "   > Generate Supernodal Graph: sort graph     : " << time_seconds << std::endl << std::endl;
 #endif
 
-  host_graph_t static_graph(hc, hr);
-  return static_graph;
+  return host_graph_t(hc, hr);
 }
 
 template <typename graph_t>
@@ -630,8 +615,7 @@ graph_t generate_supernodal_dag(int nsuper, graph_t &supL, graph_t &supU) {
     hc(k) = rowind(k);
   }
 
-  graph_t static_graph(hc, colptr);
-  return static_graph;
+  return graph_t(hc, colptr);
 }
 
 /* =========================================================================================
@@ -892,8 +876,7 @@ output_graph_t generate_merged_supernodal_graph(bool lower, int nsuper, const in
   Kokkos::deep_copy(column_view, hc);
 
   // create crs
-  output_graph_t static_graph(column_view, rowmap_view);
-  return static_graph;
+  return output_graph_t(column_view, rowmap_view);
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1049,7 +1032,7 @@ void sptrsv_supernodal_symbolic(int nsuper, int *supercols, int *etree, host_gra
   tic.reset();
   std::cout << std::endl;
 #endif
-  sptrsv_symbolic(kernelHandleL, row_mapL, entriesL);
+  KokkosSparse::sptrsv_symbolic(kernelHandleL, row_mapL, entriesL);
 #ifdef KOKKOS_SPTRSV_SUPERNODE_PROFILE
   time_seconds = tic.seconds();
   std::cout << " > Lower-TRI: " << std::endl;
@@ -1061,7 +1044,7 @@ void sptrsv_supernodal_symbolic(int nsuper, int *supercols, int *etree, host_gra
   // do symbolic for U solve on the host
   auto row_mapU = graphU.row_map;
   auto entriesU = graphU.entries;
-  sptrsv_symbolic(kernelHandleU, row_mapU, entriesU);
+  KokkosSparse::sptrsv_symbolic(kernelHandleU, row_mapU, entriesU);
 #ifdef KOKKOS_SPTRSV_SUPERNODE_PROFILE
   time_seconds = tic.seconds();
   std::cout << " > Upper-TRI: " << std::endl;
@@ -1884,9 +1867,9 @@ void split_crsmat(KernelHandle *kernelHandleL, host_crsmat_t superluL) {
   using cols_view_t    = typename graph_t::entries_type::non_const_type;
   using values_view_t  = typename crsmat_t::values_type::non_const_type;
 
-  using row_map_view_host_t = typename row_map_view_t::HostMirror;
-  using cols_view_host_t    = typename cols_view_t::HostMirror;
-  using values_view_host_t  = typename values_view_t::HostMirror;
+  using row_map_view_host_t = typename row_map_view_t::host_mirror_type;
+  using cols_view_host_t    = typename cols_view_t::host_mirror_type;
+  using values_view_host_t  = typename values_view_t::host_mirror_type;
 
   using scalar_t  = typename KernelHandle::nnz_scalar_t;
   using size_type = typename KernelHandle::size_type;

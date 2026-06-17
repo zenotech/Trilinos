@@ -1,18 +1,6 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
+
 #include <gtest/gtest.h>
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
@@ -22,9 +10,9 @@
 namespace Test {
 template <class ViewTypeA, class Device>
 void impl_test_iamax(int N) {
-  typedef typename ViewTypeA::non_const_value_type ScalarA;
-  typedef Kokkos::ArithTraits<ScalarA> AT;
-  typedef typename AT::mag_type mag_type;
+  using ScalarA   = typename ViewTypeA::non_const_value_type;
+  using AT        = KokkosKernels::ArithTraits<ScalarA>;
+  using mag_type  = typename AT::mag_type;
   using size_type = typename ViewTypeA::size_type;
 
   view_stride_adapter<ViewTypeA> a("X", N);
@@ -37,7 +25,7 @@ void impl_test_iamax(int N) {
 
   Kokkos::deep_copy(a.h_base, a.d_base);
 
-  mag_type expected_result   = Kokkos::ArithTraits<mag_type>::min();
+  mag_type expected_result   = KokkosKernels::ArithTraits<mag_type>::min();
   size_type expected_max_loc = 0;
   for (int i = 0; i < N; i++) {
     mag_type val = AT::abs(a.h_view(i));
@@ -83,7 +71,7 @@ void impl_test_iamax(int N) {
     // %d\n", N);
     typedef Kokkos::View<size_type, typename ViewTypeA::array_layout, Device> ViewType0D;
     ViewType0D r("Iamax::Result 0-D View on device", typename ViewTypeA::array_layout());
-    typename ViewType0D::HostMirror h_r = Kokkos::create_mirror_view(r);
+    typename ViewType0D::host_mirror_type h_r = Kokkos::create_mirror_view(r);
 
     size_type nonconst_max_loc, const_max_loc;
 
@@ -106,7 +94,7 @@ void impl_test_iamax(int N) {
 template <class ViewTypeA, class Device>
 void impl_test_iamax_mv(int N, int K) {
   typedef typename ViewTypeA::non_const_value_type ScalarA;
-  typedef Kokkos::ArithTraits<ScalarA> AT;
+  typedef KokkosKernels::ArithTraits<ScalarA> AT;
   typedef typename AT::mag_type mag_type;
   typedef typename ViewTypeA::size_type size_type;
 
@@ -124,7 +112,7 @@ void impl_test_iamax_mv(int N, int K) {
   size_type* expected_max_loc = new size_type[K];
 
   for (int j = 0; j < K; j++) {
-    expected_result[j] = Kokkos::ArithTraits<mag_type>::min();
+    expected_result[j] = KokkosKernels::ArithTraits<mag_type>::min();
     for (int i = 0; i < N; i++) {
       mag_type val = AT::abs(a.h_view(i, j));
       if (val > expected_result[j]) {
@@ -168,7 +156,7 @@ void impl_test_iamax_mv(int N, int K) {
     // %d\n", N);
     Kokkos::View<size_type*, Device> rcontig("Iamax::Result View on host", K);
     Kokkos::View<size_type*, typename ViewTypeA::array_layout, Device> r = rcontig;
-    typename Kokkos::View<size_type*, typename ViewTypeA::array_layout, Device>::HostMirror h_r =
+    typename Kokkos::View<size_type*, typename ViewTypeA::array_layout, Device>::host_mirror_type h_r =
         Kokkos::create_mirror_view(rcontig);
 
     KokkosBlas::iamax(r, a.d_view);

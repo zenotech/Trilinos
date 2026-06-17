@@ -310,6 +310,11 @@ Superlu<Matrix,Vector>::numericFactorization_impl()
 #endif
 
     if( data_.options.Equil == SLU::YES ){
+#ifdef HAVE_AMESOS2_TIMERS
+    Teuchos::RCP< Teuchos::Time > Amesos2SLU_EQL = Teuchos::TimeMonitor::getNewCounter ("Time to scale matrix");
+    Teuchos::TimeMonitor equilTimer(*Amesos2SLU_EQL);
+#endif
+
       magnitude_type rowcnd, colcnd, amax;
 
       // calculate row and column scalings
@@ -474,11 +479,6 @@ Superlu<Matrix,Vector>::solve_impl(const Teuchos::Ptr<MultiVecAdapter<Vector> > 
                                    const Teuchos::Ptr<const MultiVecAdapter<Vector> > B) const
 {
   using Teuchos::as;
-#ifdef HAVE_AMESOS2_TIMERS
-    Teuchos::RCP< Teuchos::Time > Amesos2SolveTimer_ = Teuchos::TimeMonitor::getNewCounter ("Time for Amesos2");
-    Teuchos::TimeMonitor solveTimer(*Amesos2SolveTimer_);
-#endif
-
   const global_size_type ld_rhs = this->root_ ? X->getGlobalLength() : 0;
   const size_t nrhs = X->getGlobalNumVectors();
 
@@ -487,7 +487,6 @@ Superlu<Matrix,Vector>::solve_impl(const Teuchos::Ptr<MultiVecAdapter<Vector> > 
   {                             // Get values from RHS B
 #ifdef HAVE_AMESOS2_TIMERS
     Teuchos::TimeMonitor mvConvTimer(this->timers_.vecConvTime_);
-    Teuchos::TimeMonitor redistTimer( this->timers_.vecRedistTime_ );
 #endif
 
     // In general we may want to write directly to the x space without a copy.
@@ -1001,6 +1000,23 @@ Superlu<Matrix,Vector>::loadA_impl(EPhase current_phase)
 
 template <class Matrix, class Vector>
 void
+Superlu<Matrix,Vector>::describe_impl(Teuchos::FancyOStream &out,
+                                      const Teuchos::EVerbosityLevel verbLevel) const
+{
+  out << " SuperLU current parameters:" << std::endl;
+  out << "  > IsContiguous = " << (is_contiguous_ ? "YES" : "NO") << std::endl;
+  out << "  > Trans        = " << data_.options.Trans << std::endl;
+  out << "  > IterRefine   = " << data_.options.IterRefine << std::endl;
+  out << "  > ColPerm      = " << data_.options.ColPerm << std::endl;
+  out << "  > Equil        = " << data_.options.Equil << std::endl;
+  out << "  > SymmetricMode   = " << data_.options.SymmetricMode << std::endl;
+  out << "  > ConditionNumber = " << data_.options.ConditionNumber << std::endl;
+  out << "  > DiagPivotThresh = " << data_.options.DiagPivotThresh << std::endl;
+  out << std::endl;
+}
+
+template <class Matrix, class Vector>
+void
 Superlu<Matrix,Vector>::triangular_solve_factor()
 {
 #if defined(KOKKOSKERNELS_ENABLE_SUPERNODAL_SPTRSV) && defined(KOKKOSKERNELS_ENABLE_TPL_SUPERLU)
@@ -1031,11 +1047,11 @@ Superlu<Matrix,Vector>::triangular_solve_factor()
     using STM = Teuchos::ScalarTraits<magnitude_type>;
     const magnitude_type eps = STM::eps ();
 
-    SCformat *Lstore = (SCformat*)(data_.L.Store);
-    int nsuper = 1 + Lstore->nsuper;
-    int *nb = Lstore->sup_to_col;
+    SCformat *Lstore2 = (SCformat*)(data_.L.Store);
+    int nsuperL = 1 + Lstore2->nsuper;
+    int *nb = Lstore2->sup_to_col;
     int max_cols = 0;
-    for (int i = 0; i < nsuper; i++) {
+    for (int i = 0; i < nsuperL; i++) {
       if (nb[i+1] - nb[i] > max_cols) {
         max_cols = nb[i+1] - nb[i];
       }

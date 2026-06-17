@@ -41,6 +41,8 @@ struct StkTopologyMapEntry {
 
   int num_nodes() const { return topology.num_nodes(); }
 
+  void operator=(const StkTopologyMapEntry &entry) { topology = entry.topology; }
+
   bool operator==(const StkTopologyMapEntry &rhs) const { return topology == rhs.topology; }
 
   bool operator!=(const StkTopologyMapEntry &rhs) const { return !(*this == rhs); }
@@ -217,16 +219,6 @@ class StkTopologyMapping : public text_mesh::TopologyMapping<StkTopologyMapEntry
     };
   }
 };
-
-namespace simple_fields {
-
-struct STK_DEPRECATED_MSG("Please use the non-simple_fields-namespaced version of this class instead")
-StkTopologyMapEntry : public stk::unit_test_util::StkTopologyMapEntry {};
-
-class STK_DEPRECATED_MSG("Please use the non-simple_fields-namespaced version of this class instead")
-StkTopologyMapping : public stk::unit_test_util::StkTopologyMapping {};
-
-} // namespace simple_fields
 
 } // namespace unit_test_util
 } // namespace stk

@@ -1,21 +1,8 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
-#ifndef _KOKKOS_SPADD_HPP
-#define _KOKKOS_SPADD_HPP
+#ifndef KOKKOSSPARSE_SPADD_HPP
+#define KOKKOSSPARSE_SPADD_HPP
 
 #include "KokkosKernels_Handle.hpp"
 #include "KokkosKernels_helpers.hpp"
@@ -24,7 +11,6 @@
 #include "KokkosSparse_spadd_symbolic_spec.hpp"
 
 namespace KokkosSparse {
-namespace Experimental {
 
 // Symbolic: count entries in each row in C to produce rowmap
 // kernel handle has information about whether it is sorted add or not.
@@ -199,7 +185,6 @@ template <typename KernelHandle, typename... Args>
 void spadd_numeric(KernelHandle *handle, Args... args) {
   spadd_numeric(typename KernelHandle::HandleExecSpace{}, handle, args...);
 }
-}  // namespace Experimental
 
 // Symbolic: count entries in each row in C to produce rowmap
 // kernel handle has information about whether it is sorted add or not.
@@ -223,8 +208,8 @@ void spadd_symbolic(const ExecSpace &exec, KernelHandle *handle, const AMatrix &
     Kokkos::deep_copy(exec, row_mapC, A.graph.row_map);
     addHandle->set_c_nnz(A.graph.entries.extent(0));
   } else {
-    KokkosSparse::Experimental::spadd_symbolic(exec, handle, A.numRows(), A.numCols(), A.graph.row_map, A.graph.entries,
-                                               B.graph.row_map, B.graph.entries, row_mapC);
+    KokkosSparse::spadd_symbolic(exec, handle, A.numRows(), A.numCols(), A.graph.row_map, A.graph.entries,
+                                 B.graph.row_map, B.graph.entries, row_mapC);
   }
 
   // Now create and allocate the entries and values
@@ -251,9 +236,9 @@ void spadd_numeric(const ExecSpace &exec, KernelHandle *handle, const AScalar al
     Kokkos::deep_copy(exec, C.graph.entries, A.graph.entries);
     KokkosBlas::scal(exec, C.values, alpha, A.values);
   } else {
-    KokkosSparse::Experimental::spadd_numeric(exec, handle, A.numRows(), A.numCols(), A.graph.row_map, A.graph.entries,
-                                              A.values, alpha, B.graph.row_map, B.graph.entries, B.values, beta,
-                                              C.graph.row_map, C.graph.entries, C.values);
+    KokkosSparse::spadd_numeric(exec, handle, A.numRows(), A.numCols(), A.graph.row_map, A.graph.entries, A.values,
+                                alpha, B.graph.row_map, B.graph.entries, B.values, beta, C.graph.row_map,
+                                C.graph.entries, C.values);
   }
 }
 

@@ -21,7 +21,8 @@
 #include "Tpetra_Details_StaticView.hpp"
 #include "Teuchos_Array.hpp"
 #include "Teuchos_ScalarTraits.hpp"
-#include "Kokkos_ArithTraits.hpp"
+#include "Teuchos_Assert.hpp"
+#include "KokkosKernels_ArithTraits.hpp"
 #include <map>
 #include <utility>
 #include <vector>
@@ -84,7 +85,7 @@ makeStaticLocalMultiVector (const MultiVectorType& gblMv,
     // them having been initialized.  ArithTraits lets us call nan()
     // even if the scalar type doesn't define it; it just returns some
     // undefined value in the latter case.
-    const IST nan = Kokkos::ArithTraits<IST>::nan ();
+    const IST nan = KokkosKernels::ArithTraits<IST>::nan ();
     Kokkos::deep_copy (dv.view_device(), nan);
     Kokkos::deep_copy (dv.view_host(), nan);
   }
@@ -92,11 +93,35 @@ makeStaticLocalMultiVector (const MultiVectorType& gblMv,
 }
 
 template<class Scalar, class LO, class GO, class Node>
+struct PoolStatus {
+
+  // Whether the multivector pool is allocated.
+  static bool IsAllocated;
+
+};
+
+template<class Scalar, class LO, class GO, class Node>
+bool PoolStatus<Scalar, LO, GO, Node>::IsAllocated = false;
+
+
+template<class Scalar, class LO, class GO, class Node>
 class MultiVecPool
 {
 public:
   MultiVecPool() {
-    Kokkos::push_finalize_hook([this]() { this->availableDVs.clear(); });
+    TEUCHOS_ASSERT(!(PoolStatus<Scalar, LO, GO, Node>::IsAllocated));
+    PoolStatus<Scalar, LO, GO, Node>::IsAllocated = true;
+
+    Kokkos::push_finalize_hook([this]() {
+      if (PoolStatus<Scalar, LO, GO, Node>::IsAllocated) {
+        // Pool has not yet been deallocated, release the stored Kokkos views
+        this->availableDVs.clear();
+      }
+    });
+  }
+
+  ~MultiVecPool() {
+    PoolStatus<Scalar, LO, GO, Node>::IsAllocated = false;
   }
 
   using MV = ::Tpetra::MultiVector<Scalar, LO, GO, Node>;
@@ -131,7 +156,7 @@ public:
     if(available_rit != availableDVs.rend()) {
       available_rit->second.pop_back();
     }
-    dv_t dv("Belos::MultiVecPool DV", num_local_elems, numVecs);
+    dv_t dv(Kokkos::view_alloc("Belos::MultiVecPool DV", Kokkos::WithoutInitializing), num_local_elems, numVecs);
     auto & available = availableDVs[total_size];
     return Teuchos::rcpWithDealloc(new MV(map, dv), RCPDeleter{available, dv});
   }
@@ -142,7 +167,15 @@ private:
   {
     void free(MV * mv_ptr) {
       if(mv_ptr) {
-        dv_pool.push_back(dv);
+        using scalar_type = typename MV::scalar_type;
+        using local_ordinal_type = typename MV::local_ordinal_type;
+        using global_ordinal_type = typename MV::global_ordinal_type;
+        using node_type = typename MV::node_type;
+
+        if (PoolStatus<scalar_type, local_ordinal_type, global_ordinal_type, node_type>::IsAllocated) {
+          // Pool is still allocated, push DV back to it
+          dv_pool.push_back(dv);
+        }
         delete mv_ptr;
       }
     }

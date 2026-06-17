@@ -88,7 +88,7 @@ int main (int argc, char** argv)
     std::vector<Kokkos::DefaultExecutionSpace> streams;
     if (Kokkos::DefaultExecutionSpace().concurrency() >= 3) {
       std::cout << "Using partition_space, concurrency=" << Kokkos::DefaultExecutionSpace().concurrency() << std::endl;
-      streams = Kokkos::Experimental::partition_space(Kokkos::DefaultExecutionSpace(),1,1,1);
+      streams = Kokkos::Experimental::partition_space(Kokkos::DefaultExecutionSpace(),std::vector<int>(3,1));
     }
     else {
       std::cout << "NOT using partition_space, concurrency=" << Kokkos::DefaultExecutionSpace().concurrency() << std::endl;

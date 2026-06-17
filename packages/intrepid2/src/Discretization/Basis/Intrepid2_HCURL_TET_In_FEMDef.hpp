@@ -55,12 +55,10 @@ getValues(       OutputViewType output,
   }
 
   typedef typename Kokkos::DynRankView<typename InputViewType::value_type, typename WorkViewType::memory_space> ViewType;
-  auto vcprop = Kokkos::common_view_alloc_prop(input);
   auto ptr = work.data();
 
-  switch (OpType) {
-  case OPERATOR_VALUE: {
-    const ViewType phis(Kokkos::view_wrap(ptr, vcprop), card, npts);
+  if constexpr (OpType == OPERATOR_VALUE) {
+    const ViewType phis = createMatchingUnmanagedView<ViewType>(input, ptr, card, npts);
     ViewType dummyView;
 
     Impl::Basis_HGRAD_TET_Cn_FEM_ORTH::
@@ -69,16 +67,14 @@ getValues(       OutputViewType output,
     for (ordinal_type i=0;i<card;++i)
       for (ordinal_type j=0;j<npts;++j)
         for (ordinal_type d=0;d<spaceDim;++d) {
-          output.access(i,j,d) = 0.0;
+          output(i,j,d) = 0.0;
           for (ordinal_type k=0;k<cardPn;++k)
-            output.access(i,j,d) += coeffs(k+d*cardPn,i) * phis(k,j);
+            output(i,j,d) += coeffs(k+d*cardPn,i) * phis(k,j);
         }
-    break;
-  }
-  case OPERATOR_CURL: {
-    const ViewType phis(Kokkos::view_wrap(ptr, vcprop), card, npts, spaceDim);
+  } else if constexpr (OpType == OPERATOR_CURL) {
+    const ViewType phis = createMatchingUnmanagedView<ViewType>(input, ptr, card, npts, spaceDim);
     ptr += card*npts*spaceDim*get_dimension_scalar(input);
-    const ViewType workView(Kokkos::view_wrap(ptr, vcprop), card, npts, spaceDim+1);
+    const ViewType workView = createMatchingUnmanagedView<ViewType>(input, ptr, card, npts, spaceDim+1);
 
     Impl::Basis_HGRAD_TET_Cn_FEM_ORTH::
     Serial<OPERATOR_GRAD>::getValues(phis, input, workView, order);
@@ -86,20 +82,17 @@ getValues(       OutputViewType output,
     for (ordinal_type i=0;i<card;++i) {
       for (ordinal_type j=0;j<npts;++j) {
         for (ordinal_type d=0; d< spaceDim; ++d) {
-          output.access(i,j,d) = 0.0;
+          output(i,j,d) = 0.0;
           ordinal_type d1 = (d+1) % spaceDim, d2 = (d+2) % spaceDim;
           for (ordinal_type k=0; k<cardPn; ++k)   //\sum_k (coeffs_k, coeffs_{k+cardPn}, coeffs_{k+2 cardPn}) \times phis_kj  (cross product)
-            output.access(i,j,d) += coeffs(k+d2*cardPn,i)*phis(k,j,d1)
+            output(i,j,d) += coeffs(k+d2*cardPn,i)*phis(k,j,d1)
             -coeffs(k+d1*cardPn,i)*phis(k,j,d2);
         }
       }
     }
-    break;
-  }
-  default: {
+  } else {
     INTREPID2_TEST_FOR_ABORT( true,
         ">>> ERROR (Basis_HCURL_TET_In_FEM): Operator type not implemented");
-  }
   }
 }
 
@@ -126,25 +119,22 @@ getValues(
   const auto loopSize = loopSizeTmp1 + loopSizeTmp2;
   Kokkos::RangePolicy<ExecSpaceType,Kokkos::Schedule<Kokkos::Static> > policy(space, 0, loopSize);
 
-  typedef typename inputPointViewType::value_type inputPointType;
+  //typedef typename inputPointViewType::value_type inputPointType;
 
   const ordinal_type cardinality = outputValues.extent(0);
   const ordinal_type spaceDim = 3;
 
-  auto vcprop = Kokkos::common_view_alloc_prop(inputPoints);
-  typedef typename Kokkos::DynRankView< inputPointType, typename inputPointViewType::memory_space> workViewType;
-
   switch (operatorType) {
   case OPERATOR_VALUE: {
-    workViewType  work(Kokkos::view_alloc(space, "Basis_HCURL_TET_In_FEM::getValues::work", vcprop), cardinality, inputPoints.extent(0));
-    typedef Functor<outputValueViewType,inputPointViewType,vinvViewType, workViewType,
+    auto work = createMatchingDynRankView(inputPoints, "Basis_HCURL_TET_In_FEM::getValues::work", cardinality, inputPoints.extent(0));
+    typedef Functor<outputValueViewType,inputPointViewType,vinvViewType, decltype(work),
         OPERATOR_VALUE,numPtsPerEval> FunctorType;
     Kokkos::parallel_for( policy, FunctorType(outputValues, inputPoints, coeffs, work) );
     break;
   }
   case OPERATOR_CURL: {
-    workViewType  work(Kokkos::view_alloc(space, "Basis_HCURL_TET_In_FEM::getValues::work", vcprop), cardinality*(2*spaceDim+1), inputPoints.extent(0));
-    typedef Functor<outputValueViewType,inputPointViewType,vinvViewType, workViewType,
+    auto work = createMatchingDynRankView(inputPoints, "Basis_HCURL_TET_In_FEM::getValues::work", cardinality*(2*spaceDim+1), inputPoints.extent(0));
+    typedef Functor<outputValueViewType,inputPointViewType,vinvViewType, decltype(work),
         OPERATOR_CURL,numPtsPerEval> FunctorType;
     Kokkos::parallel_for( policy, FunctorType(outputValues, inputPoints, coeffs, work) );
     break;
@@ -267,12 +257,12 @@ Basis_HCURL_TET_In_FEM( const ordinal_type order,
       V1.extent(0) ,
       V1.extent(1) ,
       V1.data() ,
-      V1.stride_1() ,
+      V1.stride(1) ,
       S.data() ,
       U.data() ,
-      U.stride_1() ,
+      U.stride(1) ,
       Vt.data() ,
-      Vt.stride_1() ,
+      Vt.stride(1) ,
       work.data() ,
       5*cardVecPn ,
       rWork.data() ,
@@ -504,7 +494,7 @@ Basis_HCURL_TET_In_FEM( const ordinal_type order,
   info = 0;
 
   lapack.GETRF(card, card,
-      vmat.data(), vmat.stride_1(),
+      vmat.data(), vmat.stride(1),
       (ordinal_type*)ipiv.data(),
       &info);
 
@@ -513,7 +503,7 @@ Basis_HCURL_TET_In_FEM( const ordinal_type order,
       ">>> ERROR: (Intrepid2::Basis_HCURL_TET_In_FEM) lapack.GETRF returns nonzero info." );
 
   lapack.GETRI(card,
-      vmat.data(), vmat.stride_1(),
+      vmat.data(), vmat.stride(1),
       (ordinal_type*)ipiv.data(),
       work1.data(), lwork,
       &info);
@@ -565,14 +555,14 @@ Basis_HCURL_TET_In_FEM( const ordinal_type order,
 
 template<typename DT, typename OT, typename PT>
 void 
-Basis_HCURL_TET_In_FEM<DT,OT,PT>::getScratchSpaceSize(       
-                                  ordinal_type& perTeamSpaceSize,
-                                  ordinal_type& perThreadSpaceSize,
+Basis_HCURL_TET_In_FEM<DT,OT,PT>::getScratchSpaceSize(        
+                                      ordinal_type& perThreadSpaceSize,
                             const PointViewType inputPoints,
                             const EOperator operatorType) const {
-  perTeamSpaceSize = 0;
+  using ScalarType = typename ScalarTraits<typename PointViewType::value_type>::scalar_type;
+  using ScratchViewType = Kokkos::DynRankView<ScalarType, typename DT::execution_space::scratch_memory_space, Kokkos::MemoryTraits<Kokkos::Unmanaged> >;
   ordinal_type scalarWorkViewExtent = (operatorType == OPERATOR_VALUE) ? this->basisCardinality_ : 7*this->basisCardinality_;
-  perThreadSpaceSize = scalarWorkViewExtent*get_dimension_scalar(inputPoints)*sizeof(typename BasisBase::scalarType);
+  perThreadSpaceSize = ScratchViewType::shmem_size(scalarWorkViewExtent*get_dimension_scalar(inputPoints));
 }
 
 template<typename DT, typename OT, typename PT>
@@ -583,7 +573,7 @@ Basis_HCURL_TET_In_FEM<DT,OT,PT>::getValues(
     const PointViewType  inputPoints,
     const EOperator operatorType,
     const typename Kokkos::TeamPolicy<typename DT::execution_space>::member_type& team_member,
-    const typename DT::execution_space::scratch_memory_space & scratchStorage, 
+    const int threadScratchLevel, 
     const ordinal_type subcellDim,
     const ordinal_type subcellOrdinal) const {
 
@@ -595,15 +585,15 @@ Basis_HCURL_TET_In_FEM<DT,OT,PT>::getValues(
     using WorkViewType = Kokkos::DynRankView< ScalarType,typename DT::execution_space::scratch_memory_space,Kokkos::MemoryTraits<Kokkos::Unmanaged> >;
     ordinal_type scalarSizePerPoint = (operatorType == OPERATOR_VALUE) ? this->basisCardinality_ : 7*this->basisCardinality_;
     ordinal_type sizePerPoint = scalarSizePerPoint*get_dimension_scalar(inputPoints);
-    WorkViewType workView(scratchStorage, sizePerPoint*team_member.team_size());
+    
+    WorkViewType  work(team_member.thread_scratch(threadScratchLevel), sizePerPoint);
     using range_type = Kokkos::pair<ordinal_type,ordinal_type>;
-
+    
     switch(operatorType) {
       case OPERATOR_VALUE:
         Kokkos::parallel_for (Kokkos::TeamThreadRange (team_member, numPoints), [=, &coeffs_ = this->coeffs_] (ordinal_type& pt) {
           auto       output = Kokkos::subview( outputValues, Kokkos::ALL(), range_type  (pt,pt+1), Kokkos::ALL() );
           const auto input  = Kokkos::subview( inputPoints,                 range_type(pt, pt+1), Kokkos::ALL() );
-          WorkViewType  work(workView.data() + sizePerPoint*team_member.team_rank(), sizePerPoint);
           Impl::Basis_HCURL_TET_In_FEM::Serial<OPERATOR_VALUE>::getValues( output, input, work, coeffs_ );
         });
         break;
@@ -611,7 +601,6 @@ Basis_HCURL_TET_In_FEM<DT,OT,PT>::getValues(
         Kokkos::parallel_for (Kokkos::TeamThreadRange (team_member, numPoints), [=, &coeffs_ = this->coeffs_] (ordinal_type& pt) {
           auto       output = Kokkos::subview( outputValues, Kokkos::ALL(), range_type(pt,pt+1), Kokkos::ALL() );
           const auto input  = Kokkos::subview( inputPoints,                 range_type(pt,pt+1), Kokkos::ALL() );
-          WorkViewType  work(workView.data() + sizePerPoint*team_member.team_rank(), sizePerPoint);
           Impl::Basis_HCURL_TET_In_FEM::Serial<OPERATOR_CURL>::getValues( output, input, work, coeffs_ );
         });
         break;

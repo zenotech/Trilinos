@@ -1,24 +1,11 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSSPARSE_IMPL_SPTRSV_SOLVE_SPEC_HPP_
 #define KOKKOSSPARSE_IMPL_SPTRSV_SOLVE_SPEC_HPP_
 
 #include <KokkosKernels_config.h>
 #include <Kokkos_Core.hpp>
-#include <Kokkos_ArithTraits.hpp>
+#include <KokkosKernels_ArithTraits.hpp>
 #include "KokkosSparse_CrsMatrix.hpp"
 #include "KokkosKernels_Handle.hpp"
 
@@ -169,20 +156,33 @@ struct SPTRSV_SOLVE<ExecutionSpace, KernelHandle, RowMapType, EntriesType, Value
     }
     Kokkos::Profiling::pushRegion(sptrsv_handle_v[0]->is_lower_tri() ? "KokkosSparse_sptrsv[lower]"
                                                                      : "KokkosSparse_sptrsv[upper]");
+    const auto block_enabled = sptrsv_handle_v[0]->is_block_enabled();
     if (sptrsv_handle_v[0]->is_lower_tri()) {
       for (int i = 0; i < static_cast<int>(execspace_v.size()); i++) {
         if (sptrsv_handle_v[i]->is_symbolic_complete() == false) {
           Experimental::lower_tri_symbolic(execspace_v[i], *(sptrsv_handle_v[i]), row_map_v[i], entries_v[i]);
         }
       }
-      Sptrsv::template tri_solve_streams<true>(execspace_v, sptrsv_handle_v, row_map_v, entries_v, values_v, b_v, x_v);
+      if (block_enabled) {
+        Sptrsv::template tri_solve_streams<true, true>(execspace_v, sptrsv_handle_v, row_map_v, entries_v, values_v,
+                                                       b_v, x_v);
+      } else {
+        Sptrsv::template tri_solve_streams<true, false>(execspace_v, sptrsv_handle_v, row_map_v, entries_v, values_v,
+                                                        b_v, x_v);
+      }
     } else {
       for (int i = 0; i < static_cast<int>(execspace_v.size()); i++) {
         if (sptrsv_handle_v[i]->is_symbolic_complete() == false) {
           Experimental::upper_tri_symbolic(execspace_v[i], *(sptrsv_handle_v[i]), row_map_v[i], entries_v[i]);
         }
       }
-      Sptrsv::template tri_solve_streams<false>(execspace_v, sptrsv_handle_v, row_map_v, entries_v, values_v, b_v, x_v);
+      if (block_enabled) {
+        Sptrsv::template tri_solve_streams<false, true>(execspace_v, sptrsv_handle_v, row_map_v, entries_v, values_v,
+                                                        b_v, x_v);
+      } else {
+        Sptrsv::template tri_solve_streams<false, false>(execspace_v, sptrsv_handle_v, row_map_v, entries_v, values_v,
+                                                         b_v, x_v);
+      }
     }
     Kokkos::Profiling::popRegion();
   }

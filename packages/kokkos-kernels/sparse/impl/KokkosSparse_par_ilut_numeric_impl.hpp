@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOSSPARSE_IMPL_PAR_ILUT_NUMERIC_HPP_
 #define KOKKOSSPARSE_IMPL_PAR_ILUT_NUMERIC_HPP_
@@ -21,7 +8,7 @@
 /// \brief Implementation(s) of the numeric phase of sparse parallel ILUT.
 
 #include <KokkosKernels_config.h>
-#include <Kokkos_ArithTraits.hpp>
+#include <KokkosKernels_ArithTraits.hpp>
 #include <KokkosSparse_par_ilut_handle.hpp>
 #include <KokkosSparse_spgemm.hpp>
 #include <KokkosSparse_spadd.hpp>
@@ -44,10 +31,11 @@ struct IlutWrap {
   using index_t                 = typename IlutHandle::nnz_lno_t;
   using size_type               = typename IlutHandle::size_type;
   using scalar_t                = typename IlutHandle::nnz_scalar_t;
+  using float_t                 = typename IlutHandle::float_t;
   using HandleDeviceEntriesType = typename IlutHandle::nnz_lno_view_t;
   using HandleDeviceRowMapType  = typename IlutHandle::nnz_row_view_t;
   using HandleDeviceValueType   = typename IlutHandle::nnz_value_view_t;
-  using karith                  = typename Kokkos::ArithTraits<scalar_t>;
+  using karith                  = typename KokkosKernels::ArithTraits<scalar_t>;
   using policy_type             = typename IlutHandle::TeamPolicy;
   using member_type             = typename policy_type::member_type;
   using range_policy            = typename IlutHandle::RangePolicy;
@@ -80,16 +68,15 @@ struct IlutWrap {
 
     const size_type nrows = ih.get_nrows();
 
-    KokkosSparse::Experimental::spgemm_symbolic(&kh, nrows, nrows, nrows, L_row_map, L_entries, false, U_row_map,
-                                                U_entries, false, LU_row_map);
+    KokkosSparse::spgemm_symbolic(&kh, nrows, nrows, nrows, L_row_map, L_entries, false, U_row_map, U_entries, false,
+                                  LU_row_map);
 
     const size_type lu_nnz_size = kh.get_spgemm_handle()->get_c_nnz();
-    Kokkos::resize(LU_entries, lu_nnz_size);
-    Kokkos::resize(LU_values, lu_nnz_size);
+    Kokkos::realloc(Kokkos::WithoutInitializing, LU_entries, lu_nnz_size);
+    Kokkos::realloc(Kokkos::WithoutInitializing, LU_values, lu_nnz_size);
 
-    KokkosSparse::Experimental::spgemm_numeric(&kh, nrows, nrows, nrows, L_row_map, L_entries, L_values, false,
-                                               U_row_map, U_entries, U_values, false, LU_row_map, LU_entries,
-                                               LU_values);
+    KokkosSparse::spgemm_numeric(&kh, nrows, nrows, nrows, L_row_map, L_entries, L_values, false, U_row_map, U_entries,
+                                 U_values, false, LU_row_map, LU_entries, LU_values);
 
     // Need to sort LU CRS if on CUDA!
     sort_crs_matrix<execution_space>(LU_row_map, LU_entries, LU_values);
@@ -110,8 +97,8 @@ struct IlutWrap {
     // Need to reset t_row_map
     Kokkos::deep_copy(t_row_map, 0);
 
-    Kokkos::resize(t_entries, entries.extent(0));
-    Kokkos::resize(t_values, values.extent(0));
+    Kokkos::realloc(Kokkos::WithoutInitializing, t_entries, entries.extent(0));
+    Kokkos::realloc(Kokkos::WithoutInitializing, t_values, values.extent(0));
 
     KokkosSparse::Impl::transpose_matrix<HandleDeviceRowMapType, HandleDeviceEntriesType, HandleDeviceValueType,
                                          HandleDeviceRowMapType, HandleDeviceEntriesType, HandleDeviceValueType,
@@ -239,10 +226,10 @@ struct IlutWrap {
     const size_type l_new_nnz_tot = prefix_sum(L_new_row_map);
     const size_type u_new_nnz_tot = prefix_sum(U_new_row_map);
 
-    Kokkos::resize(L_new_entries, l_new_nnz_tot);
-    Kokkos::resize(U_new_entries, u_new_nnz_tot);
-    Kokkos::resize(L_new_values, l_new_nnz_tot);
-    Kokkos::resize(U_new_values, u_new_nnz_tot);
+    Kokkos::realloc(Kokkos::WithoutInitializing, L_new_entries, l_new_nnz_tot);
+    Kokkos::realloc(Kokkos::WithoutInitializing, U_new_entries, u_new_nnz_tot);
+    Kokkos::realloc(Kokkos::WithoutInitializing, L_new_values, l_new_nnz_tot);
+    Kokkos::realloc(Kokkos::WithoutInitializing, U_new_values, u_new_nnz_tot);
 
     constexpr auto sentinel = std::numeric_limits<size_type>::max();
 
@@ -475,28 +462,49 @@ struct IlutWrap {
     }
   }
 
+  struct AbsComparator {
+    KOKKOS_INLINE_FUNCTION
+    bool operator()(const scalar_t& a, const scalar_t& b) const { return karith::abs(a) < karith::abs(b); }
+  };
+
   /**
    * Select threshold based on filter rank. Do all this on host
    */
-  template <class ValuesType, class ValuesCopyType>
-  static typename IlutHandle::float_t threshold_select(ValuesType& values, const typename IlutHandle::nnz_lno_t rank,
-                                                       ValuesCopyType& values_copy) {
+  template <class ValuesType, class ValuesCopyHostType, class ValuesCopyType>
+  static float_t threshold_select(const ValuesType& values, const typename IlutHandle::nnz_lno_t rank,
+                                  ValuesCopyHostType& values_copy, ValuesCopyType& values_copy_d) {
     const index_t size = values.extent(0);
 
-    Kokkos::resize(values_copy, size);
-    Kokkos::deep_copy(values_copy, values);
+    // Legacy views do not support sort, so we have to do it on host
+#ifdef KOKKOS_ENABLE_IMPL_VIEW_LEGACY
+    if constexpr (true) {
+#else
+    if constexpr (std::is_same_v<Kokkos::HostSpace, typename ValuesType::memory_space>) {
+#endif
+      Kokkos::realloc(Kokkos::WithoutInitializing, values_copy, size);
+      Kokkos::deep_copy(values_copy, values);
 
-    auto begin  = values_copy.data();
-    auto target = begin + rank;
-    auto end    = begin + size;
-    std::nth_element(begin, target, end, [](scalar_t a, scalar_t b) { return karith::abs(a) < karith::abs(b); });
+      auto begin  = values_copy.data();
+      auto target = begin + rank;
+      auto end    = begin + size;
+      std::nth_element(begin, target, end, [](scalar_t a, scalar_t b) { return karith::abs(a) < karith::abs(b); });
+      return karith::abs(values_copy(rank));
+    } else {
+      Kokkos::realloc(Kokkos::WithoutInitializing, values_copy_d, size);
+      Kokkos::deep_copy(values_copy_d, values);
 
-    return karith::abs(values_copy(rank));
+      float_t result;
+      Kokkos::sort(values_copy_d, AbsComparator{});
+      Kokkos::parallel_reduce(
+          range_policy(0, 1), KOKKOS_LAMBDA(const int, float_t& lsum) { lsum = karith::abs(values_copy_d(rank)); },
+          result);
+
+      return result;
+    }
   }
 
   template <class IRowMapType, class IEntriesType, class IValuesType, class ORowMapType>
   struct ThresholdFilterCountFunctor {
-    using float_t = typename IlutHandle::float_t;
     ThresholdFilterCountFunctor(const float_t threshold_, const IRowMapType& I_row_map_, const IEntriesType& I_entries_,
                                 const IValuesType& I_values_, const ORowMapType& O_row_map_)
         : threshold(threshold_),
@@ -534,7 +542,6 @@ struct IlutWrap {
   template <class IRowMapType, class IEntriesType, class IValuesType, class ORowMapType, class OEntriesType,
             class OValuesType>
   struct ThresholdFilterAssignFunctor {
-    using float_t = typename IlutHandle::float_t;
     ThresholdFilterAssignFunctor(const float_t threshold_, const IRowMapType& I_row_map_,
                                  const IEntriesType& I_entries_, const IValuesType& I_values_,
                                  const ORowMapType& O_row_map_, const OEntriesType& O_entries_,
@@ -576,9 +583,9 @@ struct IlutWrap {
    */
   template <class IRowMapType, class IEntriesType, class IValuesType, class ORowMapType, class OEntriesType,
             class OValuesType>
-  static void threshold_filter(IlutHandle& ih, const typename IlutHandle::float_t threshold,
-                               const IRowMapType& I_row_map, const IEntriesType& I_entries, const IValuesType& I_values,
-                               ORowMapType& O_row_map, OEntriesType& O_entries, OValuesType& O_values) {
+  static void threshold_filter(IlutHandle& ih, const float_t threshold, const IRowMapType& I_row_map,
+                               const IEntriesType& I_entries, const IValuesType& I_values, ORowMapType& O_row_map,
+                               OEntriesType& O_entries, OValuesType& O_values) {
     const auto policy     = ih.get_default_team_policy();
     const size_type nrows = ih.get_nrows();
 
@@ -588,8 +595,8 @@ struct IlutWrap {
 
     const auto new_nnz = prefix_sum(O_row_map);
 
-    Kokkos::resize(O_entries, new_nnz);
-    Kokkos::resize(O_values, new_nnz);
+    Kokkos::realloc(Kokkos::WithoutInitializing, O_entries, new_nnz);
+    Kokkos::realloc(Kokkos::WithoutInitializing, O_values, new_nnz);
 
     Kokkos::parallel_for(
         "threshold_filter assign", range_policy(0, nrows),
@@ -621,15 +628,17 @@ struct IlutWrap {
     // TODO: let compute_residual_norm also take an execution space argument and
     // use that for exec!
     typename KHandle::HandleExecSpace exec{};
-    KokkosSparse::Experimental::spadd_symbolic(exec, &kh, m, n, A_row_map, A_entries, LU_row_map, LU_entries,
-                                               R_row_map);
+    if (R_row_map.size() == 0) {
+      Kokkos::realloc(Kokkos::WithoutInitializing, R_row_map, A_row_map.size());
+    }
+    KokkosSparse::spadd_symbolic(exec, &kh, m, n, A_row_map, A_entries, LU_row_map, LU_entries, R_row_map);
 
     const size_type r_nnz = addHandle->get_c_nnz();
-    Kokkos::resize(exec, R_entries, r_nnz);
-    Kokkos::resize(exec, R_values, r_nnz);
+    Kokkos::realloc(Kokkos::WithoutInitializing, R_entries, r_nnz);
+    Kokkos::realloc(Kokkos::WithoutInitializing, R_values, r_nnz);
 
-    KokkosSparse::Experimental::spadd_numeric(exec, &kh, m, n, A_row_map, A_entries, A_values, 1., LU_row_map,
-                                              LU_entries, LU_values, -1., R_row_map, R_entries, R_values);
+    KokkosSparse::spadd_numeric(exec, &kh, m, n, A_row_map, A_entries, A_values, 1., LU_row_map, LU_entries, LU_values,
+                                -1., R_row_map, R_entries, R_values);
     // TODO: how to make this policy use exec?
     auto policy = ih.get_default_team_policy();
 
@@ -755,16 +764,17 @@ struct IlutWrap {
     HandleDeviceRowMapType LU_row_map(Kokkos::view_alloc(Kokkos::WithoutInitializing, "LU_row_map"), nrows + 1),
         L_new_row_map(Kokkos::view_alloc(Kokkos::WithoutInitializing, "L_new_row_map"), nrows + 1),
         U_new_row_map(Kokkos::view_alloc(Kokkos::WithoutInitializing, "U_new_row_map"), nrows + 1),
-        R_row_map(Kokkos::view_alloc(Kokkos::WithoutInitializing, "R_row_map"), nrows + 1),
         Ut_new_row_map("Ut_new_row_map", nrows + 1);
 
+    HandleDeviceRowMapType R_row_map;
     HandleDeviceEntriesType LU_entries, L_new_entries, U_new_entries, Ut_new_entries, R_entries;
     HandleDeviceValueType LU_values, L_new_values, U_new_values, Ut_new_values, V_copy_d, R_values;
     auto V_copy = Kokkos::create_mirror_view(V_copy_d);
 
-    size_type itr          = 0;
-    scalar_t curr_residual = std::numeric_limits<scalar_t>::max();
-    scalar_t prev_residual = std::numeric_limits<scalar_t>::max();
+    size_type itr                  = 0;
+    scalar_t curr_residual         = std::numeric_limits<scalar_t>::max();
+    scalar_t prev_residual         = std::numeric_limits<scalar_t>::max();
+    const bool do_compute_residual = residual_norm_delta_stop > 0;
 
     // Set the initial L/U values for the initial approximation
     initialize_LU(thandle, A_row_map, A_entries, A_values, L_row_map, L_entries, L_values, U_row_map, U_entries,
@@ -776,7 +786,10 @@ struct IlutWrap {
     bool stop = nrows == 0;  // Don't iterate at all if nrows=0
     while (!stop && itr < max_iter) {
       // LU = L*U
-      if (prev_residual == std::numeric_limits<scalar_t>::max()) {
+      //
+      // computing residual does this operation, so we don't need to repeat it if we
+      // are computing residuals.
+      if (itr == 0 || !do_compute_residual) {
         multiply_matrices(kh, thandle, L_row_map, L_entries, L_values, U_row_map, U_entries, U_values, LU_row_map,
                           LU_entries, LU_values);
       }
@@ -804,8 +817,8 @@ struct IlutWrap {
         const auto l_filter_rank = std::max(static_cast<index_t>(0), l_nnz - l_nnz_limit - 1);
         const auto u_filter_rank = std::max(static_cast<index_t>(0), u_nnz - u_nnz_limit - 1);
 
-        const auto l_threshold = threshold_select(L_new_values, l_filter_rank, V_copy);
-        const auto u_threshold = threshold_select(U_new_values, u_filter_rank, V_copy);
+        const auto l_threshold = threshold_select(L_new_values, l_filter_rank, V_copy, V_copy_d);
+        const auto u_threshold = threshold_select(U_new_values, u_filter_rank, V_copy, V_copy_d);
 
         threshold_filter(thandle, l_threshold, L_new_row_map, L_new_entries, L_new_values, L_row_map, L_entries,
                          L_values);
@@ -822,8 +835,14 @@ struct IlutWrap {
       compute_l_u_factors(thandle, A_row_map, A_entries, A_values, L_row_map, L_entries, L_values, U_row_map, U_entries,
                           U_values, Ut_new_row_map, Ut_new_entries, Ut_new_values, async_update);
 
+      //
       // Compute residual and check stop conditions
-      {
+      //
+      // compute_residual_norm can use a lot of memory, especially if fill_in_limit is
+      // large. If user selects residual_norm_delta_stop <= 0, just skip this step and
+      // always run max_iters times.
+      //
+      if (do_compute_residual) {
         curr_residual = compute_residual_norm(kh, thandle, A_row_map, A_entries, A_values, L_row_map, L_entries,
                                               L_values, U_row_map, U_entries, U_values, R_row_map, R_entries, R_values,
                                               LU_row_map, LU_entries, LU_values);
@@ -843,6 +862,9 @@ struct IlutWrap {
         } else {
           prev_residual = curr_residual;
         }
+      } else {
+        curr_residual = 0;
+        prev_residual = 0;
       }
 
       ++itr;
@@ -850,7 +872,11 @@ struct IlutWrap {
 
     curr_residual = nrows == 0 ? scalar_t(0.) : curr_residual;
     if (verbose) {
-      std::cout << "PAR_ILUT stopped in " << itr << " iterations with residual " << curr_residual << std::endl;
+      if (do_compute_residual) {
+        std::cout << "PAR_ILUT stopped in " << itr << " iterations with residual " << curr_residual << std::endl;
+      } else {
+        std::cout << "PAR_ILUT stopped in " << itr << " iterations with unknown residual" << std::endl;
+      }
     }
     thandle.set_stats(itr, curr_residual);
 

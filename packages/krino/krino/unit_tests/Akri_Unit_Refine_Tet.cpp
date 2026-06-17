@@ -4,113 +4,15 @@
  *  Created on: Dec 15, 2022
  *      Author: drnoble
  */
-#include <Akri_MeshSpecs.hpp>
-#include <Akri_Unit_RefinementFixture.hpp>
+
+#include <Akri_Unit_RefinementFixture_Tet.hpp>
 #include <random>
 #include <stk_mesh/base/SkinBoundary.hpp>
 #include <Akri_OutputUtils.hpp>
+#include <Akri_UnitTestUtils.hpp>
 #include <stk_util/diag/PrintTimer.hpp>
 
 namespace krino {
-
-class RegularTetRefinement : public RefinementFixture<RegularTet>
-{
-public:
-  RegularTetRefinement()
-  {
-    set_valid_proc_sizes_for_test({1});
-    StkMeshTetFixture::build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1});
-  }
-  stk::mesh::Entity get_element()
-  {
-    const std::vector<stk::mesh::Entity> ownedElements = get_owned_elements();
-    return ownedElements[0];
-  }
-  Edge get_edge(unsigned edgeOrdinal) { std::vector<Edge> elemEdges; fill_entity_edges(mMesh, get_element(), elemEdges); return elemEdges[edgeOrdinal]; }
-protected:
-};
-
-
-class UMRRegularTetRefinement : public RefinementFixture<UMRRegularTet>
-{
-public:
-  UMRRegularTetRefinement()
-  {
-    set_valid_proc_sizes_for_test({1,2,4,8});
-    if(stk::parallel_machine_size(mComm) == 1)
-      this->build_mesh(meshSpec.nodeLocs, {meshSpec.allElementConn});
-    else if(stk::parallel_machine_size(mComm) == 2)
-      this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,1,1,1,1,1,1,1}, {0,1,1,0,0,0,1,1}); // Balanced for refinement along x=0
-    else if(stk::parallel_machine_size(mComm) == 4)
-      this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,1,1,1,1,1,1,1}, {0,1,2,3,0,0,1,1}); // Balanced for refinement along x=0
-    else if(stk::parallel_machine_size(mComm) == 8)
-      this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,1,1,1,1,1,1,1}, {0,1,2,3,4,5,6,7});
-  }
-protected:
-};
-
-class FourRightTetsRefinement : public RefinementFixture<FourRightTets>
-{
-public:
-  FourRightTetsRefinement()
-  {
-    set_valid_proc_sizes_for_test({1,2,3,4});
-    if(stk::parallel_machine_size(mComm) <= 4)
-    {
-      if(stk::parallel_machine_size(mComm) == 1)
-        this->build_mesh(meshSpec.nodeLocs, {meshSpec.allElementConn});
-      else if(stk::parallel_machine_size(mComm) == 2)
-        this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,1,1,1}, {0,0,1,1});
-      else if(stk::parallel_machine_size(mComm) == 3)
-        this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,1,1,1}, {0,1,2,2});
-      else if(stk::parallel_machine_size(mComm) == 4)
-        this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,1,1,1}, {0,1,2,3});
-    }
-  }
-protected:
-};
-
-class RightTetSurroundedByEdgeTetsRefinement : public RefinementFixture<RightTetSurroundedByEdgeTets>
-{
-public:
-  RightTetSurroundedByEdgeTetsRefinement()
-  {
-    set_valid_proc_sizes_for_test({1,2,3,4});
-    if(stk::parallel_machine_size(mComm) <= 4)
-    {
-      if(stk::parallel_machine_size(mComm) == 1)
-        this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,2,2,2,2,2,2}, {0,0,0,0,0,0,0});
-      else if(stk::parallel_machine_size(mComm) == 2)
-        this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,2,2,2,2,2,2}, {0,1,0,1,0,1,0});
-      else if(stk::parallel_machine_size(mComm) == 3)
-        this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,2,2,2,2,2,2}, {0,1,2,0,1,2,0});
-      else if(stk::parallel_machine_size(mComm) == 4)
-        this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,2,2,2,2,2,2}, {0,1,2,3,0,1,2});
-    }
-  }
-protected:
-};
-
-class RightTetSurroundedByFaceTetsRefinement : public RefinementFixture<RightTetSurroundedByFaceTets>
-{
-public:
-  RightTetSurroundedByFaceTetsRefinement()
-  {
-    set_valid_proc_sizes_for_test({1,2,3,4});
-    if(stk::parallel_machine_size(mComm) <= 4)
-    {
-      if(stk::parallel_machine_size(mComm) == 1)
-        this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,2,2,2,2}, {0,0,0,0,0});
-      else if(stk::parallel_machine_size(mComm) == 2)
-        this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,2,2,2,2}, {0,1,0,1,0});
-      else if(stk::parallel_machine_size(mComm) == 3)
-        this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,2,2,2,2}, {0,1,2,0,1});
-      else if(stk::parallel_machine_size(mComm) == 4)
-        this->build_mesh(meshSpec.nodeLocs, meshSpec.allElementConn, {1,2,2,2,2}, {0,1,2,3,0});
-    }
-  }
-protected:
-};
 
 TEST_F(RegularTetRefinement, givenMeshWithSingleTetMarked_afterRefinement_have8ChildElements)
 {
@@ -130,6 +32,48 @@ TEST_F(RegularTetRefinement, givenMeshWithSingleTetMarked_afterRefinement_have8C
       EXPECT_TRUE(myRefinement.is_child(child));
       EXPECT_EQ(get_element(), myRefinement.get_parent(child));
     }
+  }
+}
+
+TEST_F(RegularTet10Refinement, givenMeshWithSingleTetMarked_afterRefinement_have8ChildElementsAnd35Nodes)
+{
+  if(is_valid_proc_size_for_test())
+  {
+    mark_elements_for_refinement({get_element()});
+    do_refinement();
+
+    EXPECT_EQ(9u, get_global_num_entities(mMesh, stk::topology::ELEMENT_RANK));
+
+    EXPECT_TRUE(myRefinement.is_parent(get_element()));
+    EXPECT_EQ(8u, myRefinement.get_num_children(get_element()));
+
+    EXPECT_EQ(35u, get_global_num_entities(mMesh, stk::topology::NODE_RANK));
+  }
+}
+
+TEST_F(RegularTetRefinement, meshAfter2LevelsOfUMR_have35Nodes)
+{
+  if(is_valid_proc_size_for_test())
+  {
+    perform_iterations_of_uniform_refinement_with_general_element_marker(2);
+
+    EXPECT_EQ(35u, get_global_num_entities(mMesh, stk::topology::NODE_RANK));
+  }
+}
+
+TEST_F(RegularTet10Refinement, twoRoundsOfRefiningTipElement_35Elements)
+{
+  if(is_valid_proc_size_for_test())
+  {
+    refine_elements({get_element()});
+
+    std::vector<stk::mesh::Entity> childElems = get_children(get_element());
+    ASSERT_EQ(8u, childElems.size());
+
+    refine_elements({childElems[7]});
+
+    EXPECT_EQ(65u, get_global_num_entities(mMesh, stk::topology::NODE_RANK));
+    EXPECT_EQ(25u, get_global_num_entities(mMesh, stk::topology::ELEMENT_RANK));
   }
 }
 
@@ -320,16 +264,16 @@ TEST_F(UMRRegularTetRefinement, fuzzTest)
   if (doWriteMesh)
     write_mesh("test.e");
 
-  const int fuzz_iterations = 10000;
+  const int fuzz_iterations = num_random_test_cases(1000, 10000);
   std::mt19937 rand_gen;
 
   int count = 0;
-  for (size_t i=0; i < fuzz_iterations; ++i)
+  for (int i=0; i < fuzz_iterations; ++i)
   {
     randomly_mark_elements(rand_gen);
 
     if (doWriteMesh)
-      refine_marked_elements(create_file_name("test", ++count));
+      refine_marked_elements(create_file_name("test.e", ++count));
     else
       refine_marked_elements();
   }
@@ -344,7 +288,7 @@ TEST_F(UMRRegularTetRefinement, fuzzTestWithCustomGhosting)
 
   if (doWriteMesh) write_mesh("test.e");
 
-  const int fuzz_iterations = 10000;
+  const int fuzz_iterations = num_random_test_cases(1000, 10000);
   std::mt19937 rand_gen;
 
   mMesh.modification_begin();
@@ -355,7 +299,7 @@ TEST_F(UMRRegularTetRefinement, fuzzTestWithCustomGhosting)
   std::vector<stk::mesh::Entity> elems_to_ghost;
   std::vector<stk::mesh::EntityProc> ghost_elems_and_procs;
   std::uniform_int_distribution<> rank_dist(0, this->parallel_size() - 1);
-  for (size_t i = 0; i < fuzz_iterations; ++i)
+  for (int i = 0; i < fuzz_iterations; ++i)
   {
     mMesh.modification_begin();
     mMesh.destroy_ghosting(ghosting);
@@ -373,10 +317,43 @@ TEST_F(UMRRegularTetRefinement, fuzzTestWithCustomGhosting)
     randomly_mark_elements(rand_gen);
 
     if (doWriteMesh)
-      refine_marked_elements(create_file_name("test", ++count));
+      refine_marked_elements(create_file_name("test.e", ++count));
     else
       refine_marked_elements();
   }
+}
+
+TEST_F(UMRRegularTetRefinement, performanceUniformRefinementTest)
+{
+  // As of 9/4/2024:
+  // Krino times: (including 6th level commented out below)
+  // NP=1 Time:    23812 ms
+  // NP=2 Time:    12017 ms
+  // NP=4 Time:     8669 ms
+  // NP=8 Time:     3001 ms
+
+  if(is_debug() || !is_valid_proc_size_for_test())
+    return;
+
+  const std::vector<size_t> goldNumElementsByRefinementLevel = {64, 512, 4096, 32768, 262144}; //, 2097152};
+  for (size_t i=0; i<goldNumElementsByRefinementLevel.size(); ++i)
+  {
+    myTimer.start();
+    myRefinement.do_uniform_refinement(1);
+    // NOTE: During the 6th level of refinement, a throw is hit in BucketConnectivity.hpp stating that "BucketConnDynamic size exceeds limitation of index type"
+    //       unless the parent elements are deleted OR the bucket size is forced to be 256 instead of 512.
+    //       Deleting the parent elements appears to add about 10% to the run time for the test.
+    myRefinement.delete_parent_elements();
+    myTimer.stop();
+
+    const size_t numElements = get_global_num_entities(mMesh, stk::topology::ELEMENT_RANK);
+    EXPECT_EQ(goldNumElementsByRefinementLevel[i], numElements);
+
+    if (0 == stk::parallel_machine_rank(mComm))
+      std::cout << "After " << i+1 << " levels of uniform refinement, there are " << numElements << " elements, time = " << myTimer.getMetric<stk::diag::CPUTime>().getLap() << std::endl;
+  }
+
+  stk::diag::printTimersTable(std::cout, sierra::Diag::sierraTimer(), stk::diag::METRICS_CPU_TIME | stk::diag::METRICS_WALL_TIME, false, mComm);
 }
 
 TEST_F(UMRRegularTetRefinement, performanceRefinementThenUnrefinementTest)
@@ -395,7 +372,7 @@ TEST_F(UMRRegularTetRefinement, performanceRefinementThenUnrefinementTest)
   // NP=4 Percept: 32157 ms
   // NP=8 Percept: 28709 ms
 
-  if(!is_valid_proc_size_for_test())
+  if(is_debug() || !is_valid_proc_size_for_test())
     return;
 
   const bool doWriteMesh = false;
@@ -411,7 +388,7 @@ TEST_F(UMRRegularTetRefinement, performanceRefinementThenUnrefinementTest)
     mark_elements_spanning_x_equal_0();
 
     if (doWriteMesh)
-      refine_marked_elements(create_file_name("test", ++count));
+      refine_marked_elements(create_file_name("test.e", ++count));
     else
       refine_marked_elements();
 
@@ -428,7 +405,7 @@ TEST_F(UMRRegularTetRefinement, performanceRefinementThenUnrefinementTest)
     mark_all_elements_for_unrefinement();
 
     if (doWriteMesh)
-      refine_marked_elements(create_file_name("test", ++count));
+      refine_marked_elements(create_file_name("test.e", ++count));
     else
       refine_marked_elements();
 
@@ -496,7 +473,7 @@ TEST_F(UMRRegularTetRefinement, refinementAndUnrefinementElementVariables)
   {
     mark_elements_spanning_z_equal_0_and_populate_elem_field(flip);
     if (doWriteMesh)
-      refine_marked_elements(create_file_name("test", ++count));
+      refine_marked_elements(create_file_name("test.e", ++count));
     else
       refine_marked_elements();
     const size_t numElements = get_global_num_entities(mMesh, stk::topology::ELEMENT_RANK);
@@ -513,7 +490,7 @@ TEST_F(UMRRegularTetRefinement, refinementAndUnrefinementElementVariables)
     mark_all_elements_for_unrefinement();
 
     if (doWriteMesh)
-      refine_marked_elements(create_file_name("test", ++count));
+      refine_marked_elements(create_file_name("test.e", ++count));
     else
       refine_marked_elements();
     const size_t numElements = get_global_num_entities(mMesh, stk::topology::ELEMENT_RANK);
@@ -550,7 +527,7 @@ TEST_F(UMRRegularTetRefinement, refinePartiallyRefinedElementsWithElementVariabl
     else  
       mark_elements_spanning_z_equal_0_and_populate_elem_field(flip);
     if (doWriteMesh)
-      refine_marked_elements(create_file_name("test", ++count));
+      refine_marked_elements(create_file_name("test.e", ++count));
     else
       refine_marked_elements();
     const size_t numElements = get_global_num_entities(mMesh, stk::topology::ELEMENT_RANK);
@@ -567,7 +544,7 @@ TEST_F(UMRRegularTetRefinement, refinePartiallyRefinedElementsWithElementVariabl
     mark_all_elements_for_unrefinement();
 
     if (doWriteMesh)
-      refine_marked_elements(create_file_name("test", ++count));
+      refine_marked_elements(create_file_name("test.e", ++count));
     else
       refine_marked_elements();
     const size_t numElements = get_global_num_entities(mMesh, stk::topology::ELEMENT_RANK);

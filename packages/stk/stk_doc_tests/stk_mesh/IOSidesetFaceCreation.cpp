@@ -53,7 +53,7 @@ namespace
 {
 
 //BEGIN2hex1sideset
-TEST(StkMeshHowTo, StkIO2Hex1SidesetFaceCreation)
+TEST(StkMeshHowTo, StkIO2Hex1SidesetFaceCreation_externalFile)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) == 1) {
     //  -------  |S  -------             -------  |F  -------
@@ -116,7 +116,7 @@ TEST(StkMeshHowTo, StkIO2Hex1SidesetFaceCreation)
 //END2hex1sideset
 
 //BEGIN2hex2shell3sideset
-TEST(StkMeshHowTo, StkIO2Hex2Shell3SidesetFaceCreation)
+TEST(StkMeshHowTo, StkIO2Hex2Shell3SidesetFaceCreation_externalFile)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) == 1) {
     //  -------  |S |S| |S|  |S |S  -------
@@ -250,6 +250,10 @@ protected:
   {
     setup_mesh("generated:1x1x4", stk::mesh::BulkData::NO_AUTO_AURA);
     stk::mesh::Entity elem = get_bulk().get_entity(stk::topology::ELEM_RANK, elemId);
+#ifdef _OPENMP
+#pragma omp critical
+#endif
+    {
     get_bulk().modification_begin();
     if(get_bulk().is_valid(elem))
     {
@@ -257,6 +261,7 @@ protected:
       EXPECT_EQ(16u, get_bulk().identifier(side));
     }
     get_bulk().modification_end();
+    }
   }
 };
 

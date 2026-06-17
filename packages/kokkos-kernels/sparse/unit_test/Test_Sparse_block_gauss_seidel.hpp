@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <gtest/gtest.h>
 
@@ -34,8 +21,6 @@
 
 using kokkos_complex_double = Kokkos::complex<double>;
 using kokkos_complex_float  = Kokkos::complex<float>;
-
-namespace KSExp = KokkosSparse::Experimental;
 
 namespace Test {
 
@@ -71,7 +56,7 @@ int run_block_gauss_seidel_1(
     mtx_t input_mat, int block_size, KokkosSparse::GSAlgorithm gs_algorithm, vector_t x_vector, const_vector_t y_vector,
     bool is_symmetric_graph, GSApplyType apply_type = Test::symmetric, bool skip_symbolic = false,
     bool skip_numeric = false, size_t shmem_size = 32128,
-    typename mtx_t::value_type omega = Kokkos::ArithTraits<typename mtx_t::value_type>::one()) {
+    typename mtx_t::value_type omega = KokkosKernels::ArithTraits<typename mtx_t::value_type>::one()) {
   typedef typename mtx_t::StaticCrsGraphType graph_t;
   typedef typename graph_t::row_map_type lno_view_t;
   typedef typename graph_t::entries_type lno_nnz_view_t;
@@ -97,29 +82,29 @@ int run_block_gauss_seidel_1(
   const int apply_count   = 100;
 
   if (!skip_symbolic) {
-    KSExp::block_gauss_seidel_symbolic(&kh, num_rows_1, num_cols_1, block_size, input_mat.graph.row_map,
-                                       input_mat.graph.entries, is_symmetric_graph);
+    KokkosSparse::block_gauss_seidel_symbolic(&kh, num_rows_1, num_cols_1, block_size, input_mat.graph.row_map,
+                                              input_mat.graph.entries, is_symmetric_graph);
   }
 
   if (!skip_numeric) {
-    KSExp::block_gauss_seidel_numeric<format>(&kh, num_rows_1, num_cols_1, block_size, input_mat.graph.row_map,
-                                              input_mat.graph.entries, input_mat.values, is_symmetric_graph);
+    KokkosSparse::block_gauss_seidel_numeric<format>(&kh, num_rows_1, num_cols_1, block_size, input_mat.graph.row_map,
+                                                     input_mat.graph.entries, input_mat.values, is_symmetric_graph);
   }
 
   switch (apply_type) {
     case Test::forward_sweep:
-      KSExp::forward_sweep_block_gauss_seidel_apply<format>(
+      KokkosSparse::forward_sweep_block_gauss_seidel_apply<format>(
           &kh, num_rows_1, num_cols_1, block_size, input_mat.graph.row_map, input_mat.graph.entries, input_mat.values,
           x_vector, y_vector, false, true, omega, apply_count);
       break;
     case Test::backward_sweep:
-      KSExp::backward_sweep_block_gauss_seidel_apply<format>(
+      KokkosSparse::backward_sweep_block_gauss_seidel_apply<format>(
           &kh, num_rows_1, num_cols_1, block_size, input_mat.graph.row_map, input_mat.graph.entries, input_mat.values,
           x_vector, y_vector, false, true, omega, apply_count);
       break;
     case Test::symmetric:
     default:
-      KSExp::symmetric_block_gauss_seidel_apply<format>(
+      KokkosSparse::symmetric_block_gauss_seidel_apply<format>(
           &kh, num_rows_1, num_cols_1, block_size, input_mat.graph.row_map, input_mat.graph.entries, input_mat.values,
           x_vector, y_vector, false, true, omega, apply_count);
       break;
@@ -143,7 +128,7 @@ void test_block_gauss_seidel_rank1(lno_t numRows, size_type nnz, lno_t bandwidth
   typedef typename crsMat_t::values_type::non_const_type scalar_view_t;
   typedef typename crsMat_t::StaticCrsGraphType::row_map_type::non_const_type lno_view_t;
   typedef typename crsMat_t::StaticCrsGraphType::entries_type::non_const_type lno_nnz_view_t;
-  typedef typename Kokkos::ArithTraits<scalar_t>::mag_type mag_t;
+  typedef typename KokkosKernels::ArithTraits<scalar_t>::mag_type mag_t;
 
   lno_t numCols = numRows;
 
@@ -221,7 +206,7 @@ void test_block_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth
   typedef typename crsMat_t::StaticCrsGraphType::row_map_type::non_const_type lno_view_t;
   typedef typename crsMat_t::StaticCrsGraphType::entries_type::non_const_type lno_nnz_view_t;
   typedef Kokkos::View<scalar_t**, KokkosKernels::default_layout, device> scalar_view2d_t;
-  typedef typename Kokkos::ArithTraits<scalar_t>::mag_type mag_t;
+  typedef typename KokkosKernels::ArithTraits<scalar_t>::mag_type mag_t;
 
   lno_t numCols = numRows;
 
@@ -263,7 +248,7 @@ void test_block_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth
     for (lno_t j = 0; j < nv; j++) {
       sum += solution_host(j, i) * solution_host(j, i);
     }
-    initial_norms[i] = Kokkos::ArithTraits<mag_t>::sqrt(Kokkos::ArithTraits<scalar_t>::abs(sum));
+    initial_norms[i] = KokkosKernels::ArithTraits<mag_t>::sqrt(KokkosKernels::ArithTraits<scalar_t>::abs(sum));
   }
 
   for (const auto gs_algorithm : params.gs_algorithms) {
@@ -293,7 +278,8 @@ void test_block_gauss_seidel_rank2(lno_t numRows, size_type nnz, lno_t bandwidth
                 scalar_t diff = x_host(r, c) - solution_host(r, c);
                 sum += diff * diff;
               }
-              mag_t result_res = Kokkos::ArithTraits<mag_t>::sqrt(Kokkos::ArithTraits<scalar_t>::abs(sum));
+              mag_t result_res =
+                  KokkosKernels::ArithTraits<mag_t>::sqrt(KokkosKernels::ArithTraits<scalar_t>::abs(sum));
               EXPECT_LT(result_res, params.tolerance * initial_norms[c]);
             }
           }
@@ -331,13 +317,14 @@ void test_block_gauss_seidel_empty() {
     entries_type entries("Entries", 0);
     scalar_view_t values("Values", 0);
     // also, make sure graph symmetrization doesn't crash on zero rows
-    KSExp::block_gauss_seidel_symbolic(&kh, num_rows, num_rows, block_size, rowmap, entries, false);
-    KSExp::block_gauss_seidel_numeric<mtx_format>(&kh, num_rows, num_rows, block_size, rowmap, entries, values, false);
+    KokkosSparse::block_gauss_seidel_symbolic(&kh, num_rows, num_rows, block_size, rowmap, entries, false);
+    KokkosSparse::block_gauss_seidel_numeric<mtx_format>(&kh, num_rows, num_rows, block_size, rowmap, entries, values,
+                                                         false);
     scalar_view_t x("X", num_rows);
     scalar_view_t y("Y", num_rows);
     scalar_t omega(0.9);
-    KSExp::symmetric_block_gauss_seidel_apply<mtx_format>(&kh, num_rows, num_rows, block_size, rowmap, entries, values,
-                                                          x, y, false, true, omega, 3);
+    KokkosSparse::symmetric_block_gauss_seidel_apply<mtx_format>(&kh, num_rows, num_rows, block_size, rowmap, entries,
+                                                                 values, x, y, false, true, omega, 3);
     kh.destroy_gs_handle();
   }
 }

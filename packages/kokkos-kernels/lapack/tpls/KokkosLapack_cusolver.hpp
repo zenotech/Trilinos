@@ -1,21 +1,10 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOSLAPACK_CUSOLVER_HPP_
 #define KOKKOSLAPACK_CUSOLVER_HPP_
+
+#include "KokkosKernels_Singleton.hpp"
 
 #ifdef KOKKOSKERNELS_ENABLE_TPL_CUSOLVER
 #include <cusolverDn.h>
@@ -30,13 +19,14 @@ struct CudaLapackSingleton {
   cusolverDnHandle_t handle;
 
   CudaLapackSingleton();
+  ~CudaLapackSingleton();
 
   static CudaLapackSingleton& singleton();
 
   static bool is_initialized();
 
  private:
-  static std::unique_ptr<CudaLapackSingleton>& get_instance();
+  static KokkosKernels::Impl::Singleton<CudaLapackSingleton>& get_instance();
 };
 
 inline void cusolver_internal_error_throw(cusolverStatus_t cusolverStatus, const char* name, const char* file,

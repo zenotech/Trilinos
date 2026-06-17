@@ -1,21 +1,8 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
-#ifndef _KOKKOSGSIMP_HPP
-#define _KOKKOSGSIMP_HPP
+#ifndef KOKKOSSPARSE_GS_IMPL_HPP
+#define KOKKOSSPARSE_GS_IMPL_HPP
 
 #include "KokkosKernels_Utils.hpp"
 #include "KokkosSparse_Utils.hpp"
@@ -130,8 +117,8 @@ class PointGaussSeidel {
     nnz_lno_persistent_work_view_t _adj;      // CSR storage of the graph.
     scalar_persistent_work_view_t _adj_vals;  // CSR storage of the graph.
 
-    scalar_persistent_work_view2d_t _Xvector /*output*/;
-    scalar_persistent_work_view2d_t _Yvector;
+    scalar_persistent_work_view2d_t Xvector_ /*output*/;
+    scalar_persistent_work_view2d_t Yvector_;
 
     scalar_persistent_work_view_t _permuted_inverse_diagonal;
 
@@ -145,14 +132,14 @@ class PointGaussSeidel {
     nnz_lno_t _long_row_par;
 
     PSGS(row_lno_persistent_work_view_t xadj_, nnz_lno_persistent_work_view_t adj_,
-         scalar_persistent_work_view_t adj_vals_, scalar_persistent_work_view2d_t Xvector_,
-         scalar_persistent_work_view2d_t Yvector_, nnz_lno_persistent_work_view_t /* color_adj_ */, nnz_scalar_t omega_,
+         scalar_persistent_work_view_t adj_vals_, scalar_persistent_work_view2d_t Xvector,
+         scalar_persistent_work_view2d_t Yvector, nnz_lno_persistent_work_view_t /* color_adj_ */, nnz_scalar_t omega_,
          scalar_persistent_work_view_t permuted_inverse_diagonal_)
         : _xadj(xadj_),
           _adj(adj_),
           _adj_vals(adj_vals_),
-          _Xvector(Xvector_),
-          _Yvector(Yvector_),
+          Xvector_(Xvector),
+          Yvector_(Yvector),
           _permuted_inverse_diagonal(permuted_inverse_diagonal_),
           omega(omega_) {}
 
@@ -161,20 +148,20 @@ class PointGaussSeidel {
       size_type row_begin                = _xadj(ii);
       size_type row_end                  = _xadj(ii + 1);
       nnz_scalar_t sum[apply_batch_size] = {0};
-      nnz_lno_t num_vecs                 = _Xvector.extent(1);
+      nnz_lno_t num_vecs                 = Xvector_.extent(1);
       for (nnz_lno_t batch_start = 0; batch_start < num_vecs; batch_start += apply_batch_size) {
         nnz_lno_t this_batch_size = apply_batch_size;
         if (batch_start + this_batch_size >= num_vecs) this_batch_size = num_vecs - batch_start;
         // the current batch of columns given by: batch_start, this_batch_size
-        for (nnz_lno_t i = 0; i < this_batch_size; i++) sum[i] = _Yvector(ii, batch_start + i);
+        for (nnz_lno_t i = 0; i < this_batch_size; i++) sum[i] = Yvector_(ii, batch_start + i);
         for (size_type adjind = row_begin; adjind < row_end; ++adjind) {
           nnz_lno_t colIndex = _adj(adjind);
           nnz_scalar_t val   = _adj_vals(adjind);
-          for (nnz_lno_t i = 0; i < this_batch_size; i++) sum[i] -= val * _Xvector(colIndex, batch_start + i);
+          for (nnz_lno_t i = 0; i < this_batch_size; i++) sum[i] -= val * Xvector_(colIndex, batch_start + i);
         }
         nnz_scalar_t invDiagonalVal = _permuted_inverse_diagonal(ii);
         for (nnz_lno_t i = 0; i < this_batch_size; i++)
-          _Xvector(ii, batch_start + i) += omega * sum[i] * invDiagonalVal;
+          Xvector_(ii, batch_start + i) += omega * sum[i] * invDiagonalVal;
       }
     }
 
@@ -190,7 +177,7 @@ class PointGaussSeidel {
       nnz_scalar_t localSum{};
       for (size_type j = chunk_begin; j < chunk_end; j++) {
         nnz_lno_t colIndex = _adj(j);
-        localSum += _adj_vals(j) * _Xvector(colIndex, _long_row_col);
+        localSum += _adj_vals(j) * Xvector_(colIndex, _long_row_col);
       }
       Kokkos::atomic_add(&_long_row_x(row - _color_set_begin), localSum);
     }
@@ -201,8 +188,8 @@ class PointGaussSeidel {
     nnz_lno_persistent_work_view_t _adj;      // CSR storage of the graph.
     scalar_persistent_work_view_t _adj_vals;  // CSR storage of the graph.
 
-    scalar_persistent_work_view2d_t _Xvector /*output*/;
-    scalar_persistent_work_view2d_t _Yvector;
+    scalar_persistent_work_view2d_t Xvector_ /*output*/;
+    scalar_persistent_work_view2d_t Yvector_;
     nnz_lno_t _color_set_begin;
     nnz_lno_t _color_set_end;
 
@@ -229,19 +216,19 @@ class PointGaussSeidel {
     nnz_lno_t _long_row_par;
 
     Team_PSGS(row_lno_persistent_work_view_t xadj_, nnz_lno_persistent_work_view_t adj_,
-              scalar_persistent_work_view_t adj_vals_, scalar_persistent_work_view2d_t Xvector_,
-              scalar_persistent_work_view2d_t Yvector_, nnz_lno_t color_set_begin, nnz_lno_t color_set_end,
+              scalar_persistent_work_view_t adj_vals_, scalar_persistent_work_view2d_t Xvector,
+              scalar_persistent_work_view2d_t Yvector, nnz_lno_t color_set_begin, nnz_lno_t color_set_end,
               scalar_persistent_work_view_t permuted_inverse_diagonal_, pool_memory_space pms,
               nnz_lno_t _num_max_vals_in_l1 = 0, nnz_lno_t _num_max_vals_in_l2 = 0,
-              nnz_scalar_t omega_ = Kokkos::ArithTraits<nnz_scalar_t>::one(),
+              nnz_scalar_t omega_ = KokkosKernels::ArithTraits<nnz_scalar_t>::one(),
 
               nnz_lno_t block_size_ = 1, nnz_lno_t team_work_size_ = 1, size_t shared_memory_size_ = 16,
               int suggested_team_size_ = 1, int vector_size_ = 1)
         : _xadj(xadj_),
           _adj(adj_),
           _adj_vals(adj_vals_),
-          _Xvector(Xvector_),
-          _Yvector(Yvector_),
+          Xvector_(Xvector),
+          Yvector_(Yvector),
           _color_set_begin(color_set_begin),
           _color_set_end(color_set_end),
           _permuted_inverse_diagonal(permuted_inverse_diagonal_),
@@ -273,13 +260,13 @@ class PointGaussSeidel {
             size_type adjind   = row_begin + i;
             nnz_lno_t colIndex = _adj(adjind);
             nnz_scalar_t val   = _adj_vals(adjind);
-            for (int j = 0; j < N; j++) lsum.data[j] += val * _Xvector(colIndex, colStart + j);
+            for (int j = 0; j < N; j++) lsum.data[j] += val * Xvector_(colIndex, colStart + j);
           },
           sum);
       Kokkos::single(Kokkos::PerThread(teamMember), [&]() {
         nnz_scalar_t invDiagonalVal = _permuted_inverse_diagonal(row);
         for (int i = 0; i < N; i++) {
-          _Xvector(row, colStart + i) += omega * (_Yvector(row, colStart + i) - sum.data[i]) * invDiagonalVal;
+          Xvector_(row, colStart + i) += omega * (Yvector_(row, colStart + i) - sum.data[i]) * invDiagonalVal;
         }
       });
     }
@@ -288,7 +275,7 @@ class PointGaussSeidel {
     void operator()(const team_member_t& teamMember) const {
       nnz_lno_t row = teamMember.league_rank() * teamMember.team_size() + teamMember.team_rank() + _color_set_begin;
       if (row >= _color_set_end) return;
-      nnz_lno_t num_vecs = _Xvector.extent(1);
+      nnz_lno_t num_vecs = Xvector_.extent(1);
       for (nnz_lno_t batch_start = 0; batch_start < num_vecs;) {
         switch (num_vecs - batch_start) {
 #define COL_BATCH_CASE(n)                         \
@@ -346,7 +333,7 @@ class PointGaussSeidel {
           l1_val_size       = num_max_vals_in_l1 * block_size;
           l2_val_size       = (row.size() * block_size - l1_val_size);
         }
-        for (nnz_lno_t vec = 0; vec < (nnz_lno_t)_Xvector.extent(1); vec++) {
+        for (nnz_lno_t vec = 0; vec < (nnz_lno_t)Xvector_.extent(1); vec++) {
           // bring values to l1 vector
           Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, l1_val_size), [&](nnz_lno_t i) {
             size_type adjind   = i / block_size + row.begin();
@@ -355,7 +342,7 @@ class PointGaussSeidel {
             if (colIndex == ii) {
               diagonal_positions[i % block_size] = i;
             }
-            all_shared_memory[i] = _Xvector(colIndex * block_size + i % block_size, vec);
+            all_shared_memory[i] = Xvector_(colIndex * block_size + i % block_size, vec);
           });
           // bring values to l2 vector.
           Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, l2_val_size), [&](nnz_lno_t k) {
@@ -367,7 +354,7 @@ class PointGaussSeidel {
             if (colIndex == ii) {
               diagonal_positions[i % block_size] = i;
             }
-            all_global_memory[k] = _Xvector(colIndex * block_size + i % block_size, vec);
+            all_global_memory[k] = Xvector_(colIndex * block_size + i % block_size, vec);
           });
 
           // sequentially solve in the block.
@@ -404,16 +391,16 @@ class PointGaussSeidel {
             Kokkos::single(Kokkos::PerThread(teamMember), [&]() {
               nnz_lno_t block_row_index   = ii * block_size + i;
               nnz_scalar_t invDiagonalVal = _permuted_inverse_diagonal(block_row_index);
-              _Xvector(block_row_index, vec) += omega * (_Yvector(block_row_index, vec) - product) * invDiagonalVal;
+              Xvector_(block_row_index, vec) += omega * (Yvector_(block_row_index, vec) - product) * invDiagonalVal;
 
               // we need to update the values of the vector entries if they
               // are already brought to shared memory to sync with global
               // memory.
               if (diagonal_positions[i] != -1) {
                 if (diagonal_positions[i] < l1_val_size)
-                  all_shared_memory[diagonal_positions[i]] = _Xvector(block_row_index, vec);
+                  all_shared_memory[diagonal_positions[i]] = Xvector_(block_row_index, vec);
                 else
-                  all_global_memory[diagonal_positions[i] - l1_val_size] = _Xvector(block_row_index, vec);
+                  all_global_memory[diagonal_positions[i] - l1_val_size] = Xvector_(block_row_index, vec);
               }
             });
           }
@@ -432,9 +419,9 @@ class PointGaussSeidel {
             }
             std::cout << std::endl << "product:" << product << std::endl;
             std::cout << "diagonal" << _permuted_inverse_diagonal(ii * block_size + i) << std::endl;
-            std::cout << "_Yvector: " << _Yvector(ii * block_size + i, vec) << std::endl;
-            std::cout << "block_row_index:" << ii * block_size + i << " _Xvector(block_row_index): ";
-            _Xvector(ii * block_size + i, vec) << ' ';
+            std::cout << "Yvector_: " << Yvector_(ii * block_size + i, vec) << std::endl;
+            std::cout << "block_row_index:" << ii * block_size + i << " Xvector_(block_row_index): ";
+            Xvector_(ii * block_size + i, vec) << ' ';
             std::cout << std::endl;
           }
 #endif
@@ -460,8 +447,8 @@ class PointGaussSeidel {
       Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, team_row_begin, team_row_end), [&](const nnz_lno_t& ii) {
 #if KOKKOSSPARSE_IMPL_PRINTDEBUG
         Kokkos::single(Kokkos::PerThread(teamMember), [&]() {
-          for (nnz_lno_t i = 0; i < block_size; diagonal_positions[i++] = -1)
-            ;
+          for (nnz_lno_t i = 0; i < block_size; diagonal_positions[i++] = -1) {
+          }
         });
 #endif
 
@@ -481,11 +468,11 @@ class PointGaussSeidel {
           }
         });
 
-        for (nnz_lno_t vec = 0; vec < (nnz_lno_t)_Xvector.extent(1); vec++) {
+        for (nnz_lno_t vec = 0; vec < (nnz_lno_t)Xvector_.extent(1); vec++) {
           Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, scalar_row_size), [&](nnz_lno_t i) {
             size_type adjind     = i / block_size + row.begin();
             nnz_lno_t colIndex   = _adj(adjind);
-            all_shared_memory[i] = _Xvector(colIndex * block_size + i % block_size, vec);
+            all_shared_memory[i] = Xvector_(colIndex * block_size + i % block_size, vec);
           });
 
           for (int m = 0; m < block_size; ++m) {
@@ -506,10 +493,10 @@ class PointGaussSeidel {
             Kokkos::single(Kokkos::PerThread(teamMember), [&]() {
               nnz_lno_t block_row_index   = ii * block_size + i;
               nnz_scalar_t invDiagonalVal = _permuted_inverse_diagonal(block_row_index);
-              _Xvector(block_row_index, vec) += omega * (_Yvector(block_row_index, vec) - product) * invDiagonalVal;
+              Xvector_(block_row_index, vec) += omega * (Yvector_(block_row_index, vec) - product) * invDiagonalVal;
 
               if (diagonal_positions[i] != -1) {
-                all_shared_memory[diagonal_positions[i]] = _Xvector(block_row_index, vec);
+                all_shared_memory[diagonal_positions[i]] = Xvector_(block_row_index, vec);
               }
             });
 
@@ -528,11 +515,11 @@ class PointGaussSeidel {
               }
               std::cout << std::endl << "product:" << product << std::endl;
               std::cout << "diagonal" << _permuted_inverse_diagonal(ii * block_size + i) << std::endl;
-              std::cout << "_Yvector" << _Yvector(ii * block_size + i, vec) << std::endl;
+              std::cout << "Yvector_" << Yvector_(ii * block_size + i, vec) << std::endl;
 
               std::cout << std::endl
                         << "block_row_index:" << ii * block_size + i
-                        << " _Xvector(block_row_index):" << _Xvector(ii * block_size + i, vec) << std::endl
+                        << " Xvector_(block_row_index):" << Xvector_(ii * block_size + i, vec) << std::endl
                         << std::endl
                         << std::endl;
             }
@@ -556,7 +543,7 @@ class PointGaussSeidel {
           Kokkos::TeamThreadRange(teamMember, chunk_begin, chunk_end),
           [&](size_type j, nnz_scalar_t& lsum) {
             nnz_lno_t colIndex = _adj(j);
-            lsum += _adj_vals(j) * _Xvector(colIndex, _long_row_col);
+            lsum += _adj_vals(j) * Xvector_(colIndex, _long_row_col);
           },
           localSum);
       Kokkos::single(Kokkos::PerTeam(teamMember),
@@ -753,7 +740,7 @@ class PointGaussSeidel {
     KokkosKernels::Impl::print_1Dview(colors);
     std::cout << "numCol:" << numColors << " numRows:" << num_rows << " cols:" << num_cols << " nnz:" << adj.extent(0)
               << std::endl;
-    typename HandleType::GraphColoringHandleType::color_view_t::HostMirror h_colors =
+    typename HandleType::GraphColoringHandleType::color_view_t::host_mirror_type h_colors =
         Kokkos::create_mirror_view(colors);
     for (int i = 0; i < num_rows; ++i) {
       h_colors(i) = i + 1;
@@ -1111,7 +1098,7 @@ class PointGaussSeidel {
           rows_per_team(rows_per_team_),
           block_size(block_size_),
           block_matrix_size(block_matrix_size_),
-          one(Kokkos::ArithTraits<nnz_scalar_t>::one()) {}
+          one(KokkosKernels::ArithTraits<nnz_scalar_t>::one()) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const nnz_lno_t& row_id) const {
@@ -1170,7 +1157,6 @@ class PointGaussSeidel {
 #endif
     {
       const_lno_row_view_t xadj        = this->row_map;
-      const_lno_nnz_view_t adj         = this->entries;
       const_scalar_nnz_view_t adj_vals = this->values;
       MyExecSpace my_exec_space        = gsHandle->get_execution_space();
 
@@ -1298,7 +1284,7 @@ class PointGaussSeidel {
   template <typename x_value_array_type, typename y_value_array_type>
   void block_apply(x_value_array_type x_lhs_output_vec, y_value_array_type y_rhs_input_vec,
                    bool init_zero_x_vector = false, int numIter = 1,
-                   nnz_scalar_t omega = Kokkos::ArithTraits<nnz_scalar_t>::one(), bool apply_forward = true,
+                   nnz_scalar_t omega = KokkosKernels::ArithTraits<nnz_scalar_t>::one(), bool apply_forward = true,
                    bool apply_backward = true, bool update_y_vector = true) {
     auto gsHandle = this->get_gs_handle();
     if (gsHandle->is_numeric_called() == false) {
@@ -1308,8 +1294,8 @@ class PointGaussSeidel {
     nnz_lno_t block_size = gsHandle->get_block_size();
     // nnz_lno_t block_matrix_size = block_size  * block_size ;
 
-    auto Permuted_Xvector = gsHandle->get_permuted_x_vector();
-    auto Permuted_Yvector = gsHandle->get_permuted_y_vector();
+    auto PermutedXvector_ = gsHandle->get_permuted_x_vector();
+    auto PermutedYvector_ = gsHandle->get_permuted_y_vector();
 
     row_lno_persistent_work_view_t newxadj                  = gsHandle->get_new_xadj();
     nnz_lno_persistent_work_view_t newadj                   = gsHandle->get_new_adj();
@@ -1324,25 +1310,25 @@ class PointGaussSeidel {
     if (update_y_vector) {
       KokkosKernels::Impl::permute_block_vector<y_value_array_type, scalar_persistent_work_view2d_t,
                                                 nnz_lno_persistent_work_view_t, MyExecSpace>(
-          my_exec_space, num_rows, block_size, old_to_new_map, y_rhs_input_vec, Permuted_Yvector);
+          my_exec_space, num_rows, block_size, old_to_new_map, y_rhs_input_vec, PermutedYvector_);
     }
     if (init_zero_x_vector) {
       KokkosKernels::Impl::zero_vector<MyExecSpace, scalar_persistent_work_view2d_t>(
-          my_exec_space, num_cols * block_size, Permuted_Xvector);
+          my_exec_space, num_cols * block_size, PermutedXvector_);
     } else {
       KokkosKernels::Impl::permute_block_vector<x_value_array_type, scalar_persistent_work_view2d_t,
                                                 nnz_lno_persistent_work_view_t, MyExecSpace>(
-          my_exec_space, num_cols, block_size, old_to_new_map, x_lhs_output_vec, Permuted_Xvector);
+          my_exec_space, num_cols, block_size, old_to_new_map, x_lhs_output_vec, PermutedXvector_);
     }
 
 #if KOKKOSSPARSE_IMPL_PRINTDEBUG
     std::cout << "Y:";
-    KokkosKernels::Impl::print_1Dview(Permuted_Yvector);
+    KokkosKernels::Impl::print_1Dview(PermutedYvector_);
     std::cout << "Original Y:";
     KokkosKernels::Impl::print_1Dview(y_rhs_input_vec);
 
     std::cout << "X:";
-    KokkosKernels::Impl::print_1Dview(Permuted_Xvector);
+    KokkosKernels::Impl::print_1Dview(PermutedXvector_);
 
     std::cout << "permuted_xadj:";
     KokkosKernels::Impl::print_1Dview(newxadj);
@@ -1380,7 +1366,7 @@ class PointGaussSeidel {
               << " num_chunks:" << num_chunks << std::endl;
 #endif
 
-    Team_PSGS gs(newxadj, newadj, newadj_vals, Permuted_Xvector, Permuted_Yvector, 0, 0, permuted_inverse_diagonal,
+    Team_PSGS gs(newxadj, newadj, newadj_vals, PermutedXvector_, PermutedYvector_, 0, 0, permuted_inverse_diagonal,
                  m_space, num_values_in_l1, num_values_in_l2, omega, block_size, team_row_chunk_size, l1_shmem_size,
                  suggested_team_size, suggested_vector_size);
 
@@ -1388,27 +1374,27 @@ class PointGaussSeidel {
 
     KokkosKernels::Impl::permute_block_vector<scalar_persistent_work_view2d_t, x_value_array_type,
                                               nnz_lno_persistent_work_view_t, MyExecSpace>(
-        my_exec_space, num_cols, block_size, color_adj, Permuted_Xvector, x_lhs_output_vec);
+        my_exec_space, num_cols, block_size, color_adj, PermutedXvector_, x_lhs_output_vec);
 #if KOKKOSSPARSE_IMPL_PRINTDEBUG
     std::cout << "After X:";
-    KokkosKernels::Impl::print_1Dview(Permuted_Xvector);
+    KokkosKernels::Impl::print_1Dview(PermutedXvector_);
     std::cout << "Result X:";
     KokkosKernels::Impl::print_1Dview(x_lhs_output_vec);
     std::cout << "Y:";
-    KokkosKernels::Impl::print_1Dview(Permuted_Yvector);
+    KokkosKernels::Impl::print_1Dview(PermutedYvector_);
 #endif
   }
 
   template <typename x_value_array_type, typename y_value_array_type>
   void point_apply(x_value_array_type x_lhs_output_vec, y_value_array_type y_rhs_input_vec,
                    bool init_zero_x_vector = false, int numIter = 1,
-                   nnz_scalar_t omega = Kokkos::ArithTraits<nnz_scalar_t>::one(), bool apply_forward = true,
+                   nnz_scalar_t omega = KokkosKernels::ArithTraits<nnz_scalar_t>::one(), bool apply_forward = true,
                    bool apply_backward = true, bool update_y_vector = true) {
     auto gsHandle      = get_gs_handle();
     auto my_exec_space = gsHandle->get_execution_space();
 
-    auto Permuted_Xvector = gsHandle->get_permuted_x_vector();
-    auto Permuted_Yvector = gsHandle->get_permuted_y_vector();
+    auto PermutedXvector_ = gsHandle->get_permuted_x_vector();
+    auto PermutedYvector_ = gsHandle->get_permuted_y_vector();
 
     row_lno_persistent_work_view_t newxadj                  = gsHandle->get_new_xadj();
     nnz_lno_persistent_work_view_t newadj                   = gsHandle->get_new_adj();
@@ -1422,33 +1408,33 @@ class PointGaussSeidel {
     if (update_y_vector) {
       KokkosKernels::Impl::permute_vector<y_value_array_type, scalar_persistent_work_view2d_t,
                                           nnz_lno_persistent_work_view_t, MyExecSpace>(
-          my_exec_space, num_rows, old_to_new_map, y_rhs_input_vec, Permuted_Yvector);
+          my_exec_space, num_rows, old_to_new_map, y_rhs_input_vec, PermutedYvector_);
     }
     if (init_zero_x_vector) {
       KokkosKernels::Impl::zero_vector<MyExecSpace, scalar_persistent_work_view2d_t>(my_exec_space, num_cols,
-                                                                                     Permuted_Xvector);
+                                                                                     PermutedXvector_);
     } else {
       KokkosKernels::Impl::permute_vector<x_value_array_type, scalar_persistent_work_view2d_t,
                                           nnz_lno_persistent_work_view_t, MyExecSpace>(
-          my_exec_space, num_cols, old_to_new_map, x_lhs_output_vec, Permuted_Xvector);
+          my_exec_space, num_cols, old_to_new_map, x_lhs_output_vec, PermutedXvector_);
     }
 
 #if KOKKOSSPARSE_IMPL_PRINTDEBUG
     std::cout << "--point Before X:";
-    KokkosKernels::Impl::print_1Dview(Permuted_Xvector, true);
+    KokkosKernels::Impl::print_1Dview(PermutedXvector_, true);
     std::cout << "--point Before Y:";
-    KokkosKernels::Impl::print_1Dview(Permuted_Yvector, true);
+    KokkosKernels::Impl::print_1Dview(PermutedYvector_, true);
 #endif
 
     nnz_lno_persistent_work_host_view_t h_color_xadj = gsHandle->get_color_xadj();
     if (gsHandle->get_algorithm_type() == GS_PERMUTED) {
-      PSGS gs(newxadj, newadj, newadj_vals, Permuted_Xvector, Permuted_Yvector, color_adj, omega,
+      PSGS gs(newxadj, newadj, newadj_vals, PermutedXvector_, PermutedYvector_, color_adj, omega,
               permuted_inverse_diagonal);
       this->IterativePSGS(gs, numColors, h_color_xadj, numIter, apply_forward, apply_backward);
     } else {
       pool_memory_space m_space(0, 0, 0, KokkosKernels::Impl::ManyThread2OneChunk, false);
 
-      Team_PSGS gs(newxadj, newadj, newadj_vals, Permuted_Xvector, Permuted_Yvector, 0, 0, permuted_inverse_diagonal,
+      Team_PSGS gs(newxadj, newadj, newadj_vals, PermutedXvector_, PermutedYvector_, 0, 0, permuted_inverse_diagonal,
                    m_space, 0, 0, omega);
 
       this->IterativePSGS(gs, numColors, h_color_xadj, numIter, apply_forward, apply_backward);
@@ -1456,11 +1442,11 @@ class PointGaussSeidel {
 
     KokkosKernels::Impl::permute_vector<scalar_persistent_work_view2d_t, x_value_array_type,
                                         nnz_lno_persistent_work_view_t, MyExecSpace>(
-        my_exec_space, num_cols, color_adj, Permuted_Xvector, x_lhs_output_vec);
+        my_exec_space, num_cols, color_adj, PermutedXvector_, x_lhs_output_vec);
 #if KOKKOSSPARSE_IMPL_PRINTDEBUG
     Kokkos::fence();
     std::cout << "--point After X:";
-    KokkosKernels::Impl::print_1Dview(Permuted_Xvector);
+    KokkosKernels::Impl::print_1Dview(PermutedXvector_);
     std::cout << "--point Result X:";
     KokkosKernels::Impl::print_1Dview(x_lhs_output_vec);
 #endif
@@ -1468,8 +1454,8 @@ class PointGaussSeidel {
 
   template <typename x_value_array_type, typename y_value_array_type>
   void apply(x_value_array_type x_lhs_output_vec, y_value_array_type y_rhs_input_vec, bool init_zero_x_vector = false,
-             int numIter = 1, nnz_scalar_t omega = Kokkos::ArithTraits<nnz_scalar_t>::one(), bool apply_forward = true,
-             bool apply_backward = true, bool update_y_vector = true) {
+             int numIter = 1, nnz_scalar_t omega = KokkosKernels::ArithTraits<nnz_scalar_t>::one(),
+             bool apply_forward = true, bool apply_backward = true, bool update_y_vector = true) {
     auto gsHandle = get_gs_handle();
     if (gsHandle->is_numeric_called() == false) {
       this->initialize_numeric();
@@ -1579,9 +1565,9 @@ class PointGaussSeidel {
             nnz_lno_t max_par       = max_row_length_per_color(i);
             nnz_lno_t teams_per_row = ((max_par + 3) / 4 + longRowTeamSize - 1) / longRowTeamSize;
             gs._long_row_par        = teams_per_row;
-            for (nnz_lno_t long_row_col = 0; long_row_col < gs._Xvector.extent_int(1); long_row_col++) {
-              auto Xcol        = Kokkos::subview(gs._Xvector, Kokkos::ALL(), long_row_col);
-              auto Ycol        = Kokkos::subview(gs._Yvector, Kokkos::ALL(), long_row_col);
+            for (nnz_lno_t long_row_col = 0; long_row_col < gs.Xvector_.extent_int(1); long_row_col++) {
+              auto Xcol        = Kokkos::subview(gs.Xvector_, Kokkos::ALL(), long_row_col);
+              auto Ycol        = Kokkos::subview(gs.Yvector_, Kokkos::ALL(), long_row_col);
               gs._long_row_col = long_row_col;
               Kokkos::deep_copy(my_exec_space, long_row_x, nnz_scalar_t());
               Kokkos::parallel_for(
@@ -1648,9 +1634,9 @@ class PointGaussSeidel {
             nnz_lno_t max_par     = max_row_length_per_color(i);
             nnz_lno_t par_per_row = (max_par + 1023) / 1024;
             gs._long_row_par      = par_per_row;
-            for (nnz_lno_t long_row_col = 0; long_row_col < gs._Xvector.extent_int(1); long_row_col++) {
-              auto Xcol        = Kokkos::subview(gs._Xvector, Kokkos::ALL(), long_row_col);
-              auto Ycol        = Kokkos::subview(gs._Yvector, Kokkos::ALL(), long_row_col);
+            for (nnz_lno_t long_row_col = 0; long_row_col < gs.Xvector_.extent_int(1); long_row_col++) {
+              auto Xcol        = Kokkos::subview(gs.Xvector_, Kokkos::ALL(), long_row_col);
+              auto Ycol        = Kokkos::subview(gs.Yvector_, Kokkos::ALL(), long_row_col);
               gs._long_row_col = long_row_col;
               Kokkos::deep_copy(my_exec_space, long_row_x, nnz_scalar_t());
               Kokkos::parallel_for(

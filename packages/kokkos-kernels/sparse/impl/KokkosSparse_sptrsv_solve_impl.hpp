@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOSSPARSE_IMPL_SPTRSV_SOLVE_HPP_
 #define KOKKOSSPARSE_IMPL_SPTRSV_SOLVE_HPP_
@@ -21,7 +8,7 @@
 /// \brief Implementation(s) of sparse triangular solve.
 
 #include <KokkosKernels_config.h>
-#include <Kokkos_ArithTraits.hpp>
+#include <KokkosKernels_ArithTraits.hpp>
 #include <KokkosSparse_sptrsv_handle.hpp>
 #include <KokkosSparse_spmv.hpp>
 #include <KokkosSparse_CrsMatrix.hpp>
@@ -72,7 +59,7 @@ struct SptrsvWrap {
   using values_t        = typename TriSolveHandle::nnz_scalar_view_t;
   using work_view_t     = Kokkos::View<scalar_t *, Kokkos::Device<execution_space, temp_mem_space>>;
   using work_view_int_t = Kokkos::View<int *, Kokkos::Device<execution_space, temp_mem_space>>;
-  using karith          = typename Kokkos::ArithTraits<scalar_t>;
+  using karith          = typename KokkosKernels::ArithTraits<scalar_t>;
   using team_policy     = typename TriSolveHandle::TeamPolicy;
   using member_type     = typename team_policy::member_type;
   using range_policy    = typename TriSolveHandle::RangePolicy;
@@ -216,6 +203,17 @@ struct SptrsvWrap {
       KOKKOS_INLINE_FUNCTION
       ArrayType(const ArrayType &rhs_) {
         for (size_type i = 0; i < MAX_VEC_SIZE; ++i) m_data[i] = rhs_.m_data[i];
+      }
+
+      // copy-assignment
+      KOKKOS_INLINE_FUNCTION
+      ArrayType &operator=(const ArrayType &rhs_) {
+        if (this != &rhs_) {
+          for (size_type i = 0; i < MAX_VEC_SIZE; ++i) {
+            m_data[i] = rhs_.m_data[i];
+          }
+        }
+        return *this;
       }
 
       KOKKOS_INLINE_FUNCTION
@@ -2065,17 +2063,17 @@ struct SptrsvWrap {
   // --------------------------------
   // Stream interfaces
   // --------------------------------
-  template <bool IsLower, class RowMapType, class EntriesType, class ValuesType, class RHSType, class LHSType>
+  template <bool IsLower, bool BlockEnabled, class RowMapType, class EntriesType, class ValuesType, class RHSType,
+            class LHSType>
   static void tri_solve_streams(const std::vector<execution_space> &execspace_v,
                                 const std::vector<TriSolveHandle *> &thandle_v,
                                 const std::vector<RowMapType> &row_map_v, const std::vector<EntriesType> &entries_v,
                                 const std::vector<ValuesType> &values_v, const std::vector<RHSType> &rhs_v,
                                 std::vector<LHSType> &lhs_v) {
-    // NOTE: Only support SEQLVLSCHD_RP and SEQLVLSCHD_TP1 at this moment
     using nodes_per_level_type        = typename TriSolveHandle::hostspace_nnz_lno_view_t;
     using nodes_grouped_by_level_type = typename TriSolveHandle::nnz_lno_view_t;
-    using RPPointFunctor              = FunctorTypeMacro(TriLvlSchedRPSolverFunctor, IsLower, false);
-    using TPPointFunctor              = FunctorTypeMacro(TriLvlSchedTP1SolverFunctor, IsLower, false);
+    using RPFunctor                   = FunctorTypeMacro(TriLvlSchedRPSolverFunctor, IsLower, BlockEnabled);
+    using TPFunctor                   = FunctorTypeMacro(TriLvlSchedTP1SolverFunctor, IsLower, BlockEnabled);
 
     // Create vectors for handles' data in streams
     int nstreams = execspace_v.size();
@@ -2100,20 +2098,29 @@ struct SptrsvWrap {
       for (int i = 0; i < nstreams; i++) {
         // Only if stream i-th still has this level
         if (lvl < nlevels_v[i]) {
-          size_type lvl_nodes = hnodes_per_level_v[i](lvl);
+          const size_type lvl_nodes = hnodes_per_level_v[i](lvl);
+          const auto block_size     = thandle_v[i]->get_block_size();
+          const auto block_enabled  = thandle_v[i]->is_block_enabled();
+          KK_REQUIRE(block_enabled == BlockEnabled);
           if (lvl_nodes != 0) {
             if (thandle_v[i]->get_algorithm() == KokkosSparse::Experimental::SPTRSVAlgorithm::SEQLVLSCHD_RP) {
               Kokkos::parallel_for("parfor_fixed_lvl",
                                    range_policy(execspace_v[i], node_count_v[i], node_count_v[i] + lvl_nodes),
-                                   RPPointFunctor(row_map_v[i], entries_v[i], values_v[i], lhs_v[i], rhs_v[i],
-                                                  nodes_grouped_by_level_v[i]));
+                                   RPFunctor(row_map_v[i], entries_v[i], values_v[i], lhs_v[i], rhs_v[i],
+                                             nodes_grouped_by_level_v[i], block_size));
             } else if (thandle_v[i]->get_algorithm() == KokkosSparse::Experimental::SPTRSVAlgorithm::SEQLVLSCHD_TP1) {
               int team_size = thandle_v[i]->get_team_size();
               auto tp       = team_size == -1 ? team_policy(execspace_v[i], lvl_nodes, Kokkos::AUTO)
                                               : team_policy(execspace_v[i], lvl_nodes, team_size);
-              TPPointFunctor tstf(row_map_v[i], entries_v[i], values_v[i], lhs_v[i], rhs_v[i],
-                                  nodes_grouped_by_level_v[i], node_count_v[i]);
+              TPFunctor tstf(row_map_v[i], entries_v[i], values_v[i], lhs_v[i], rhs_v[i], nodes_grouped_by_level_v[i],
+                             node_count_v[i], block_size);
+              const int scratch_size = TPFunctor::SBlock::shmem_size(block_size, block_size);
+              tp                     = tp.set_scratch_size(0, Kokkos::PerTeam(scratch_size));
               Kokkos::parallel_for("parfor_l_team", tp, tstf);
+            } else {
+              // NOTE: Only support SEQLVLSCHD_RP and SEQLVLSCHD_TP1 at this moment
+              auto alg_name = thandle_v[i]->return_algorithm_string();
+              KK_REQUIRE_MSG(false, "Algorithm " << alg_name << " does not support streams");
             }
             node_count_v[i] += lvl_nodes;
           }  // end if (lvl_nodes != 0)

@@ -192,7 +192,6 @@ EntityKeyMapping::add_to_cache(const EntityKey& key)
     EntityKeyEntityVector& entities = m_entities[rank];
     EntityKeyEntityVector::iterator iter = std::lower_bound(entities.begin(), entities.end(),
                                                             key, EntityKeyEntityLess());
-    Entity entity;
     if (iter == entities.end() || iter->first != key) {
         cache.emplace_back(key, Entity());
         iter = cache.begin()+(cache.size()-1);
@@ -284,7 +283,7 @@ Entity EntityKeyMapping::get_entity(const EntityKey &key) const
   return (iter != entities.end() && (iter->first==key)) ? iter->second : Entity() ;
 }
 
-void EntityKeyMapping::update_entity_key(EntityKey new_key, EntityKey old_key, Entity entity)
+void EntityKeyMapping::update_entity_key(EntityKey new_key, EntityKey old_key, Entity /*entity*/)
 {
   EntityRank rank = new_key.rank();
   clear_created_entity_cache(rank);
@@ -297,7 +296,7 @@ void EntityKeyMapping::update_entity_key(EntityKey new_key, EntityKey old_key, E
   m_update_cache[rank].emplace_back(old_key, new_key);
 }
 
-void EntityKeyMapping::destroy_entity(EntityKey key, Entity entity)
+void EntityKeyMapping::destroy_entity(EntityKey key, Entity /*entity*/)
 { 
   EntityRank rank = key.rank();
   clear_created_entity_cache(rank);

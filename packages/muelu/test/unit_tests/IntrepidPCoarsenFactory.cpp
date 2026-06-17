@@ -31,7 +31,7 @@
 #include "MueLu_CoarseMapFactory.hpp"
 #include "MueLu_CreateXpetraPreconditioner.hpp"
 
-#ifdef HAVE_MUELU_INTREPID2
+#if defined(HAVE_MUELU_INTREPID2) && defined(HAVE_MUELU_EXPERIMENTAL)
 #include "MueLu_IntrepidPCoarsenFactory.hpp"
 #include "MueLu_IntrepidPCoarsenFactory_def.hpp"  // Why does ETI suddenly decide to hate right here?
 #include "Intrepid2_Types.hpp"
@@ -584,8 +584,8 @@ void testUniqueNumbering(Teuchos::FancyOStream &out, bool &success) {
   typedef Kokkos::DynRankView<OT, typename Node::device_type> FCO;  // FC of ordinals
   typedef Intrepid2::Basis_HGRAD_QUAD_Cn_FEM<ES, MT, MT> Basis;
 
-  typename FC::HostMirror physDofCoords;
-  typename FCO::HostMirror cellGIDs;
+  typename FC::host_mirror_type physDofCoords;
+  typename FCO::host_mirror_type cellGIDs;
   std::vector<std::vector<LocalOrdinal>> expectedGIDs = {{0, 1, 2, 3, 4, 5, 6, 7, 8},
                                                          {9, 10, 11, 12, 13, 14, 0, 1, 2},
                                                          {11, 15, 16, 14, 17, 18, 2, 19, 20}};
@@ -1429,12 +1429,6 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(IntrepidPCoarsenFactory, CreatePreconditioner_
   MUELU_TESTING_SET_OSTREAM;
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode);
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, NO);
-#if !defined(HAVE_MUELU_AMESOS) || !defined(HAVE_MUELU_IFPACK)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseEpetra, "Amesos, Ifpack");
-#endif
-#if !defined(HAVE_MUELU_AMESOS2) || !defined(HAVE_MUELU_IFPACK2)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseTpetra, "Amesos2, Ifpack2");
-#endif
 
   typedef Scalar SC;
   typedef GlobalOrdinal GO;
@@ -1477,7 +1471,6 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(IntrepidPCoarsenFactory, CreatePreconditioner_
   Params.set("pcoarsen: lo basis", "hgrad_line_c1");
   Params.set("verbosity", "high");
   Params.set("max levels", 2);
-  //     if(lib==Xpetra::UseEpetra) Params.set("coarse: type","RELAXATION");// FIXME remove when we sort out the OAZ issue
   Params.set("coarse: max size", 100);
   level0.set("pcoarsen: element to node map", rcp(&elem_to_node, false));
   Params.set("level 0", level0);
@@ -1494,12 +1487,6 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(IntrepidPCoarsenFactory, CreatePreconditioner_
   MUELU_TESTING_SET_OSTREAM;
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode);
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, NO);
-#if !defined(HAVE_MUELU_AMESOS) || !defined(HAVE_MUELU_IFPACK)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseEpetra, "Amesos, Ifpack");
-#endif
-#if !defined(HAVE_MUELU_AMESOS2) || !defined(HAVE_MUELU_IFPACK2)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseTpetra, "Amesos2, Ifpack2");
-#endif
 
   typedef Scalar SC;
   typedef GlobalOrdinal GO;
@@ -1558,12 +1545,6 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(IntrepidPCoarsenFactory, CreatePreconditioner_
   MUELU_TESTING_SET_OSTREAM;
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode);
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, NO);
-#if !defined(HAVE_MUELU_AMESOS) || !defined(HAVE_MUELU_IFPACK)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseEpetra, "Amesos, Ifpack");
-#endif
-#if !defined(HAVE_MUELU_AMESOS2) || !defined(HAVE_MUELU_IFPACK2)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseTpetra, "Amesos2, Ifpack2");
-#endif
 
   typedef Scalar SC;
   typedef GlobalOrdinal GO;
@@ -1681,7 +1662,7 @@ bool test_representative_basis(Teuchos::FancyOStream &out, const std::string &na
 
     // we'll want to create a global numbering for both high and low order bases
     // --> we make a lambda function that accepts FC with dof coords as argument
-    auto getTwoCellNumbering = [pointTol, numCells, spaceDim, xTranslationForCell1](const typename FC::HostMirror &dofCoords) -> UniqueNumbering {
+    auto getTwoCellNumbering = [pointTol, numCells, spaceDim, xTranslationForCell1](const typename FC::host_mirror_type &dofCoords) -> UniqueNumbering {
       int dofsPerCell = dofCoords.extent(0);
 
       vector<double> coords(spaceDim);
@@ -2360,12 +2341,6 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(IntrepidPCoarsenFactory, CreatePreconditioner_
   MUELU_TESTING_SET_OSTREAM;
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode);
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, NO);
-#if !defined(HAVE_MUELU_AMESOS) || !defined(HAVE_MUELU_IFPACK)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseEpetra, "Amesos, Ifpack");
-#endif
-#if !defined(HAVE_MUELU_AMESOS2) || !defined(HAVE_MUELU_IFPACK2)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseTpetra, "Amesos2, Ifpack2");
-#endif
 
   typedef Scalar SC;
   typedef GlobalOrdinal GO;
@@ -2424,12 +2399,6 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(IntrepidPCoarsenFactory, CreatePreconditioner_
   MUELU_TESTING_SET_OSTREAM;
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode);
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, NO);
-#if !defined(HAVE_MUELU_AMESOS) || !defined(HAVE_MUELU_IFPACK)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseEpetra, "Amesos, Ifpack");
-#endif
-#if !defined(HAVE_MUELU_AMESOS2) || !defined(HAVE_MUELU_IFPACK2)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseTpetra, "Amesos2, Ifpack2");
-#endif
 
   typedef Scalar SC;
   typedef GlobalOrdinal GO;
@@ -2488,12 +2457,6 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(IntrepidPCoarsenFactory, CreatePreconditioner_
   MUELU_TESTING_SET_OSTREAM;
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode);
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, NO);
-#if !defined(HAVE_MUELU_AMESOS) || !defined(HAVE_MUELU_IFPACK)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseEpetra, "Amesos, Ifpack");
-#endif
-#if !defined(HAVE_MUELU_AMESOS2) || !defined(HAVE_MUELU_IFPACK2)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseTpetra, "Amesos2, Ifpack2");
-#endif
 
   typedef Scalar SC;
   typedef GlobalOrdinal GO;
@@ -2552,12 +2515,6 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(IntrepidPCoarsenFactory, CreatePreconditioner_
   MUELU_TESTING_SET_OSTREAM;
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode);
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, NO);
-#if !defined(HAVE_MUELU_AMESOS) || !defined(HAVE_MUELU_IFPACK)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseEpetra, "Amesos, Ifpack");
-#endif
-#if !defined(HAVE_MUELU_AMESOS2) || !defined(HAVE_MUELU_IFPACK2)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseTpetra, "Amesos2, Ifpack2");
-#endif
 
   typedef Scalar SC;
   typedef GlobalOrdinal GO;
@@ -2632,12 +2589,6 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(IntrepidPCoarsenFactory, CreatePreconditioner_
   MUELU_TESTING_SET_OSTREAM;
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode);
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, NO);
-#if !defined(HAVE_MUELU_AMESOS) || !defined(HAVE_MUELU_IFPACK)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseEpetra, "Amesos, Ifpack");
-#endif
-#if !defined(HAVE_MUELU_AMESOS2) || !defined(HAVE_MUELU_IFPACK2)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseTpetra, "Amesos2, Ifpack2");
-#endif
 
   typedef Scalar SC;
   typedef GlobalOrdinal GO;
@@ -2703,12 +2654,6 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(IntrepidPCoarsenFactory, CreatePreconditioner_
   MUELU_TESTING_SET_OSTREAM;
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode);
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, NO);
-#if !defined(HAVE_MUELU_AMESOS) || !defined(HAVE_MUELU_IFPACK)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseEpetra, "Amesos, Ifpack");
-#endif
-#if !defined(HAVE_MUELU_AMESOS2) || !defined(HAVE_MUELU_IFPACK2)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseTpetra, "Amesos2, Ifpack2");
-#endif
 
   typedef Scalar SC;
   typedef GlobalOrdinal GO;
@@ -2776,12 +2721,6 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(IntrepidPCoarsenFactory, CreatePreconditioner_
   MUELU_TESTING_SET_OSTREAM;
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode);
   MUELU_TESTING_LIMIT_SCOPE(Scalar, GlobalOrdinal, NO);
-#if !defined(HAVE_MUELU_AMESOS) || !defined(HAVE_MUELU_IFPACK)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseEpetra, "Amesos, Ifpack");
-#endif
-#if !defined(HAVE_MUELU_AMESOS2) || !defined(HAVE_MUELU_IFPACK2)
-  MUELU_TESTING_DO_NOT_TEST(Xpetra::UseTpetra, "Amesos2, Ifpack2");
-#endif
 
   typedef Scalar SC;
   typedef GlobalOrdinal GO;

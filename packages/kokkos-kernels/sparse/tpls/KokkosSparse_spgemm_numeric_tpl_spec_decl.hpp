@@ -1,20 +1,5 @@
-/*
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
-*/
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOSPARSE_SPGEMM_NUMERIC_TPL_SPEC_DECL_HPP_
 #define KOKKOSPARSE_SPGEMM_NUMERIC_TPL_SPEC_DECL_HPP_
@@ -67,13 +52,13 @@ void spgemm_numeric_cusparse(KernelHandle *handle, lno_t /*m*/, lno_t /*n*/, lno
     return;
   }
 
-  KOKKOS_CUSPARSE_SAFE_CALL(
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(
       cusparseCsrSetPointers(h->descr_A, (void *)row_mapA.data(), (void *)entriesA.data(), (void *)valuesA.data()));
 
-  KOKKOS_CUSPARSE_SAFE_CALL(
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(
       cusparseCsrSetPointers(h->descr_B, (void *)row_mapB.data(), (void *)entriesB.data(), (void *)valuesB.data()));
 
-  KOKKOS_CUSPARSE_SAFE_CALL(
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(
       cusparseCsrSetPointers(h->descr_C, (void *)row_mapC.data(), (void *)entriesC.data(), (void *)valuesC.data()));
 
   if (!handle->are_entries_computed()) {
@@ -81,31 +66,32 @@ void spgemm_numeric_cusparse(KernelHandle *handle, lno_t /*m*/, lno_t /*n*/, lno
       // If symbolic was previously called with computeRowptrs=true, then
       // buffer5 will have already been allocated to the correct size. Otherwise
       // size and allocate it here.
-      KOKKOS_CUSPARSE_SAFE_CALL(cusparseSpGEMMreuse_copy(h->cusparseHandle, h->opA, h->opB, h->descr_A, h->descr_B,
-                                                         h->descr_C, h->alg, h->spgemmDescr, &h->bufferSize5, nullptr));
+      KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseSpGEMMreuse_copy(h->cusparseHandle, h->opA, h->opB, h->descr_A,
+                                                                    h->descr_B, h->descr_C, h->alg, h->spgemmDescr,
+                                                                    &h->bufferSize5, nullptr));
       KOKKOS_IMPL_CUDA_SAFE_CALL(cudaMalloc((void **)&h->buffer5, h->bufferSize5));
     }
-    KOKKOS_CUSPARSE_SAFE_CALL(cusparseSpGEMMreuse_copy(h->cusparseHandle, h->opA, h->opB, h->descr_A, h->descr_B,
-                                                       h->descr_C, h->alg, h->spgemmDescr, &h->bufferSize5,
-                                                       h->buffer5));
+    KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseSpGEMMreuse_copy(h->cusparseHandle, h->opA, h->opB, h->descr_A,
+                                                                  h->descr_B, h->descr_C, h->alg, h->spgemmDescr,
+                                                                  &h->bufferSize5, h->buffer5));
     handle->set_computed_rowptrs();
     handle->set_computed_entries();
   }
 
   // C' = alpha * opA(A) * opB(B) + beta * C
-  const auto alpha = Kokkos::ArithTraits<scalar_type>::one();
-  const auto beta  = Kokkos::ArithTraits<scalar_type>::zero();
+  const auto alpha = KokkosKernels::ArithTraits<scalar_type>::one();
+  const auto beta  = KokkosKernels::ArithTraits<scalar_type>::zero();
 
   // alpha, beta are on host, but since we use singleton on the cusparse
   // handle, we save/restore the pointer mode to not interference with
   // others' use
   cusparsePointerMode_t oldPtrMode;
-  KOKKOS_CUSPARSE_SAFE_CALL(cusparseGetPointerMode(h->cusparseHandle, &oldPtrMode));
-  KOKKOS_CUSPARSE_SAFE_CALL(cusparseSetPointerMode(h->cusparseHandle, CUSPARSE_POINTER_MODE_HOST));
-  KOKKOS_CUSPARSE_SAFE_CALL(cusparseSpGEMMreuse_compute(h->cusparseHandle, h->opA, h->opB, &alpha, h->descr_A,
-                                                        h->descr_B, &beta, h->descr_C, h->scalarType, h->alg,
-                                                        h->spgemmDescr));
-  KOKKOS_CUSPARSE_SAFE_CALL(cusparseSetPointerMode(h->cusparseHandle, oldPtrMode));
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseGetPointerMode(h->cusparseHandle, &oldPtrMode));
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseSetPointerMode(h->cusparseHandle, CUSPARSE_POINTER_MODE_HOST));
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseSpGEMMreuse_compute(h->cusparseHandle, h->opA, h->opB, &alpha,
+                                                                   h->descr_A, h->descr_B, &beta, h->descr_C,
+                                                                   h->scalarType, h->alg, h->spgemmDescr));
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseSetPointerMode(h->cusparseHandle, oldPtrMode));
   handle->set_call_numeric();
 }
 
@@ -120,20 +106,20 @@ void spgemm_numeric_cusparse(KernelHandle *handle, lno_t /*m*/, lno_t /*n*/, lno
                              const ConstRowMapType &row_mapC, const EntriesType &entriesC, const ValuesType &valuesC) {
   using scalar_type = typename KernelHandle::nnz_scalar_t;
   auto h            = handle->get_cusparse_spgemm_handle();
-  KOKKOS_CUSPARSE_SAFE_CALL(
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(
       cusparseCsrSetPointers(h->descr_A, (void *)row_mapA.data(), (void *)entriesA.data(), (void *)valuesA.data()));
-  KOKKOS_CUSPARSE_SAFE_CALL(
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(
       cusparseCsrSetPointers(h->descr_B, (void *)row_mapB.data(), (void *)entriesB.data(), (void *)valuesB.data()));
-  KOKKOS_CUSPARSE_SAFE_CALL(
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(
       cusparseCsrSetPointers(h->descr_C, (void *)row_mapC.data(), (void *)entriesC.data(), (void *)valuesC.data()));
-  const auto alpha = Kokkos::ArithTraits<scalar_type>::one();
-  const auto beta  = Kokkos::ArithTraits<scalar_type>::zero();
-  KOKKOS_CUSPARSE_SAFE_CALL(cusparseSpGEMM_compute(h->cusparseHandle, h->opA, h->opB, &alpha, h->descr_A, h->descr_B,
-                                                   &beta, h->descr_C, h->scalarType, CUSPARSE_SPGEMM_DEFAULT,
-                                                   h->spgemmDescr, &h->bufferSize4, h->buffer4));
-  KOKKOS_CUSPARSE_SAFE_CALL(cusparseSpGEMM_copy(h->cusparseHandle, h->opA, h->opB, &alpha, h->descr_A, h->descr_B,
-                                                &beta, h->descr_C, h->scalarType, CUSPARSE_SPGEMM_DEFAULT,
-                                                h->spgemmDescr));
+  const auto alpha = KokkosKernels::ArithTraits<scalar_type>::one();
+  const auto beta  = KokkosKernels::ArithTraits<scalar_type>::zero();
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(
+      cusparseSpGEMM_compute(h->cusparseHandle, h->opA, h->opB, &alpha, h->descr_A, h->descr_B, &beta, h->descr_C,
+                             h->scalarType, CUSPARSE_SPGEMM_DEFAULT, h->spgemmDescr, &h->bufferSize4, h->buffer4));
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseSpGEMM_copy(h->cusparseHandle, h->opA, h->opB, &alpha, h->descr_A,
+                                                           h->descr_B, &beta, h->descr_C, h->scalarType,
+                                                           CUSPARSE_SPGEMM_DEFAULT, h->spgemmDescr));
   handle->set_computed_entries();
   handle->set_call_numeric();
 }
@@ -180,7 +166,7 @@ void spgemm_numeric_cusparse(KernelHandle *handle, lno_t m, lno_t n, lno_t k, co
 
   // Only call numeric if C actually has entries
   if (handle->get_c_nnz()) {
-    KOKKOS_CUSPARSE_SAFE_CALL(cusparseXcsrgemm(
+    KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseXcsrgemm(
         h->cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE, m, k, n, h->generalDescr,
         nnzA, valuesA.data(), row_mapA.data(), entriesA.data(), h->generalDescr, nnzB, valuesB.data(), row_mapB.data(),
         entriesB.data(), h->generalDescr, valuesC.data(), row_mapC.data(), entriesC.data()));
@@ -232,7 +218,8 @@ void spgemm_numeric_cusparse(KernelHandle *handle, lno_t m, lno_t n, lno_t k, co
                                c_int_view_t row_mapA, c_int_view_t entriesA, c_scalar_view_t valuesA, bool,            \
                                c_int_view_t row_mapB, c_int_view_t entriesB, c_scalar_view_t valuesB, bool,            \
                                c_int_view_t row_mapC, int_view_t entriesC, scalar_view_t valuesC) {                    \
-      std::string label = "KokkosSparse::spgemm_numeric[TPL_CUSPARSE," + Kokkos::ArithTraits<SCALAR>::name() + "]";    \
+      std::string label =                                                                                              \
+          "KokkosSparse::spgemm_numeric[TPL_CUSPARSE," + KokkosKernels::ArithTraits<SCALAR>::name() + "]";             \
       Kokkos::Profiling::pushRegion(label);                                                                            \
       spgemm_numeric_cusparse(handle->get_spgemm_handle(), m, n, k, row_mapA, entriesA, valuesA, row_mapB, entriesB,   \
                               valuesB, row_mapC, entriesC, valuesC);                                                   \
@@ -296,8 +283,8 @@ void spgemm_numeric_rocsparse(KernelHandle *handle, typename KernelHandle::nnz_l
 
   typename KernelHandle::rocSparseSpgemmHandleType *h = handle->get_rocsparse_spgemm_handle();
 
-  const auto alpha = Kokkos::ArithTraits<scalar_type>::one();
-  const auto beta  = Kokkos::ArithTraits<scalar_type>::zero();
+  const auto alpha = KokkosKernels::ArithTraits<scalar_type>::one();
+  const auto beta  = KokkosKernels::ArithTraits<scalar_type>::zero();
   rocsparse_pointer_mode oldPtrMode;
 
   auto nnz_A = colidxA.extent(0);
@@ -371,7 +358,8 @@ void spgemm_numeric_rocsparse(KernelHandle *handle, typename KernelHandle::nnz_l
                                c_int_view_t row_mapA, c_int_view_t entriesA, c_scalar_view_t valuesA, bool,           \
                                c_int_view_t row_mapB, c_int_view_t entriesB, c_scalar_view_t valuesB, bool,           \
                                c_int_view_t row_mapC, int_view_t entriesC, scalar_view_t valuesC) {                   \
-      std::string label = "KokkosSparse::spgemm_numeric[TPL_ROCSPARSE," + Kokkos::ArithTraits<SCALAR>::name() + "]";  \
+      std::string label =                                                                                             \
+          "KokkosSparse::spgemm_numeric[TPL_ROCSPARSE," + KokkosKernels::ArithTraits<SCALAR>::name() + "]";           \
       Kokkos::Profiling::pushRegion(label);                                                                           \
       spgemm_numeric_rocsparse(handle->get_spgemm_handle(), m, n, k, row_mapA, entriesA, valuesA, row_mapB, entriesB, \
                                valuesB, row_mapC, entriesC, valuesC);                                                 \
@@ -486,7 +474,7 @@ void spgemm_numeric_mkl(KernelHandle *handle, typename KernelHandle::nnz_lno_t m
                                c_int_view_t row_mapA, c_int_view_t entriesA, c_scalar_view_t valuesA, bool,            \
                                c_int_view_t row_mapB, c_int_view_t entriesB, c_scalar_view_t valuesB, bool,            \
                                c_int_view_t row_mapC, int_view_t entriesC, scalar_view_t valuesC) {                    \
-      std::string label = "KokkosSparse::spgemm_numeric[TPL_MKL," + Kokkos::ArithTraits<SCALAR>::name() + "]";         \
+      std::string label = "KokkosSparse::spgemm_numeric[TPL_MKL," + KokkosKernels::ArithTraits<SCALAR>::name() + "]";  \
       Kokkos::Profiling::pushRegion(label);                                                                            \
       spgemm_numeric_mkl(handle->get_spgemm_handle(), m, n, k, row_mapA, entriesA, valuesA, row_mapB, entriesB,        \
                          valuesB, row_mapC, entriesC, valuesC);                                                        \

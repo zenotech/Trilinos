@@ -8,6 +8,7 @@
 // @HEADER
 
 #include "Teuchos_StackedTimer.hpp"
+#include "Teuchos_SystemInformation.hpp"
 #include <limits>
 #include <ctime>
 #include <cctype>
@@ -15,6 +16,9 @@
 #include <iterator>
 #include <fstream>
 #include <sstream>
+
+#include "Trilinos_git_sha.h"
+
 
 namespace Teuchos {
 
@@ -62,7 +66,7 @@ StackedTimer::LevelTimer::findBaseTimer(const std::string &name) const {
   }
   return t;
 }
-  
+
 BaseTimer::TimeInfo
 StackedTimer::LevelTimer::findTimer(const std::string &name, bool& found) {
   BaseTimer::TimeInfo t;
@@ -134,6 +138,11 @@ StackedTimer::collectRemoteData(Teuchos::RCP<const Teuchos::Comm<int> > comm, co
       hist_[i].resize(num_names);
   }
 
+  if (options.output_per_proc_stddev) {
+    per_proc_stddev_min_.resize(num_names);
+    per_proc_stddev_max_.resize(num_names);
+  }
+
   // Temp data
   Array<double> time(num_names);
   Array<unsigned long> count(num_names);
@@ -142,6 +151,9 @@ StackedTimer::collectRemoteData(Teuchos::RCP<const Teuchos::Comm<int> > comm, co
     updates.resize(num_names);
   Array<int> used(num_names);
   Array<int> bins;
+  Array<double> per_proc_stddev;
+  if (options.output_per_proc_stddev)
+    per_proc_stddev.resize(num_names);
 
   if (options.output_histogram)
     bins.resize(num_names);
@@ -155,6 +167,8 @@ StackedTimer::collectRemoteData(Teuchos::RCP<const Teuchos::Comm<int> > comm, co
     used[i] = t.count==0? 0:1;
     if (options.output_total_updates)
       updates[i] = t.updates;
+    if (options.output_per_proc_stddev)
+      per_proc_stddev[i] = t.stdDev;
   }
 
   // Now reduce the data
@@ -218,6 +232,11 @@ StackedTimer::collectRemoteData(Teuchos::RCP<const Teuchos::Comm<int> > comm, co
     for (int i=0;i<num_names; ++i)
       time[i] *= time[i];
     reduce(time.getRawPtr(), sum_sq_.getRawPtr(), num_names, REDUCE_SUM, 0, *comm);
+  }
+
+  if (options.output_per_proc_stddev) {
+    reduceAll(*comm, REDUCE_MIN, num_names, per_proc_stddev.getRawPtr(), per_proc_stddev_min_.getRawPtr());
+    reduceAll(*comm, REDUCE_MAX, num_names, per_proc_stddev.getRawPtr(), per_proc_stddev_max_.getRawPtr());
   }
 
 }
@@ -514,6 +533,15 @@ StackedTimer::printLevel (std::string prefix, int print_level, std::ostream &os,
         os << " ";
     }
 
+    if (options.output_per_proc_stddev) {
+      std::ostringstream tmp;
+      tmp << ", std dev per proc min/max=";
+      tmp << per_proc_stddev_min_[i];
+      tmp << "/";
+      tmp << per_proc_stddev_max_[i];
+      os << tmp.str();
+    }
+
     if (! options.print_names_before_values) {
       std::ostringstream tmp;
       tmp << " ";
@@ -725,7 +753,7 @@ std::string
 StackedTimer::reportWatchrXML(const std::string& name, Teuchos::RCP<const Teuchos::Comm<int> > comm) {
   const char* rawWatchrDir = getenv("WATCHR_PERF_DIR");
   const char* rawBuildName = getenv("WATCHR_BUILD_NAME");
-  const char* rawGitSHA = getenv("TRILINOS_GIT_SHA");
+  std::string gitSHA(Trilinos::TRILINOS_GIT_SHA);
   const char* rawBuildDateOverride = getenv("WATCHR_BUILD_DATE");
   //WATCHR_PERF_DIR is required (will also check nonempty below)
   if(!rawWatchrDir)
@@ -801,13 +829,15 @@ StackedTimer::reportWatchrXML(const std::string& name, Teuchos::RCP<const Teucho
     std::vector<bool> printed(flat_names_.size(), false);
     os << "<?xml version=\"1.0\"?>\n";
     os << "<performance-report date=\"" << timestamp << "\" name=\"nightly_run_" << datestamp << "\" time-units=\"seconds\">\n";
-    if(rawGitSHA)
+    if(gitSHA != "UNDEFINED")
     {
-      std::string gitSHA(rawGitSHA);
-      //Output the first 10 (hex) characters
-      if(gitSHA.length() > 10)
-        gitSHA = gitSHA.substr(0, 10);
       os << "  <metadata key=\"Trilinos Version\" value=\"" << gitSHA << "\"/>\n";
+    }
+    auto systemInfo = SystemInformation::collectSystemInformation();
+    for (const auto &e : systemInfo) {
+      os << "  <metadata key=\"" << e.first << "\" value=\"";
+      printXMLEscapedString(os, e.second);
+      os << "\"/>\n";
     }
     printLevelXML("", 0, os, printed, 0.0, buildName + ": " + name);
     os << "</performance-report>\n";
@@ -872,6 +902,43 @@ bool StackedTimer::isTimer(const std::string& flat_timer_name)
 
   auto search = std::find(flat_names_.begin(),flat_names_.end(),flat_timer_name);
   return (search == flat_names_.end()) ? false : true;
+}
+
+std::stack<std::string> StackedTimer::stopAllTimers()
+{
+  std::stack<std::string> timer_names;
+
+  while (top_->level() > 0) {
+    const std::string name = top_->get_name();
+    timer_names.push(name);
+    this->stop(name);
+  }
+
+  // Base timer is handled differently for start/stop
+  if (timer_.running()) {
+    timer_names.push(timer_.get_name());
+    this->stopBaseTimer();
+  }
+
+  return timer_names;
+}
+
+void StackedTimer::startTimers(std::stack<std::string> timers_to_start)
+{
+  bool first_timer = true;
+  while (timers_to_start.size() > 0) {
+    // Base timer is handled differently for start/stop
+    if (first_timer) {
+      TEUCHOS_ASSERT(timer_.get_name() == timers_to_start.top());
+      this->startBaseTimer();
+      first_timer = false;
+    }
+    else {
+      this->start(timers_to_start.top());
+    }
+
+    timers_to_start.pop();
+  }
 }
 
 } //namespace Teuchos

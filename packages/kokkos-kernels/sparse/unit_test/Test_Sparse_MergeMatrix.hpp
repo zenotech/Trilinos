@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef TEST_COMMON_MERGE_MATRIX_HPP
 #define TEST_COMMON_MERGE_MATRIX_HPP
@@ -366,7 +353,7 @@ void view_iota_empty_empty() {
 
   AView a("view-iota-empty-empty-a", 0);
   BView b(0);
-  EXPECT_EQ(MMD(a, b, 0).size(), 0);
+  EXPECT_EQ(MMD(a, b, 0).size(), size_t(0));
 }
 
 /*! \brief merge-matrix of a full view and empty iota
@@ -385,7 +372,7 @@ void view_iota_full_empty() {
   BView b(0);
 
   for (size_t diagonal = 0; diagonal < a.size() + b.size() - 1; ++diagonal) {
-    EXPECT_EQ(MMD(a, b, diagonal).size(), 0);
+    EXPECT_EQ(MMD(a, b, diagonal).size(), size_t(0));
   }
 }
 
@@ -404,7 +391,7 @@ void view_iota_empty_full() {
   BView b(4);
 
   for (size_t diagonal = 0; diagonal < a.size() + b.size() - 1; ++diagonal) {
-    EXPECT_EQ(MMD(a, b, diagonal).size(), 0);
+    EXPECT_EQ(MMD(a, b, diagonal).size(), size_t(0));
   }
 }
 

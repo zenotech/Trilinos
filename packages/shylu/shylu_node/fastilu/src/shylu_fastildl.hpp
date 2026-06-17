@@ -57,8 +57,8 @@ class FastILDLPrec
 
         typedef Kokkos::RangePolicy<ExecSpace> RangePolicy;
 
-        using STS = Kokkos::ArithTraits<Scalar>;
-        using RTS = Kokkos::ArithTraits<Real>;
+        using STS = KokkosKernels::ArithTraits<Scalar>;
+        using RTS = KokkosKernels::ArithTraits<Real>;
 
     private:
         double computeTime;
@@ -156,7 +156,7 @@ class FastILDLPrec
             blkSzILDL = blkSzILDL_;
             blkSz = blkSz_;
 
-            const Scalar one = Kokkos::ArithTraits<Scalar>::one();
+            const Scalar one = KokkosKernels::ArithTraits<Scalar>::one();
             onesVector = ScalarArray("onesVector", nRow_);
             Kokkos::deep_copy(onesVector, one);
 
@@ -618,7 +618,7 @@ class FastILDLPrec
         void applyDiagonalScaling()
         {
             int anext = 0;
-            const Real one = Kokkos::ArithTraits<Real>::one();
+            const Real one = KokkosKernels::ArithTraits<Real>::one();
             //First fill Aj and extract the diagonal scaling factors
             //Use diag array to store scaling factors since
             //it gets set to the correct value by findFactorPattern anyway.
@@ -659,7 +659,7 @@ class FastILDLPrec
 
         void applyManteuffelShift()
         {
-            const Scalar one = Kokkos::ArithTraits<Scalar>::one();
+            const Scalar one = KokkosKernels::ArithTraits<Scalar>::one();
             //Scalar shift = 0.05;
             for (Ordinal i = 0; i < nRows; i++)
             {
@@ -759,7 +759,7 @@ class FastILDLPrec
 
         void compute()
         {
-            const Scalar one = Kokkos::ArithTraits<Scalar>::one();
+            const Scalar one = KokkosKernels::ArithTraits<Scalar>::one();
             if((level > 0) && (guessFlag != 0))
             {
                 initGuessPrec->compute();
@@ -804,16 +804,16 @@ class FastILDLPrec
                 // setup L solve
                 khL.create_sptrsv_handle(algo, nRows, true);
                 #if defined(KOKKOSKERNELS_ENABLE_TPL_CUSPARSE)
-                KokkosSparse::Experimental::sptrsv_symbolic(&khL, lRowMap, lColIdx, lVal);
+                KokkosSparse::sptrsv_symbolic(&khL, lRowMap, lColIdx, lVal);
                 #else
-                KokkosSparse::Experimental::sptrsv_symbolic(&khL, lRowMap, lColIdx);
+                KokkosSparse::sptrsv_symbolic(&khL, lRowMap, lColIdx);
                 #endif
                 // setup Lt solve
                 khLt.create_sptrsv_handle(algo, nRows, false);
                 #if defined(KOKKOSKERNELS_ENABLE_TPL_CUSPARSE)
-                KokkosSparse::Experimental::sptrsv_symbolic(&khLt, ltRowMap, ltColIdx, ltVal);
+                KokkosSparse::sptrsv_symbolic(&khLt, ltRowMap, ltColIdx, ltVal);
                 #else
-                KokkosSparse::Experimental::sptrsv_symbolic(&khLt, ltRowMap, ltColIdx);
+                KokkosSparse::sptrsv_symbolic(&khLt, ltRowMap, ltColIdx);
                 #endif
             }
         }
@@ -829,13 +829,13 @@ class FastILDLPrec
 
             applyD(x, xTemp);
             if (standard_sptrsv) {
-                KokkosSparse::Experimental::sptrsv_solve(&khL, lRowMap, lColIdx, lVal, xTemp, y);
+                KokkosSparse::sptrsv_solve(&khL, lRowMap, lColIdx, lVal, xTemp, y);
             } else {
                 applyLIC(xTemp, y);
             }
             applyDD(y, xTemp);
             if (standard_sptrsv) {
-                KokkosSparse::Experimental::sptrsv_solve(&khLt, ltRowMap, ltColIdx, ltVal, xTemp, y);
+                KokkosSparse::sptrsv_solve(&khLt, ltRowMap, ltColIdx, ltVal, xTemp, y);
             } else {
                 applyLT(xTemp, y);
             }
@@ -953,8 +953,8 @@ class FastILDLFunctor
         KOKKOS_INLINE_FUNCTION
             void operator()(const Ordinal blk_index) const
             {
-                const Scalar zero = Kokkos::ArithTraits<Scalar>::zero();
-                const Scalar one = Kokkos::ArithTraits<Scalar>::one();
+                const Scalar zero = KokkosKernels::ArithTraits<Scalar>::zero();
+                const Scalar one = KokkosKernels::ArithTraits<Scalar>::one();
 
                 Ordinal start = blk_index * blk_size;
                 Ordinal end = start + blk_size;

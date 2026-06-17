@@ -10,6 +10,7 @@
 #ifndef THYRA_AMESOS2_LINEAR_OP_WITH_SOLVE_FACTORY_HPP
 #define THYRA_AMESOS2_LINEAR_OP_WITH_SOLVE_FACTORY_HPP
 
+#include "Teuchos_StandardParameterEntryValidators.hpp"
 #include "Thyra_Amesos2LinearOpWithSolveFactory_decl.hpp"
 
 #include "Thyra_Amesos2LinearOpWithSolve.hpp"
@@ -17,6 +18,7 @@
 #include "Amesos2_Details_LinearSolverFactory.hpp"
 #include "Amesos2_Version.hpp"
 #include "Amesos2_Factory.hpp"
+#include "Thyra_Amesos2Types.hpp"
 #include "Thyra_TpetraLinearOp.hpp"
 #include "Thyra_TpetraThyraWrappers.hpp"
 #include "Thyra_DefaultDiagonalLinearOp.hpp"
@@ -24,6 +26,7 @@
 #include "Teuchos_TimeMonitor.hpp"
 #include "Teuchos_TypeNameTraits.hpp"
 #include "Teuchos_VerboseObjectParameterListHelpers.hpp"
+#include "Teuchos_StandardParameterEntryValidators.hpp"
 
 namespace Thyra {
 
@@ -174,6 +177,11 @@ void Amesos2LinearOpWithSolveFactory<Scalar>::initializeOp(
           amesos2Solver = ::Amesos2::create<MAT,MV>("pardiso_mkl", tpetraCrsMat);
           break;
 #endif
+#ifdef HAVE_AMESOS2_CSS_MKL
+        case Thyra::Amesos2::CSS_MKL:
+          amesos2Solver = ::Amesos2::create<MAT,MV>("css_mkl", tpetraCrsMat);
+          break;
+#endif
 #ifdef HAVE_AMESOS2_CHOLMOD
         case Thyra::Amesos2::CHOLMOD:
           amesos2Solver = ::Amesos2::create<MAT,MV>("cholmod", tpetraCrsMat);
@@ -197,6 +205,13 @@ void Amesos2LinearOpWithSolveFactory<Scalar>::initializeOp(
       }
     }
 
+    // Extract and set Amesos2 Parameters
+    if( paramList_->isSublist(Amesos2_Settings_name) ){
+      auto amesos2Params = Teuchos::rcp(new Teuchos::ParameterList(paramList_->sublist(Amesos2_Settings_name)));
+      amesos2Params->setName("Amesos2");
+      amesos2Solver->setParameters(amesos2Params);
+    }
+
     // Do the initial factorization
     {
       THYRA_FUNC_TIME_MONITOR_DIFF("Stratimikos: Amesos2LOWSF:Symbolic", Symbolic);
@@ -206,16 +221,6 @@ void Amesos2LinearOpWithSolveFactory<Scalar>::initializeOp(
       THYRA_FUNC_TIME_MONITOR_DIFF("Stratimikos: Amesos2LOWSF:Factor", Factor);
       amesos2Solver->numericFactorization();
     }
-
-    // filter out the Stratimikos adapter parameters and hand
-    // parameters down into the Solver
-    const Teuchos::RCP<Teuchos::ParameterList> dup_list
-      = Teuchos::rcp(new Teuchos::ParameterList(*paramList_));
-    dup_list->remove(SolverType_name);
-    dup_list->remove(RefactorizationPolicy_name);
-    dup_list->remove(ThrowOnPreconditionerInput_name);
-    dup_list->remove("VerboseObject");
-    amesos2Solver->setParameters(dup_list);
 
     // Initialize the LOWS object and we are done!
     amesos2Op->initialize(fwdOp,fwdOpSrc,amesos2Solver);
@@ -392,11 +397,24 @@ Amesos2LinearOpWithSolveFactory<Scalar>::generateAndGetValidParameters()
   static RCP<Teuchos::ParameterList> validParamList;
   if (validParamList.get()==NULL) {
     validParamList = Teuchos::rcp(new Teuchos::ParameterList("Amesos2"));
-    validParamList->set(SolverType_name, Thyra::Amesos2::solverTypeNames[0]);
+    Teuchos::Array<std::string> solverTypeNames(Amesos2::numSolverTypes);
+    for (int k = 0; k<Amesos2::numSolverTypes; ++k)
+      solverTypeNames[k] = Thyra::Amesos2::solverTypeNames[k];
+    auto validator = Teuchos::rcp(new Teuchos::StringValidator(solverTypeNames));
+    validParamList->set(SolverType_name,
+                        Thyra::Amesos2::solverTypeNames[0],
+                        "Type of Amesos2 solver",
+                        validator
+                        );
     validParamList->set(RefactorizationPolicy_name,
       Amesos2::toString(Amesos2::REPIVOT_ON_REFACTORIZATION));
     validParamList->set(ThrowOnPreconditionerInput_name,bool(true));
     Teuchos::setupVerboseObjectSublist(&*validParamList);
+
+    // empty Amesos2_Settings parameter list 
+    // (Stratimikos won't validate, but Amesos2 will when a user actually try to set parameters)
+    RCP<Teuchos::ParameterList> amesos2Params = rcp(new ParameterList("Amesos2"));
+    validParamList->sublist(Amesos2_Settings_name).setParameters(*amesos2Params);
   }
   return validParamList;
 }

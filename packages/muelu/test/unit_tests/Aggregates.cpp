@@ -678,7 +678,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(Aggregates, JustStructuredAggregationGlobal, S
                                                                     lNodesPerDir, meshData);
 
   Teuchos::ParameterList matrixList;
-  matrixList.set("nx", gNodesPerDir[0]);
+  matrixList.set("nx", (GlobalOrdinal)Coordinates->getMap()->getGlobalNumElements());
   matrixList.set("matrixType", "Laplace1D");
   RCP<Galeri::Xpetra::Problem<Map, CrsMatrixWrap, MultiVector>> Pr = Galeri::Xpetra::
       BuildProblem<SC, LO, GO, Map, CrsMatrixWrap, MultiVector>("Laplace1D", Coordinates->getMap(),
@@ -728,7 +728,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(Aggregates, JustStructuredAggregationLocal, Sc
                                                                     meshLayout);
 
   Teuchos::ParameterList matrixList;
-  matrixList.set("nx", gNodesPerDir[0]);
+  matrixList.set("nx", (GlobalOrdinal)Coordinates->getMap()->getGlobalNumElements());
   matrixList.set("matrixType", "Laplace1D");
   RCP<Galeri::Xpetra::Problem<Map, CrsMatrixWrap, MultiVector>> Pr = Galeri::Xpetra::
       BuildProblem<SC, LO, GO, Map, CrsMatrixWrap, MultiVector>("Laplace1D", Coordinates->getMap(),
@@ -812,20 +812,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(Aggregates, GreedyDirichlet, Scalar, LocalOrdi
   //    RCP<Matrix> A = TestHelpers::TestFactory<SC, LO, GO, NO>::Build1DPoisson(30);
   // Make a Matrix with multiple degrees of freedom per node
   GlobalOrdinal nx = 20, ny = 20;
-
-  // Describes the initial layout of matrix rows across processors.
-  Teuchos::ParameterList galeriList;
-  galeriList.set("nx", nx);
-  galeriList.set("ny", ny);
-  RCP<const Teuchos::Comm<int>> comm = TestHelpers::Parameters::getDefaultComm();
-  RCP<const Map> map                 = Galeri::Xpetra::CreateMap<LocalOrdinal, GlobalOrdinal, Node>(TestHelpers::Parameters::getLib(), "Cartesian2D", comm, galeriList);
-
-  map = Xpetra::MapFactory<LocalOrdinal, GlobalOrdinal, Node>::Build(map, 2);  // expand map for 2 DOFs per node
-
-  RCP<Galeri::Xpetra::Problem<Map, CrsMatrixWrap, MultiVector>> Pr =
-      Galeri::Xpetra::BuildProblem<Scalar, LocalOrdinal, GlobalOrdinal, Map, CrsMatrixWrap, MultiVector>("Elasticity2D", map, galeriList);
-  RCP<Matrix> A = Pr->BuildMatrix();
-  A->SetFixedBlockSize(2);
+  auto A = TestHelpers::TestFactory<SC, LO, GO, NO>::Build2DElasticity(nx, ny);
 
   Teuchos::ArrayView<const LocalOrdinal> indices;
   Teuchos::ArrayView<const Scalar> values;
@@ -877,7 +864,7 @@ TEUCHOS_UNIT_TEST_TEMPLATE_4_DECL(Aggregates, GreedyDirichlet, Scalar, LocalOrdi
 
   aggregates->ComputeNodesInAggregate(aggPtr, aggNodes, unaggregated);
 
-  typename Aggregates::LO_view::HostMirror unaggregated_h = Kokkos::create_mirror_view(unaggregated);
+  typename Aggregates::LO_view::host_mirror_type unaggregated_h = Kokkos::create_mirror_view(unaggregated);
   Kokkos::deep_copy(unaggregated_h, unaggregated);
 
   //     Test to check that the dirichlet node is aggregated:

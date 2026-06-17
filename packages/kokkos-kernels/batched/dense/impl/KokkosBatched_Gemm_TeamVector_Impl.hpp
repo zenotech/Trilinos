@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSBATCHED_GEMM_TEAMVECTOR_IMPL_HPP
 #define KOKKOSBATCHED_GEMM_TEAMVECTOR_IMPL_HPP
 
@@ -47,8 +34,8 @@ struct TeamVectorGemm<MemberType, Trans::NoTranspose, Trans::NoTranspose, Algo::
     // C = beta C + alpha A B
     // C (m x n), A(m x k), B(k x n)
     return TeamVectorGemmInternal<Algo::Gemm::Unblocked>::invoke(
-        member, C.extent(0), C.extent(1), A.extent(1), alpha, A.data(), A.stride_0(), A.stride_1(), B.data(),
-        B.stride_0(), B.stride_1(), beta, C.data(), C.stride_0(), C.stride_1());
+        member, C.extent(0), C.extent(1), A.extent(1), alpha, A.data(), A.stride(0), A.stride(1), B.data(), B.stride(0),
+        B.stride(1), beta, C.data(), C.stride(0), C.stride(1));
   }
 };
 
@@ -64,8 +51,8 @@ struct TeamVectorGemm<MemberType, Trans::Transpose, Trans::NoTranspose, Algo::Ge
     // C = beta C + alpha A B
     // C (m x n), A(m x k), B(k x n)
     return TeamVectorGemmInternal<Algo::Gemm::Unblocked>::invoke(
-        member, C.extent(0), C.extent(1), A.extent(0), alpha, A.data(), A.stride_1(), A.stride_0(), B.data(),
-        B.stride_0(), B.stride_1(), beta, C.data(), C.stride_0(), C.stride_1());
+        member, C.extent(0), C.extent(1), A.extent(0), alpha, A.data(), A.stride(1), A.stride(0), B.data(), B.stride(0),
+        B.stride(1), beta, C.data(), C.stride(0), C.stride(1));
   }
 };
 
@@ -81,8 +68,8 @@ struct TeamVectorGemm<MemberType, Trans::NoTranspose, Trans::Transpose, Algo::Ge
     // C = beta C + alpha A B
     // C (m x n), A(m x k), B(k x n)
     return TeamVectorGemmInternal<Algo::Gemm::Unblocked>::invoke(
-        member, C.extent(0), C.extent(1), A.extent(1), alpha, A.data(), A.stride_0(), A.stride_1(), B.data(),
-        B.stride_1(), B.stride_0(), beta, C.data(), C.stride_0(), C.stride_1());
+        member, C.extent(0), C.extent(1), A.extent(1), alpha, A.data(), A.stride(0), A.stride(1), B.data(), B.stride(1),
+        B.stride(0), beta, C.data(), C.stride(0), C.stride(1));
   }
 };
 
@@ -98,8 +85,8 @@ struct TeamVectorGemm<MemberType, Trans::Transpose, Trans::Transpose, Algo::Gemm
     // C = beta C + alpha A B
     // C (m x n), A(m x k), B(k x n)
     return TeamVectorGemmInternal<Algo::Gemm::Unblocked>::invoke(
-        member, C.extent(0), C.extent(1), A.extent(0), alpha, A.data(), A.stride_1(), A.stride_0(), B.data(),
-        B.stride_1(), B.stride_0(), beta, C.data(), C.stride_0(), C.stride_1());
+        member, C.extent(0), C.extent(1), A.extent(0), alpha, A.data(), A.stride(1), A.stride(0), B.data(), B.stride(1),
+        B.stride(0), beta, C.data(), C.stride(0), C.stride(1));
   }
 };
 

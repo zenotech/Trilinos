@@ -45,9 +45,6 @@ extern void register_GmresSingleReduce(const bool verbose);
 }  // namespace Impl
 }  // namespace BelosTpetra
 
-#ifdef HAVE_MUELU_EPETRA
-#include <BelosEpetraAdapter.hpp>  // => This header defines Belos::EpetraPrecOp
-#endif
 #endif
 
 // Cuda
@@ -75,72 +72,39 @@ extern void register_GmresSingleReduce(const bool verbose);
 //*************************************************************************************
 //*************************************************************************************
 //*************************************************************************************
-// Support for ML interface
-#if defined(HAVE_MUELU_ML) and defined(HAVE_MUELU_EPETRA)
-#include <Xpetra_EpetraOperator.hpp>
-#include <ml_MultiLevelPreconditioner.h>
-
-// Helper functions for compilation purposes
-template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-struct ML_Wrapper {
-  static void Generate_ML_MultiLevelPreconditioner(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& A, Teuchos::ParameterList& mueluList,
-                                                   Teuchos::RCP<Xpetra::Operator<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& mlopX) {
-    throw std::runtime_error("Template parameter mismatch");
-  }
-};
-
-template <class GlobalOrdinal>
-struct ML_Wrapper<double, int, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode> {
-  static void Generate_ML_MultiLevelPreconditioner(Teuchos::RCP<Xpetra::Matrix<double, int, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode>>& A, Teuchos::ParameterList& mueluList,
-                                                   Teuchos::RCP<Xpetra::Operator<double, int, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode>>& mlopX) {
-    typedef double SC;
-    typedef int LO;
-    typedef GlobalOrdinal GO;
-    typedef Tpetra::KokkosCompat::KokkosSerialWrapperNode NO;
-    Teuchos::RCP<const Epetra_CrsMatrix> Aep = Xpetra::Helpers<SC, LO, GO, NO>::Op2EpetraCrs(A);
-    Teuchos::RCP<Epetra_Operator> mlop       = Teuchos::rcp<Epetra_Operator>(new ML_Epetra::MultiLevelPreconditioner(*Aep, mueluList));
-#if defined(HAVE_MUELU_BELOS)
-    // NOTE: Belos needs the Apply() and AppleInverse() routines of ML swapped.  So...
-    mlop = Teuchos::rcp<Belos::EpetraPrecOp>(new Belos::EpetraPrecOp(mlop));
-#endif
-
-    mlopX = Teuchos::rcp(new Xpetra::EpetraOperator<GO, NO>(mlop));
-  }
-};
-#endif
-
-//*************************************************************************************
-//*************************************************************************************
-//*************************************************************************************
 // This is a standard setup routine
 template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
 void PreconditionerSetup(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& A,
                          Teuchos::RCP<Xpetra::MultiVector<typename Teuchos::ScalarTraits<Scalar>::coordinateType, LocalOrdinal, GlobalOrdinal, Node>>& coordinates,
                          Teuchos::RCP<Xpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& nullspace,
                          Teuchos::RCP<Xpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& material,
+                         Teuchos::RCP<Xpetra::Vector<LocalOrdinal, LocalOrdinal, GlobalOrdinal, Node>>& blocknumber,
                          Teuchos::ParameterList& mueluList,
                          bool profileSetup,
                          bool useAMGX,
-                         bool useML,
                          bool setNullSpace,
                          int numRebuilds,
                          Teuchos::RCP<MueLu::Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& H,
-                         Teuchos::RCP<Xpetra::Operator<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& Prec) {
+                         Teuchos::RCP<Xpetra::Operator<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& Prec,
+                         bool sacrifice = false) {
 #include <MueLu_UseShortNames.hpp>
   using Teuchos::RCP;
-  Xpetra::UnderlyingLib lib = A->getRowMap()->lib();
+  using Teuchos::TimeMonitor;
   typedef typename Teuchos::ScalarTraits<SC>::coordinateType coordinate_type;
   typedef Xpetra::MultiVector<coordinate_type, LO, GO, NO> CoordinateMultiVector;
   // =========================================================================
   // Preconditioner construction
   // =========================================================================
+
 #ifdef HAVE_MUELU_CUDA
   if (profileSetup) cudaProfilerStart();
 #endif
 
-  if (useML && lib != Xpetra::UseEpetra) throw std::runtime_error("Error: Cannot use ML on non-epetra matrices");
+  if (sacrifice)
+    ++numRebuilds;
 
   for (int i = 0; i <= numRebuilds; i++) {
+    auto tm = Teuchos::rcp(new TimeMonitor(*TimeMonitor::getNewTimer((!sacrifice || (i > 0)) ? "Driver: 2 - MueLu Setup" : "Driver: 2 - MueLu Setup (sacrifice)")));
     A->SetMaxEigenvalueEstimate(-Teuchos::ScalarTraits<SC>::one());
     if (useAMGX) {
 #if defined(HAVE_MUELU_AMGX)
@@ -149,21 +113,6 @@ void PreconditionerSetup(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, Globa
       RCP<MueLu::TpetraOperator<SC, LO, GO, NO>> Top = MueLu::CreateTpetraPreconditioner(At, mueluList);
       Prec                                           = Teuchos::rcp(new Xpetra::TpetraOperator<SC, LO, GO, NO>(Top));
 #endif
-    } else if (useML) {
-#if defined(HAVE_MUELU_ML) and defined(HAVE_MUELU_EPETRA)
-      mueluList.remove("use external multigrid package");
-      if (!coordinates.is_null()) {
-        RCP<const Epetra_MultiVector> epetraCoord = MueLu::Utilities<coordinate_type, LO, GO, NO>::MV2EpetraMV(coordinates);
-        if (epetraCoord->NumVectors() > 0) mueluList.set("x-coordinates", (*epetraCoord)[0]);
-        if (epetraCoord->NumVectors() > 1) mueluList.set("y-coordinates", (*epetraCoord)[1]);
-        if (epetraCoord->NumVectors() > 2) mueluList.set("z-coordinates", (*epetraCoord)[2]);
-      }
-      if (!material.is_null()) {
-        RCP<const Epetra_MultiVector> epetraMat = MueLu::Utilities<SC, LO, GO, NO>::MV2EpetraMV(material);
-        mueluList.set("material coordinates", (*epetraMat)[0]);
-      }
-      ML_Wrapper<SC, LO, GO, NO>::Generate_ML_MultiLevelPreconditioner(A, mueluList, Prec);
-#endif
     } else {
       Teuchos::Array<LO> lNodesPerDim(3, 10);
       Teuchos::ParameterList& userParamList = mueluList.sublist("user data");
@@ -171,6 +120,8 @@ void PreconditionerSetup(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, Globa
         userParamList.set<RCP<CoordinateMultiVector>>("Coordinates", coordinates);
       if (!material.is_null())
         userParamList.set<RCP<Xpetra::MultiVector<SC, LO, GO, NO>>>("Material", material);
+      if (!blocknumber.is_null())
+        userParamList.set<RCP<Xpetra::Vector<LO, LO, GO, NO>>>("BlockNumber", blocknumber);
       if (!nullspace.is_null() && setNullSpace)
         userParamList.set<RCP<Xpetra::MultiVector<SC, LO, GO, NO>>>("Nullspace", nullspace);
       userParamList.set<Teuchos::Array<LO>>("Array<LO> lNodesPerDim", lNodesPerDim);
@@ -181,40 +132,6 @@ void PreconditionerSetup(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, Globa
   if (profileSetup) cudaProfilerStop();
 #endif
 }
-
-#if defined(HAVE_MUELU_EPETRA)
-
-// Helper functions for compilation purposes
-template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-struct Matvec_Wrapper {
-  static void UnwrapEpetra(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& A,
-                           Teuchos::RCP<Xpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& X,
-                           Teuchos::RCP<Xpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& B,
-                           Teuchos::RCP<const Epetra_CrsMatrix>& Aepetra,
-                           Teuchos::RCP<Epetra_MultiVector>& Xepetra,
-                           Teuchos::RCP<Epetra_MultiVector>& Bepetra) {
-    throw std::runtime_error("Template parameter mismatch");
-  }
-};
-
-template <class GlobalOrdinal>
-struct Matvec_Wrapper<double, int, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode> {
-  static void UnwrapEpetra(Teuchos::RCP<Xpetra::Matrix<double, int, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode>>& A,
-                           Teuchos::RCP<Xpetra::MultiVector<double, int, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode>>& X,
-                           Teuchos::RCP<Xpetra::MultiVector<double, int, GlobalOrdinal, Tpetra::KokkosCompat::KokkosSerialWrapperNode>>& B,
-                           Teuchos::RCP<const Epetra_CrsMatrix>& Aepetra,
-                           Teuchos::RCP<Epetra_MultiVector>& Xepetra,
-                           Teuchos::RCP<Epetra_MultiVector>& Bepetra) {
-    typedef double SC;
-    typedef int LO;
-    typedef GlobalOrdinal GO;
-    typedef Tpetra::KokkosCompat::KokkosSerialWrapperNode NO;
-    Aepetra = Xpetra::Helpers<SC, LO, GO, NO>::Op2EpetraCrs(A);
-    Xepetra = Teuchos::rcp(&Xpetra::toEpetra(*X), false);
-    Bepetra = Teuchos::rcp(&Xpetra::toEpetra(*B), false);
-  }
-};
-#endif
 
 template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
 bool cg_solve(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>> A,
@@ -282,7 +199,7 @@ bool cg_solve(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, N
       comm->barrier();
     }
     TimeMonitor t(*TimeMonitor::getNewTimer(dotTimerName));
-    rtrans = r->dot(*r);
+    rtrans = STS::magnitude(r->dot(*r));
   }
 
   normr = std::sqrt(rtrans);
@@ -305,7 +222,7 @@ bool cg_solve(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, N
           comm->barrier();
         }
         TimeMonitor t(*TimeMonitor::getNewTimer(dotTimerName));
-        rtrans = r->dot(*r);
+        rtrans = STS::magnitude(r->dot(*r));
       }
       {
         TimeMonitor t(*TimeMonitor::getNewTimer(addTimerName));
@@ -334,7 +251,7 @@ bool cg_solve(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, N
         comm->barrier();
       }
       TimeMonitor t(*TimeMonitor::getNewTimer(dotTimerName));
-      p_ap_dot = Ap->dot(*p);
+      p_ap_dot = STS::magnitude(Ap->dot(*p));
     }
     {
       TimeMonitor t(*TimeMonitor::getNewTimer(addTimerName));
@@ -356,7 +273,7 @@ bool cg_solve(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, N
       comm->barrier();
     }
     TimeMonitor t(*TimeMonitor::getNewTimer(dotTimerName));
-    rtrans = r->dot(*r);
+    rtrans = STS::magnitude(r->dot(*r));
   }
 
   normr = std::sqrt(rtrans);
@@ -375,7 +292,6 @@ void SystemSolve(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal
                  std::string belosType,
                  bool profileSolve,
                  bool useAMGX,
-                 bool useML,
                  int cacheSize,
                  int numResolves,
                  bool scaleResidualHist,
@@ -383,7 +299,8 @@ void SystemSolve(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal
                  int maxIts,
                  double tol,
                  bool computeCondEst,
-                 bool enforceBoundaryConditionsOnInitialGuess) {
+                 bool enforceBoundaryConditionsOnInitialGuess,
+                 bool sacrifice) {
 #include <MueLu_UseShortNames.hpp>
   using Teuchos::RCP;
   using Teuchos::rcp;
@@ -411,13 +328,8 @@ void SystemSolve(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal
     Btpetra = rcp(&Xpetra::toTpetra(*B), false);
   }
 
-#if defined(HAVE_MUELU_EPETRA)
-  Teuchos::RCP<const Epetra_CrsMatrix> Aepetra;
-  Teuchos::RCP<Epetra_MultiVector> Xepetra, Bepetra;
-  if (lib == Xpetra::UseEpetra) {
-    Matvec_Wrapper<SC, LO, GO, NO>::UnwrapEpetra(A, X, B, Aepetra, Xepetra, Bepetra);
-  }
-#endif
+  if (sacrifice)
+    ++numResolves;
 
   for (int solveno = 0; solveno <= numResolves; solveno++) {
     RCP<TimeMonitor> tm = rcp(new TimeMonitor(*TimeMonitor::getNewTimer("Driver: 3 - LHS and RHS initialization")));
@@ -436,9 +348,6 @@ void SystemSolve(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal
       if (lib == Xpetra::UseTpetra)
         Atpetra->apply(*Btpetra, *Xtpetra);
 
-#if defined(HAVE_MUELU_EPETRA) && !defined(HAVE_MUELU_INST_COMPLEX_INT_INT) && !defined(HAVE_MUELU_INST_FLOAT_INT_INT)
-      if (lib == Xpetra::UseEpetra) Aepetra->Apply(*Bepetra, *Xepetra);
-#endif
       // clear the cache (and don't time it)
       tm      = Teuchos::null;
       int ttt = rand();
@@ -468,7 +377,7 @@ void SystemSolve(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal
 #endif
     } else if (solveType == "belos") {
 #ifdef HAVE_MUELU_BELOS
-      tm = rcp(new TimeMonitor(*TimeMonitor::getNewTimer("Driver: 5 - Belos Solve")));
+      tm = rcp(new TimeMonitor(*TimeMonitor::getNewTimer((!sacrifice || (solveno > 0)) ? "Driver: 5 - Belos Solve" : "Driver: 5 - Belos Solve (sacrifice)")));
 #ifdef HAVE_MUELU_CUDA
       if (profileSolve) cudaProfilerStart();
 #endif
@@ -483,11 +392,7 @@ void SystemSolve(Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal
 #if defined(HAVE_MUELU_AMGX)
         belosPrec = rcp(new Belos::XpetraOp<SC, LO, GO, NO>(Prec));  // Turns an Xpetra::Operator object into a Belos operator
 #endif
-      } else if (useML) {
-#if defined(HAVE_MUELU_ML) and defined(HAVE_MUELU_EPETRA)
-        belosPrec = rcp(new Belos::XpetraOp<SC, LO, GO, NO>(Prec));  // Turns an Xpetra::Operator object into a Belos operator
-#endif
-      } else {
+      } else if (!H.is_null()) {
         H->IsPreconditioner(true);
         belosPrec = rcp(new Belos::MueLuOp<SC, LO, GO, NO>(H));  // Turns a MueLu::Hierarchy object into a Belos operator
       }

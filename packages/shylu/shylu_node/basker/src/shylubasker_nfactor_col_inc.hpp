@@ -17,10 +17,8 @@
 
 #include "shylubasker_nfactor_blk_inc.hpp"
 
-#ifdef BASKER_KOKKOS
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Timer.hpp>
-#endif 
 
 namespace BaskerNS
 {
@@ -28,11 +26,9 @@ namespace BaskerNS
   template <class Int, class Entry, class Exe_Space>
   struct kokkos_nfactor_sep2_inc_lvl
   {
-    #ifdef BASKER_KOKKOS
     typedef Exe_Space                         execution_space;
     typedef Kokkos::TeamPolicy<Exe_Space>     TeamPolicy;
     typedef typename TeamPolicy::member_type  TeamMember;
-    #endif
     
     Basker<Int,Entry,Exe_Space> *basker;
     Int lvl;
@@ -48,27 +44,12 @@ namespace BaskerNS
     }
 
     BASKER_INLINE
-    #ifdef BASKER_KOKKOS
     void operator()(const TeamMember &thread) const
-    #else
-    void operator()(Int kid) const  
-    #endif
     {
-      #ifdef BASKER_KOKKOS
       Int kid = basker->t_get_kid(thread);
       Int team_leader = (Int)(thread.league_rank()*thread.team_size());
-      #else
-      Int team_leader = 0; //Note: come back and fix
-      #endif
-      
-      //if(kid < 8)
-      //if(kid > 11 && kid < 16)
 	{
-      #ifdef BASKER_KOKKOS
        basker->t_nfactor_sep2_inc_lvl(kid, lvl, team_leader, thread);
-      #else
-      
-      #endif
 	}
     }//end operator ()
   };//end col_factor_funct
@@ -903,9 +884,9 @@ namespace BaskerNS
        {
 	 
 	 if(Options.verbose == BASKER_TRUE)
-	   {
+	 {
 //	 printf("kid: %ld col: %ld need to realloc, unnz: %ld ucnt: %ld uunnz: %ld U_col: %ld U_row: %ld \n", kid, k, unnz, ucnt, uunnz, U_col, U_row);
-   std::cout << "kid: "  << kid
+         std::cout << "kid: "  << kid
              << " col: " << k
              << " need to realloc, unnz: " << unnz
              << " ucnt: " << ucnt
@@ -2174,9 +2155,9 @@ namespace BaskerNS
    //if((maxindex == L.max_idx) || (pivot == 0)
    if((maxindex == BASKER_MAX_IDX) || (pivot == (Entry)(0)) )
      {
-       cout << "Error: Matrix is singular, col, lvl: " << l <<endl;
-       cout << "MaxIndex: " << maxindex << " pivot " 
-	    << pivot << endl;
+       std::cout << "Error: Matrix is singular, col, lvl: " << l << std::endl;
+       std::cout << "MaxIndex: " << maxindex << " pivot " 
+	    << pivot << std::endl;
        return 2;
      }          
   
@@ -2194,9 +2175,9 @@ namespace BaskerNS
      
        if(Options.verbose == BASKER_TRUE)
 	 {
-       cout << "Lower Col Reallocing L oldsize: " 
+           std::cout << "Lower Col Reallocing L oldsize: " 
 	    << llnnz 
-	    << " newsize: " << newsize << endl;
+	    << " newsize: " << newsize << std::endl;
 	 }
       
        if(Options.realloc == BASKER_FALSE)
@@ -2222,9 +2203,9 @@ namespace BaskerNS
 
        if(Options.verbose == BASKER_TRUE)
 	 {
-       cout << "Lower Col Reallocing U oldsize: " 
+           std::cout << "Lower Col Reallocing U oldsize: " 
 	    << uunnz 
-	    << " newsize " << newsize << endl;
+	    << " newsize " << newsize << std::endl;
 	 }
 
        if(Options.realloc == BASKER_FALSE)

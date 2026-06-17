@@ -147,7 +147,7 @@ TEUCHOS_UNIT_TEST(PhalanxViewOfViews,ViewOfView_UserStreamCtor) {
   std::vector<PHX::Device> streams;
   if (PHX::Device().concurrency() >= 4) {
     std::cout << "Using partition_space, concurrency=" << PHX::Device().concurrency() << std::endl;
-    streams = Kokkos::Experimental::partition_space(PHX::Device(),1,1,1,1);
+    streams = Kokkos::Experimental::partition_space(PHX::Device(),std::vector<int>(4,1));
   }
   else {
     std::cout << "NOT using partition_space, concurrency=" << PHX::Device().concurrency() << std::endl;
@@ -224,7 +224,7 @@ TEUCHOS_UNIT_TEST(PhalanxViewOfViews,ViewOfView_UserStreamInitialize) {
   std::vector<PHX::Device> streams;
   if (PHX::Device().concurrency() >= 4) {
     std::cout << "Using partition_space, concurrency=" << PHX::Device().concurrency() << std::endl;
-    streams = Kokkos::Experimental::partition_space(PHX::Device(),1,1,1,1);
+    streams = Kokkos::Experimental::partition_space(PHX::Device(),std::vector<int>(4,1));
   }
   else {
     std::cout << "NOT using partition_space, concurrency=" << PHX::Device().concurrency() << std::endl;
@@ -341,7 +341,7 @@ using DeviceMemorySpace = std::conditional<std::is_same<DeviceExecutionSpace,Kok
                                            Kokkos::CudaSpace,
                                            Kokkos::DefaultExecutionSpace::memory_space>::type;
 using view = Kokkos::View<double*,DeviceMemorySpace>;
-using view_host = view::HostMirror;
+using view_host = view::host_mirror_type;
 
 class Wrapper {
 public:
@@ -603,7 +603,10 @@ void testVoV(VoVType& vov, OstreamType& out, bool& success)
   PHX::Device::execution_space().fence();
 
   // Check the results
-  auto c_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),c);
+  // FIXME: breaks with new view implementation in 4.7.1
+  //auto c_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),c);
+  auto c_h = Kokkos::create_mirror_view(Kokkos::HostSpace(),c);
+  Kokkos::deep_copy(c_h, c);
   const auto tol = std::numeric_limits<double>::epsilon() * 100.0;
   for (size_t cell=0; cell < c.extent(0); ++cell) {
     for (size_t pt=0; pt < c.extent(1); ++pt) {
@@ -715,7 +718,10 @@ TEUCHOS_UNIT_TEST(PhalanxViewOfViews,FadHierarchicMDRangeBug) {
 
   PHX::exec_space().fence();
 
-  auto b_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),b);
+  // FIXME: breaks with new view implementation in 4.7.1
+  // auto b_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),b);
+  auto b_h = Kokkos::create_mirror_view(Kokkos::HostSpace(),b);
+  Kokkos::deep_copy(b_h, b);
   const auto tol = std::numeric_limits<double>::epsilon() * 100.0;
   for (size_t cell=0; cell < a.extent(0); ++cell) {
     for (size_t pt=0; pt < a.extent(1); ++pt) {

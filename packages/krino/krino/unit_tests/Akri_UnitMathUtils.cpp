@@ -6,8 +6,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+#include <Akri_CramersRuleSolver.hpp>
 #include <Akri_DiagWriter.hpp>
 #include <Akri_MathUtil.hpp>
+#include <Akri_Unit_LogRedirecter.hpp>
 #include <gtest/gtest.h>
 #include <functional>
 
@@ -77,6 +79,81 @@ TEST(compute_edge_values, singleCrossings)
   expect_quadratic_crossing(0.25, compute_edge_values(0.25, 1.25));
   expect_quadratic_crossing(0.33, compute_edge_values(0.33, -0.25));
   expect_quadratic_crossing(0.77, compute_edge_values(0.77, 1.25));
+}
+
+template <typename MAT>
+void test_invert_3x3(const MAT & A)
+{
+  MAT Ainv;
+  const bool success = invert3x3(A, Ainv);
+  EXPECT_TRUE(success);
+
+  const std::array<std::array<double,3>,3> identity{{ {{1.,0.,0.}}, {{0.,1.,0.}}, {{0.,0.,1.}} }};
+
+  MAT shouldBeIdentity;
+  multiply_3x3_3x3(A, Ainv, shouldBeIdentity);
+
+  for (int i=0; i < 3; ++i)
+    for (int j=0; j < 3; ++j)
+      EXPECT_NEAR( shouldBeIdentity[i][j], identity[i][j], 1e-14 );
+
+  MAT reInverse;
+  invert3x3(Ainv,reInverse);
+
+  for (int i=0; i < 3; ++i)
+    for (int j=0; j < 3; ++j)
+       EXPECT_NEAR( reInverse[i][j], A[i][j], 1e-14 );
+}
+
+template <typename MAT>
+void fill_test_matrix(MAT & A)
+{
+  A[0][0] = 4.2;
+  A[1][1] = -1.7;
+  A[2][2] = 2.8;
+
+  A[0][1] = 4.6;
+  A[1][2] = 3.7;
+  A[2][0] = 2.9;
+
+  A[1][0] = 1.8;
+  A[2][1] = -0.8;
+  A[0][2] = 0.2;
+}
+
+TEST(Invert3x3, multipleStorageMethods)
+{
+  std::array<std::array<double,3>,3> A_array;
+  fill_test_matrix(A_array);
+  test_invert_3x3(A_array);
+
+  double A_carray[3][3];
+  fill_test_matrix(A_carray);
+  test_invert_3x3(A_carray);
+
+  std::array<stk::math::Vector3d,3> A_rowVecs;
+  fill_test_matrix(A_rowVecs);
+  test_invert_3x3(A_rowVecs);
+}
+
+TEST(Invert3x3, compareToCramersRuleSolver)
+{
+  std::array<std::array<double,3>,3> A;
+  fill_test_matrix(A);
+
+  std::array<double,3> b = {0.3, 1.2, 4.5};
+
+  const auto solnFromCramersRule = CramersRuleSolver::solve3x3(A, b);
+
+  std::array<std::array<double,3>,3> Ainv;
+  const bool success = invert3x3(A, Ainv);
+  EXPECT_TRUE(success);
+
+  std::array<double,3> solnFromInverse;
+  multiply_3x3_vec3(Ainv, b, solnFromInverse);
+
+  for (int i=0; i < 3; ++i)
+    EXPECT_NEAR( solnFromCramersRule[i], solnFromInverse[i], 1e-14 );
 }
 
 }

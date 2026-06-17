@@ -238,7 +238,7 @@ void Multiply_ViennaCL(const Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal,
 
   if (lib == Xpetra::UseTpetra) {
     typedef Tpetra::CrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node> crs_matrix_type;
-    typedef typename crs_matrix_type::local_matrix_type KCRS;
+    typedef typename crs_matrix_type::local_matrix_device_type KCRS;
     typedef typename KCRS::StaticCrsGraphType graph_t;
     typedef typename graph_t::row_map_type::non_const_type lno_view_t;
     typedef typename graph_t::row_map_type::const_type c_lno_view_t;
@@ -252,8 +252,8 @@ void Multiply_ViennaCL(const Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal,
     RCP<const crs_matrix_type> Cu = toTpetra(rcp(&C, false));
     RCP<crs_matrix_type> Cnc      = Teuchos::rcp_const_cast<crs_matrix_type>(Cu);
 
-    const KCRS &Amat = Au->getLocalMatrixDevice();
-    const KCRS &Bmat = Bu->getLocalMatrixDevice();
+    const KCRS Amat = Au->getLocalMatrixDevice();
+    const KCRS Bmat = Bu->getLocalMatrixDevice();
 
     using no_init_view = Kokkos::ViewAllocateWithoutInitializing;
 
@@ -419,8 +419,8 @@ void Multiply_MKL_SPMM(const Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal,
   RCP<const crs_matrix_type> Cu = toTpetra(rcp(&C, false));
   RCP<crs_matrix_type> Cnc      = Teuchos::rcp_const_cast<crs_matrix_type>(Cu);
 
-  const KCRS &Amat = Au->getLocalMatrixDevice();
-  const KCRS &Bmat = Bu->getLocalMatrixDevice();
+  const KCRS Amat = Au->getLocalMatrixDevice();
+  const KCRS Bmat = Bu->getLocalMatrixDevice();
   if (A.getLocalNumRows() != C.getLocalNumRows()) throw std::runtime_error("C is not sized correctly");
 
   c_lno_view_t Arowptr = Amat.graph.row_map, Browptr = Bmat.graph.row_map;
@@ -603,8 +603,8 @@ void Multiply_KokkosKernels(const Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrd
     RCP<const crs_matrix_type> Cu = toTpetra(rcpFromRef(C));
     RCP<crs_matrix_type> Cnc      = Teuchos::rcp_const_cast<crs_matrix_type>(Cu);
 
-    const KCRS &Amat = Au->getLocalMatrixDevice();
-    const KCRS &Bmat = Bu->getLocalMatrixDevice();
+    const KCRS Amat = Au->getLocalMatrixDevice();
+    const KCRS Bmat = Bu->getLocalMatrixDevice();
 
     c_lno_view_t Arowptr = Amat.graph.row_map, Browptr = Bmat.graph.row_map;
     lno_view_t Crowptr("Crowptr", A.getLocalNumRows() + 1);
@@ -646,10 +646,10 @@ void Multiply_KokkosKernels(const Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrd
       kh.create_spgemm_handle(alg_enum);
       kh.set_team_work_size(team_work_size);
 
-      KokkosSparse::Experimental::spgemm_symbolic(&kh, AnumRows, BnumRows, BnumCols,
-                                                  Arowptr, Acolind, false,
-                                                  Browptr, Bcolind, false,
-                                                  Crowptr);
+      KokkosSparse::spgemm_symbolic(&kh, AnumRows, BnumRows, BnumCols,
+                                    Arowptr, Acolind, false,
+                                    Browptr, Bcolind, false,
+                                    Crowptr);
 
       size_t c_nnz_size = kh.get_spgemm_handle()->get_c_nnz();
       if (c_nnz_size) {
@@ -657,10 +657,10 @@ void Multiply_KokkosKernels(const Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrd
         Ccolind            = lno_nnz_view_t(no_init_view("entriesC"), c_nnz_size);
         Cvals              = scalar_view_t(no_init_view("valuesC"), c_nnz_size);
       }
-      KokkosSparse::Experimental::spgemm_numeric(&kh, AnumRows, BnumRows, BnumCols,
-                                                 Arowptr, Acolind, Avals, false,
-                                                 Browptr, Bcolind, Bvals, false,
-                                                 Crowptr, Ccolind, Cvals);
+      KokkosSparse::spgemm_numeric(&kh, AnumRows, BnumRows, BnumCols,
+                                   Arowptr, Acolind, Avals, false,
+                                   Browptr, Bcolind, Bvals, false,
+                                   Crowptr, Ccolind, Cvals);
       kh.destroy_spgemm_handle();
       typename KCRS::execution_space().fence();
 

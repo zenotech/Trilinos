@@ -12,6 +12,7 @@
 
 #include "Teuchos_Comm.hpp"
 #include "Teuchos_CommUtilities.hpp"
+#include "Teuchos_CompilerCodeTweakMacros.hpp"
 #include "Teuchos_SerializationTraitsHelpers.hpp"
 #include "Teuchos_ReductionOpHelpers.hpp"
 #include "Teuchos_SerializerHelpers.hpp"
@@ -248,6 +249,27 @@ scatter (const Packet sendBuf[],
   // if there is interest.
   TEUCHOS_TEST_FOR_EXCEPTION
     (true, std::logic_error, "Teuchos::scatter<" <<
+     TypeNameTraits<Ordinal>::name () << "," << TypeNameTraits<Packet>::name ()
+     << ">: Generic version is not yet implemented.  This function currently "
+     "only has an implementtion for Ordinal = int and Packet = int.  "
+     "See Bug 6375 and Bug 6336.");
+}
+
+template<typename Ordinal, typename Packet>
+void
+scatterv (const Packet sendBuf[],
+         const Ordinal sendCounts[],
+         const Ordinal displs[],
+         Packet recvBuf[],
+         const Ordinal recvCount,
+         const Ordinal root,
+         const Comm<Ordinal>& comm)
+{
+  // See Bug 6375; Tpetra does not actually need any specializations
+  // other than Ordinal = int and Packet = int.  We may add them later
+  // if there is interest.
+  TEUCHOS_TEST_FOR_EXCEPTION
+    (true, std::logic_error, "Teuchos::scatterv<" <<
      TypeNameTraits<Ordinal>::name () << "," << TypeNameTraits<Packet>::name ()
      << ">: Generic version is not yet implemented.  This function currently "
      "only has an implementtion for Ordinal = int and Packet = int.  "
@@ -1099,6 +1121,7 @@ createOp (const EReductionType reductType)
            "(EReductionType): The Packet type " << TypeNameTraits<Packet>::name ()
            << " is not less-than comparable, so it does not make sense to do a "
            "MIN reduction with it.");
+        TEUCHOS_UNREACHABLE_RETURN(nullptr);
       }
     }
     case REDUCE_MAX: {
@@ -1111,6 +1134,7 @@ createOp (const EReductionType reductType)
            "(EReductionType): The Packet type " << TypeNameTraits<Packet>::name ()
            << " is not less-than comparable, so it does not make sense to do a "
            "MAX reduction with it.");
+        TEUCHOS_UNREACHABLE_RETURN(nullptr);
       }
     }
     case REDUCE_AND: {
@@ -1883,6 +1907,24 @@ scatter (const int sendBuf[],
          const int recvCount,
          const int root,
          const Comm<int>& comm);
+template<>
+TEUCHOSCOMM_LIB_DLL_EXPORT void
+scatterv (const double sendBuf[],
+          const int sendCounts[],
+          const int displs[],
+          double recvBuf[],
+          const int recvCount,
+          const int root,
+          const Comm<int>& comm);
+template<>
+TEUCHOSCOMM_LIB_DLL_EXPORT void
+scatterv (const float sendBuf[],
+          const int sendCounts[],
+          const int displs[],
+          float recvBuf[],
+          const int recvCount,
+          const int root,
+          const Comm<int>& comm);
 template<>
 TEUCHOSCOMM_LIB_DLL_EXPORT void
 reduce<int, int> (const int sendBuf[],

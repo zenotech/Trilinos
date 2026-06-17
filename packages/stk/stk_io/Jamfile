@@ -49,11 +49,9 @@ project votd
     $(sierra-warnings)
     <define>STK_BUILT_FOR_SIERRA
     <define>STK_BUILT_WITH_BJAM
-    <define>STK_HIDE_DEPRECATED_CODE
     <include>$(stk_io-root-inc)
   : usage-requirements
     <include>$(stk_io-root-inc)
-    <define>STK_HIDE_DEPRECATED_CODE
   : build-dir $(stk_io-builddir)
   ;
 
@@ -70,9 +68,6 @@ local installed-end-user-files =
 local installed-developer-files = 
   stk_io_utest
   stk_io_doc_test
-  stk_io_lowlevel_example
-  stk_io_topology
-  stk_io_mesh
   ;
 
 #
@@ -198,15 +193,6 @@ lib stk_io_util
         <toolset>gcc:<cflags>"-Wextra -Wpedantic -Wshadow -Wno-unused-parameter"
     ]
   ;
-
-exe stk_io_mesh
-  :
-    $(stk_io-root)/example/io_mesh.cpp
-    stk_io
-    /sierra/stk_util//stk_util_command_line
-  : <tag>@sierra-exec-tag
-  ;
-
 exe stk_io_utest
   :
     [ glob $(stk_io-root)/../stk_unit_tests/stk_io/*.cpp ]
@@ -225,19 +211,3 @@ exe stk_io_doc_test
   : <tag>@sierra-exec-tag
     <include>$(stk_io-root)/../stk_doc_tests/stk_io
   ;
-
-exe stk_io_lowlevel_example
-  :
-    $(stk_io-root)/example/io_lowlevel_example.cpp
-    stk_io
-    /sierra/stk_util//stk_util_command_line
-  : <tag>@sierra-exec-tag
-  ;
-
-exe stk_io_topology
-  :
-    $(stk_io-root)/example/io_topology.cpp
-    stk_io
-  : <tag>@sierra-exec-tag
-  ;
-

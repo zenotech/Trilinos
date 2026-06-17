@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSBATCHED_PTTRF_HPP_
 #define KOKKOSBATCHED_PTTRF_HPP_
 
@@ -27,6 +14,9 @@ namespace KokkosBatched {
 /// symmetric (or complex Hermitian) positive definite tridiagonal matrix A_l
 /// for all l = 0, ..., N
 ///
+/// \tparam ArgAlgo: Type indicating the blocked (KokkosBatched::Algo::Pttrf::Blocked) or unblocked
+/// (KokkosBatched::Algo::Pttrf::Unblocked) algorithm to be used
+///
 /// \tparam DViewType: Input type for the a diagonal matrix, needs to be a 1D
 /// view
 /// \tparam EViewType: Input type for the a upper/lower diagonal matrix,
@@ -40,6 +30,7 @@ namespace KokkosBatched {
 
 template <typename ArgAlgo>
 struct SerialPttrf {
+  static_assert(std::is_same_v<ArgAlgo, Algo::Pttrf::Unblocked>, "KokkosBatched::pttrf: Use Algo::Pttrf::Unblocked");
   template <typename DViewType, typename EViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const DViewType &d, const EViewType &e);
 };

@@ -1,25 +1,12 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSSPARSE_IMPL_BSPGEMM_NUMERIC_SPEC_HPP_
 #define KOKKOSSPARSE_IMPL_BSPGEMM_NUMERIC_SPEC_HPP_
 
 #include <KokkosKernels_config.h>
 
 #include <Kokkos_Core.hpp>
-// #include <Kokkos_ArithTraits.hpp>
+// #include <KokkosKernels_ArithTraits.hpp>
 #include "KokkosKernels_Handle.hpp"
 // Include the actual functors
 #if !defined(KOKKOSKERNELS_ETI_ONLY) || KOKKOSKERNELS_IMPL_COMPILE_LIBRARY
@@ -160,8 +147,8 @@ struct BSPGEMM_NUMERIC<KernelHandle, a_size_view_t_, a_lno_view_t, a_scalar_view
       using c_size_view_t_nc = typename c_size_view_t_::non_const_type;
       using c_size_type      = typename c_size_view_t_::non_const_value_type;
       c_size_view_t_nc row_mapC_nc(const_cast<c_size_type *>(row_mapC.data()), row_mapC.extent(0));
-      KokkosSparse::Experimental::spgemm_symbolic(handle, m, n, k, row_mapA, entriesA, transposeA, row_mapB, entriesB,
-                                                  transposeB, row_mapC_nc, true);
+      KokkosSparse::spgemm_symbolic(handle, m, n, k, row_mapA, entriesA, transposeA, row_mapB, entriesB, transposeB,
+                                    row_mapC_nc, true);
     }
     if (!sh->are_rowflops_computed()) {
       KokkosSPGEMM<KernelHandle, a_size_view_t_, a_lno_view_t, a_scalar_view_t, b_size_view_t_, b_lno_view_t,

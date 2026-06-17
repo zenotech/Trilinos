@@ -89,14 +89,45 @@ namespace Amesos2 {
       "Not implemented.");
   }
 
+  template <typename Scalar, typename ExecutionSpace>
+  template<typename KV, typename host_ordinal_type_array>
+  int
+  MultiVecAdapter<
+    Kokkos::View<Scalar**, Kokkos::LayoutLeft, ExecutionSpace> >::gather (
+      KV& kokkos_new_view,
+      host_ordinal_type_array &perm_g2l,
+      host_ordinal_type_array &recvCountRows,
+      host_ordinal_type_array &recvDisplRows,
+      EDistribution distribution ) const
+  {
+    return -1;
+  }
+
+  template <typename Scalar, typename ExecutionSpace>
+  template<typename KV, typename host_ordinal_type_array>
+  int
+  MultiVecAdapter<
+    Kokkos::View<Scalar**, Kokkos::LayoutLeft, ExecutionSpace> >::scatter (
+      KV& kokkos_new_view,
+      host_ordinal_type_array &perm_g2l,
+      host_ordinal_type_array &recvCountRows,
+      host_ordinal_type_array &recvDisplRows,
+      EDistribution distribution ) const
+  {
+    return -1;
+  }
+
   template <typename Scalar, typename ExecutionSpace >
   std::string
   MultiVecAdapter<
     Kokkos::View<Scalar**, Kokkos::LayoutLeft, ExecutionSpace> >::description() const
   {
     std::ostringstream oss;
+    size_t m = mv_->extent(0);
+    size_t n = mv_->extent(1);
     oss << "Amesos2 adapter wrapping: ";
-    oss << mv_->description();
+    oss << " Kokkos::View(" << std::to_string(m) << " x " << std::to_string(n) << ")";
+    oss << " of type " << std::string(typeid(Scalar).name());
     return oss.str();
   }
 
@@ -107,7 +138,10 @@ namespace Amesos2 {
     Kokkos::View<Scalar**, Kokkos::LayoutLeft, ExecutionSpace> >::describe (Teuchos::FancyOStream& os,
                                    const Teuchos::EVerbosityLevel verbLevel) const
   {
-    mv_->describe (os, verbLevel);
+    size_t m = mv_->extent(0);
+    size_t n = mv_->extent(1);
+    os << " Kokkos::View(" << std::to_string(m) << " x " << std::to_string(n) << ")";
+    os << " of type " << std::string(typeid(Scalar).name()) << std::endl;
   }
 
 } // end namespace Amesos2

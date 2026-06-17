@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOSSPARSE_PCG_HPP
 #define KOKKOSSPARSE_PCG_HPP
@@ -88,7 +75,6 @@ void block_pcgsolve(KernelHandle_t &kh, const crsMatrix_t &point_crsMat, const c
 
   // p  = r
   Kokkos::deep_copy(p, r);
-  ;
   double old_rdot = KokkosBlas::dot(r, r);
   norm_res        = sqrt(old_rdot);
 
@@ -120,17 +106,18 @@ void block_pcgsolve(KernelHandle_t &kh, const crsMatrix_t &point_crsMat, const c
     // timer.reset();
 
     // block_kh.set_verbose(true);
-    block_gauss_seidel_numeric(&block_kh, _block_crsMat.numRows(), _block_crsMat.numCols(), block_size,
-                               _block_crsMat.graph.row_map, _block_crsMat.graph.entries, _block_crsMat.values);
+    KokkosSparse::block_gauss_seidel_numeric(&block_kh, _block_crsMat.numRows(), _block_crsMat.numCols(), block_size,
+                                             _block_crsMat.graph.row_map, _block_crsMat.graph.entries,
+                                             _block_crsMat.values);
 
     precond_init_time += timer.seconds();
 
     z = y_vector_t("pcg::z", count_total);
     Space().fence();
     timer.reset();
-    symmetric_block_gauss_seidel_apply(&block_kh, _block_crsMat.numRows(), _block_crsMat.numCols(), block_size,
-                                       _block_crsMat.graph.row_map, _block_crsMat.graph.entries, _block_crsMat.values,
-                                       z, r, true, true, 1.0, apply_count);
+    KokkosSparse::symmetric_block_gauss_seidel_apply(
+        &block_kh, _block_crsMat.numRows(), _block_crsMat.numCols(), block_size, _block_crsMat.graph.row_map,
+        _block_crsMat.graph.entries, _block_crsMat.values, z, r, true, true, 1.0, apply_count);
 
     // symmetric_gauss_seidel_apply
     //    (&kh, count_total, count_total, point_crsMat.graph.row_map,
@@ -185,9 +172,9 @@ void block_pcgsolve(KernelHandle_t &kh, const crsMatrix_t &point_crsMat, const c
     if (use_sgs) {
       Space().fence();
       timer.reset();
-      symmetric_block_gauss_seidel_apply(&block_kh, _block_crsMat.numRows(), _block_crsMat.numCols(), block_size,
-                                         _block_crsMat.graph.row_map, _block_crsMat.graph.entries, _block_crsMat.values,
-                                         z, r, true, true, 1.0, apply_count);
+      KokkosSparse::symmetric_block_gauss_seidel_apply(
+          &block_kh, _block_crsMat.numRows(), _block_crsMat.numCols(), block_size, _block_crsMat.graph.row_map,
+          _block_crsMat.graph.entries, _block_crsMat.values, z, r, true, true, 1.0, apply_count);
 
       // symmetric_gauss_seidel_apply(
       //    &kh,
@@ -318,7 +305,8 @@ void pcgsolve(KernelHandle_t &kh, const crsMatrix_t &crsMat, const y_vector_t &y
     timer.reset();
     z = y_vector_t("pcg::z", count_total);
     if (use_par_sgs) {
-      gauss_seidel_numeric(&kh, count_total, count_total, crsMat.graph.row_map, crsMat.graph.entries, crsMat.values);
+      KokkosSparse::gauss_seidel_numeric(&kh, count_total, count_total, crsMat.graph.row_map, crsMat.graph.entries,
+                                         crsMat.values);
 
       Space().fence();
 
@@ -326,8 +314,9 @@ void pcgsolve(KernelHandle_t &kh, const crsMatrix_t &crsMat, const y_vector_t &y
       Space().fence();
       timer.reset();
 
-      symmetric_gauss_seidel_apply(&kh, count_total, count_total, crsMat.graph.row_map, crsMat.graph.entries,
-                                   crsMat.values, z, r, true, true, 1.0, apply_count);
+      KokkosSparse::symmetric_gauss_seidel_apply(&kh, count_total, count_total, crsMat.graph.row_map,
+                                                 crsMat.graph.entries, crsMat.values, z, r, true, true, 1.0,
+                                                 apply_count);
 
       Space().fence();
     } else if (use_sequential_sgs) {
@@ -402,8 +391,9 @@ void pcgsolve(KernelHandle_t &kh, const crsMatrix_t &crsMat, const y_vector_t &y
       Space().fence();
       timer.reset();
       if (use_par_sgs) {
-        symmetric_gauss_seidel_apply(&kh, count_total, count_total, crsMat.graph.row_map, crsMat.graph.entries,
-                                     crsMat.values, z, r, true, true, 1.0, apply_count);
+        KokkosSparse::symmetric_gauss_seidel_apply(&kh, count_total, count_total, crsMat.graph.row_map,
+                                                   crsMat.graph.entries, crsMat.values, z, r, true, true, 1.0,
+                                                   apply_count);
       } else if (use_sequential_sgs) {
         // z = LHS (aka x), r RHS (aka y or b)
         Kokkos::deep_copy(z, 0.0);

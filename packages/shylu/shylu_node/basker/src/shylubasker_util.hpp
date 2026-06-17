@@ -20,12 +20,8 @@
 #include "shylubasker_types.hpp"
 
 /*Kokkos Includes*/
-#ifdef BASKER_KOKKOS
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Timer.hpp>
-#else
-#include <omp.h>
-#endif
 
 /*System Includes*/
 #include <iostream>
@@ -34,7 +30,6 @@
 
 #include <assert.h>
 
-using namespace std;
 //#define BASKER_TIMER
 
 namespace BaskerNS
@@ -44,11 +39,9 @@ namespace BaskerNS
   template <class Int, class Entry, class Exe_Space>
   struct kokkos_order_init_2D
   {
-    #ifdef BASKER_KOKKOS
     typedef Exe_Space                    execution_space;
     typedef Kokkos::TeamPolicy<Exe_Space>    TeamPolicy;
     typedef typename TeamPolicy::member_type  TeamMember;
-    #endif
 
     Basker<Int,Entry,Exe_Space>  *basker;
     BASKER_BOOL                  alloc;
@@ -73,15 +66,9 @@ namespace BaskerNS
       
 
     BASKER_INLINE
-    #ifdef BASKER_KOKKOS
     void operator()(const TeamMember &thread) const
-    #else
-    void operator()(Int kid) const
-    #endif
     {
-      #ifdef BASKER_KOKKOS
       Int kid = (Int)(thread.league_rank()*thread.team_size() + thread.team_rank());
-      #endif
       {
         basker->t_init_2DA(kid, alloc, keep_zeros);
       }
@@ -93,11 +80,9 @@ namespace BaskerNS
   template <class Int, class Entry, class Exe_Space>
   struct kokkos_reset_factor
   {
-    #ifdef BASKER_KOKKOS
     typedef Exe_Space                    execution_space;
     typedef Kokkos::TeamPolicy<Exe_Space>    TeamPolicy;
     typedef typename TeamPolicy::member_type  TeamMember;
-    #endif
 
     Basker<Int,Entry,Exe_Space>  *basker;
 
@@ -110,15 +95,9 @@ namespace BaskerNS
     }
 
     BASKER_INLINE
-    #ifdef BASKER_KOKKOS
     void operator()(const TeamMember &thread) const
-    #else
-    void operator()(Int kid) const
-    #endif
     {
-      #ifdef BASKER_KOKKOS
       Int kid = (Int)(thread.league_rank()*thread.team_size() + thread.team_rank());
-      #endif
       {
         if(basker->btf_tabs_offset!=0)
         {
@@ -248,21 +227,11 @@ namespace BaskerNS
     printf("\n===SHOULD NOT BE CALLED\n");
     BASKER_ASSERT(0==1, "init_int_thread");
 
-    #ifdef BASKER_KOKKOS
-    typedef Kokkos::TeamPolicy<Exe_Space>     TeamPolicy;
-    typedef typename TeamPolicy::member_type  TeamMember;
     Kokkos::parallel_for(
                          TeamPolicy(Exe_Space::thread_pool_size(),1),
-                         KOKKOS_LAMBDA(const TeamMember& thread)
-    #else
-    #pragma omp parallel
-    #endif
+                         BASKER_LAMBDA(const TeamMember& thread)
     {
-      #ifdef BASKER_KOKKOS
       if(kid == thread.league_rank())
-      #else
-      if(kid == omp_get_thread_num())
-      #endif
       {
         for(Int i=0; i < size; i++)
         {
@@ -270,9 +239,7 @@ namespace BaskerNS
         }
       }
     }
-    #ifdef BASKER_KOKKOS
     );
-    #endif
   }//end init_value int 1d 
 
   
@@ -288,20 +255,10 @@ namespace BaskerNS
     printf("\n===SHOULD NOT BE CALLED===\n");
     BASKER_ASSERT(0==1, "INIT_VALUE_ENTRY_THREADS");
 
-    #ifdef BASKER_KOKKOS
-    typedef Kokkos::TeamPolicy<Exe_Space>     TeamPolicy;
-    typedef typename TeamPolicy::member_type  TeamMember;
     Kokkos::parallel_for(TeamPolicy(Exe_Space::thread_pool_size(),1),
-                         KOKKOS_LAMBDA(const TeamMember& thread)
-    #else
-    #pragma omp parallel
-    #endif
+                         BASKER_LAMBDA(const TeamMember& thread)
     {
-      #ifdef BASKER_KOKKOS
       if(kid == thread.league_rank())
-      #else
-      if(kid == omp_get_thread_num())
-      #endif
       {
         for(Int i=0; i < size; i++)
         {
@@ -309,9 +266,7 @@ namespace BaskerNS
         }
       }
     }
-    #ifdef BASKER_KOKKOS
     );
-    #endif
   }//end init_value entry 1d 
 
 
@@ -866,7 +821,6 @@ namespace BaskerNS
               if (ews_size*ews_mult > 0) {
                 BASKER_ASSERT((ews_size*ews_mult)>0, "util ews");
                 MALLOC_ENTRY_1DARRAY(LL(b)(l).ews, ews_size*ews_mult);
-
                 for(Int i=0; i<ews_mult*ews_size; i++)
                 {
                   LL(b)(l).ews(i) = 0;
@@ -992,7 +946,7 @@ namespace BaskerNS
     {
       printf("Ui[%d]=%d ", k, U.row_idx[k]);
     }
-    cout << endl << endl;
+    std::cout << std::endl << std::endl;
     for(k =0; k < U.ncol; k++)
     {
       printf("Up[%d] = %d ", k, U.col_ptr[k]);
@@ -1385,9 +1339,9 @@ namespace BaskerNS
   {
     //Note: Adapted from Siva's original bsk_util
 
-    cout << "ReadingMTX " << fname << endl;
-    ifstream inp_str;
-    inp_str.open(fname, ios::in);
+    std::cout << "ReadingMTX " << fname << std::endl;
+    std::ifstream inp_str;
+    inp_str.open(fname, std::ios::in);
     Int i, j;
     Int nrows, ncols, nnz, true_nnz;
     Entry val;
@@ -1402,7 +1356,7 @@ namespace BaskerNS
 
       // Check if matrix is pattern-only or symmetric
       p1 = s.find("pattern");
-      if (p1 != string::npos)
+      if (p1 != std::string::npos)
       { ptype = 2; }
       else
       { ptype = 3; }
@@ -1411,7 +1365,7 @@ namespace BaskerNS
       p2 = s.find("hermitian");
       p3 = s.find("skew-symmetric");
 
-      if ((p1 != string::npos) || (p2 != string::npos) || (p3 != string::npos))
+      if ((p1 != std::string::npos) || (p2 != std::string::npos) || (p3 != std::string::npos))
       { sym_type = 1; }
       else
       { sym_type = 0; }
@@ -1427,7 +1381,7 @@ namespace BaskerNS
       inp_str >> ncols;
       inp_str >> nnz;
 
-      cout << nrows << " " << ncols  << " " << nnz << endl;
+      std::cout << nrows << " " << ncols  << " " << nnz << std::endl;
       M.ncol = ncols;
       M.nrow = nrows;
       M.nnz = nnz;

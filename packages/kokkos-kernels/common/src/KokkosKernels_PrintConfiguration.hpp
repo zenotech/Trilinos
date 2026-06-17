@@ -1,21 +1,8 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
-#ifndef _KOKKOSKERNELS_PRINT_CONFIGURATION_HPP
-#define _KOKKOSKERNELS_PRINT_CONFIGURATION_HPP
+#ifndef KOKKOSKERNELS_PRINT_CONFIGURATION_HPP
+#define KOKKOSKERNELS_PRINT_CONFIGURATION_HPP
 
 #include "KokkosKernels_config.h"
 #include "KokkosKernels_TplsVersion.hpp"
@@ -168,4 +155,4 @@ inline void print_configuration(std::ostream& os) {
 }
 
 }  // namespace KokkosKernels
-#endif  // _KOKKOSKERNELS_PRINT_CONFIGURATION_HPP
+#endif  // KOKKOSKERNELS_PRINT_CONFIGURATION_HPP

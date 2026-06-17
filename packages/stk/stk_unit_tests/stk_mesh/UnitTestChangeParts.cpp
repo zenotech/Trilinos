@@ -279,18 +279,13 @@ TEST(UnitTestChangeParts, test_superset_and_subset_part_change)
   EXPECT_FALSE(bulkData.bucket(node2).member(subsetPart1));
   EXPECT_TRUE(bulkData.bucket(node2).member(subsetPart2));
 
-  double* node1Data = (double*) stk::mesh::field_data(field, node1);
-  double* node2Data = (double*) stk::mesh::field_data(field, node1);
-
-  EXPECT_TRUE(node1Data != nullptr);
-  EXPECT_TRUE(node2Data != nullptr);
-
+  EXPECT_TRUE(field.defined_on(node1));
+  EXPECT_TRUE(field.defined_on(node2));
 
   for(unsigned i=3; i<8u; ++i) {
     stk::mesh::Entity node = bulkData.get_entity(stk::topology::NODE_RANK, i);
     EXPECT_TRUE(bulkData.is_valid(node));
-    double* nodeData = (double*) stk::mesh::field_data(field, node);
-    EXPECT_TRUE(nodeData == nullptr);
+    EXPECT_FALSE(field.defined_on(node));
   }
 }
 
@@ -465,7 +460,7 @@ public:
     EXPECT_EQ(expectedBucketCount, bucketCount);
   }
 
-  void test_partitions_equality(stk::mesh::EntityRank rank, stk::mesh::Bucket const* bucket1, stk::mesh::Bucket const* bucket2)
+  void test_partitions_equality(stk::mesh::EntityRank /*rank*/, stk::mesh::Bucket const* bucket1, stk::mesh::Bucket const* bucket2)
   {
     stk::mesh::impl::Partition* partition1 = bucket1->getPartition();
     stk::mesh::impl::Partition* partition2 = bucket2->getPartition();
@@ -910,7 +905,7 @@ TEST_F(TestChangePartsWithSelector, element_in_ranked_part_add_new_to_ranked_par
 
 TEST_F(TestChangePartsWithSelector, element_in_ranked_part_move_to_unranked_part_conflicting_partitions)
 {
-  if(get_bulk().parallel_size() > 1) { return; }
+  if(get_bulk().parallel_size() > 1) { GTEST_SKIP(); }
 
   unsigned numBlockParts = 2;
   unsigned numElem = 2;

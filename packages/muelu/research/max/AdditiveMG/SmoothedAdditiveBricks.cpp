@@ -154,10 +154,6 @@ int main(int argc, char* argv[]) {
   ADR::Xpetra::Parameters<GO> matrixParameters(clp, nx, ny, nz, problem_type, keep_boundary, stretchx, stretchy, stretchz);  // manage parameters of the test case
   Xpetra::Parameters xpetraParameters(clp);                                                                                  // manage parameters of xpetra
 
-  if (xpetraParameters.GetLib() == Xpetra::UseEpetra) {
-    throw std::invalid_argument("This example only supports Tpetra.");
-  }
-
   //
   // Construct the problem
   //
@@ -357,7 +353,7 @@ int main(int argc, char* argv[]) {
 
     //=============================================================================================================
     RCP<crs_matrix_type> Pbar = Tpetra::MatrixMatrix::add(1.0, false, *tpetra_prolong, -1.0, false, *BAP);
-    mueluPbar                 = MueLu::TpetraCrs_To_XpetraMatrix<scalar_type, local_ordinal_type, global_ordinal_type, node_type>(Pbar);
+    mueluPbar                 = Xpetra::toXpetra(Pbar);
   }
   PbarSetUp->stop();
 

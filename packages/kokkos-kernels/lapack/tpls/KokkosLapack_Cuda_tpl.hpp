@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSLAPACK_CUDA_TPL_HPP_
 #define KOKKOSLAPACK_CUDA_TPL_HPP_
 
@@ -27,22 +14,14 @@ CudaLapackSingleton::CudaLapackSingleton() {
   if (stat != CUSOLVER_STATUS_SUCCESS) Kokkos::abort("CUSOLVER initialization failed\n");
 }
 
-CudaLapackSingleton& CudaLapackSingleton::singleton() {
-  std::unique_ptr<CudaLapackSingleton>& instance = get_instance();
-  if (!instance) {
-    instance = std::make_unique<CudaLapackSingleton>();
-    Kokkos::push_finalize_hook([&]() {
-      cusolverDnDestroy(instance->handle);
-      instance.reset();
-    });
-  }
-  return *instance;
-}
+CudaLapackSingleton::~CudaLapackSingleton() { cusolverDnDestroy(handle); }
 
-bool CudaLapackSingleton::is_initialized() { return get_instance() != nullptr; }
+CudaLapackSingleton& CudaLapackSingleton::singleton() { return get_instance().get(); }
 
-std::unique_ptr<CudaLapackSingleton>& CudaLapackSingleton::get_instance() {
-  static std::unique_ptr<CudaLapackSingleton> s;
+bool CudaLapackSingleton::is_initialized() { return get_instance().is_initialized(); }
+
+KokkosKernels::Impl::Singleton<CudaLapackSingleton>& CudaLapackSingleton::get_instance() {
+  static KokkosKernels::Impl::Singleton<CudaLapackSingleton> s;
   return s;
 }
 

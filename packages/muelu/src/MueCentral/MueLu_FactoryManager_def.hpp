@@ -124,7 +124,7 @@ const RCP<const FactoryBase> FactoryManager<Scalar, LocalOrdinal, GlobalOrdinal,
       auto fact = rcp(new MultiVectorTransferFactory());
       Teuchos::ParameterList pl;
       pl.set("Vector name", "Material");
-      pl.set("Transfer name", "Ptent");
+      pl.set("Transfer name", "Aggregates");
       pl.set("Normalize", true);
       fact->SetParameterList(pl);
       return fact;
@@ -197,7 +197,7 @@ const RCP<const FactoryBase> FactoryManager<Scalar, LocalOrdinal, GlobalOrdinal,
 
     if (varName == "DualNodeID2PrimalNodeID") return SetAndReturnDefaultFactory(varName, rcp(new InterfaceMappingTransferFactory()));
     if (varName == "CoarseDualNodeID2PrimalNodeID") return SetAndReturnDefaultFactory(varName, rcp(new InterfaceAggregationFactory()));
-#ifdef HAVE_MUELU_INTREPID2
+#if defined(HAVE_MUELU_INTREPID2) && defined(HAVE_MUELU_EXPERIMENTAL)
     // If we're asking for it, find who made P
     if (varName == "pcoarsen: element to node map") return GetFactory("P");
 #endif

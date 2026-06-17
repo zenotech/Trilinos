@@ -11,12 +11,14 @@
 #define MUELU_MULTIVECTORTRANSFER_FACTORY_DEF_HPP
 
 #include "MueLu_MultiVectorTransferFactory_decl.hpp"
-#include "Xpetra_Access.hpp"
+#include "Tpetra_Access.hpp"
 #include "Xpetra_MultiVectorFactory.hpp"
 
+#include "MueLu_Aggregates.hpp"
+#include "MueLu_AmalgamationInfo.hpp"
+#include "MueLu_AmalgamationFactory.hpp"
 #include "MueLu_Level.hpp"
 #include "MueLu_UncoupledAggregationFactory.hpp"
-#include "MueLu_Aggregates.hpp"
 #include "MueLu_Monitor.hpp"
 
 namespace MueLu {
@@ -105,7 +107,7 @@ void MultiVectorTransferFactory<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Buil
     }
   } else {
     using execution_space  = typename Node::execution_space;
-    using ATS              = Kokkos::ArithTraits<Scalar>;
+    using ATS              = KokkosKernels::ArithTraits<Scalar>;
     using impl_scalar_type = typename ATS::val_type;
 
     auto aggregates = fineLevel.Get<RCP<Aggregates>>(transferName, GetFactory("Transfer factory").get());
@@ -115,10 +117,25 @@ void MultiVectorTransferFactory<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Buil
     auto aggGraph = aggregates->GetGraph();
     auto numAggs  = aggGraph.numRows();
 
-    coarseVector = MultiVectorFactory::Build(coarseMap, fineVector->getNumVectors());
+    RCP<const Map> coarseVectorMap;
 
-    auto lcl_fineVector   = fineVector->getDeviceLocalView(Xpetra::Access::ReadOnly);
-    auto lcl_coarseVector = coarseVector->getDeviceLocalView(Xpetra::Access::OverwriteAll);
+    LO blkSize = 1;
+    if (rcp_dynamic_cast<const StridedMap>(coarseMap) != Teuchos::null)
+      blkSize = rcp_dynamic_cast<const StridedMap>(coarseMap)->getFixedBlockSize();
+
+    if (blkSize == 1) {
+      // Scalar system
+      // No amalgamation required, we can use the coarseMap
+      coarseVectorMap = coarseMap;
+    } else {
+      // Vector system
+      AmalgamationFactory<SC, LO, GO, NO>::AmalgamateMap(rcp_dynamic_cast<const StridedMap>(coarseMap), coarseVectorMap);
+    }
+
+    coarseVector = MultiVectorFactory::Build(coarseVectorMap, fineVector->getNumVectors());
+
+    auto lcl_fineVector   = fineVector->getLocalViewDevice(Tpetra::Access::ReadOnly);
+    auto lcl_coarseVector = coarseVector->getLocalViewDevice(Tpetra::Access::OverwriteAll);
 
     Kokkos::parallel_for(
         "MueLu:MultiVectorTransferFactory",

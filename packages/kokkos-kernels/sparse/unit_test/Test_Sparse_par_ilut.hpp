@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <gtest/gtest.h>
 #include <Kokkos_Core.hpp>
@@ -94,8 +81,8 @@ void run_test_par_ilut() {
   const size_type nnzL = par_ilut_handle->get_nnzL();
   const size_type nnzU = par_ilut_handle->get_nnzU();
 
-  ASSERT_EQ(nnzL, 10);
-  ASSERT_EQ(nnzU, 8);
+  ASSERT_EQ(nnzL, size_type(10));
+  ASSERT_EQ(nnzU, size_type(8));
 
   EntriesType L_entries("L_entries", nnzL);
   ValuesType L_values("L_values", nnzL);
@@ -186,7 +173,7 @@ void run_test_par_ilut_precond() {
   using sp_matrix_type = KokkosSparse::CrsMatrix<scalar_t, lno_t, device, void, size_type>;
   using KernelHandle =
       KokkosKernels::Experimental::KokkosKernelsHandle<size_type, lno_t, scalar_t, exe_space, mem_space, mem_space>;
-  using float_t = typename Kokkos::ArithTraits<scalar_t>::mag_type;
+  using float_t = typename KokkosKernels::ArithTraits<scalar_t>::mag_type;
 
   // Create a diagonally dominant sparse matrix to test:
   //  par_ilut settings max_iters, res_delta_stop, fill_in_limit, and
@@ -337,8 +324,8 @@ void run_test_par_ilut_zerorow_A() {
   const size_type nnzL = par_ilut_handle->get_nnzL();
   const size_type nnzU = par_ilut_handle->get_nnzU();
 
-  ASSERT_EQ(nnzL, 0);
-  ASSERT_EQ(nnzU, 0);
+  ASSERT_EQ(nnzL, size_type(0));
+  ASSERT_EQ(nnzU, size_type(0));
 
   EntriesType L_entries("L_entries", nnzL);
   ValuesType L_values("L_values", nnzL);

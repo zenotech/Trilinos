@@ -16,7 +16,7 @@
 #include <chrono>
 #include <iomanip>
 #include <Teuchos_ScalarTraits.hpp>
-#include <Kokkos_ArithTraits.hpp>
+#include <KokkosKernels_ArithTraits.hpp>
 #include <Xpetra_Import.hpp>
 #if defined(HAVE_MUELU_TPETRA) && defined(HAVE_MPI)
 #include <Xpetra_TpetraImport.hpp>
@@ -35,7 +35,7 @@ namespace PerfDetails {
 template <class Scalar, class Node>
 double stream_vector_add(int KERNEL_REPEATS, int VECTOR_SIZE) {
   // PerfDetails' STREAM routines need to be instantiatiated on impl_scalar_type, not Scalar
-  using impl_scalar_type = typename Kokkos::ArithTraits<Scalar>::val_type;
+  using impl_scalar_type = typename KokkosKernels::ArithTraits<Scalar>::val_type;
 
   using exec_space   = typename Node::execution_space;
   using memory_space = typename Node::memory_space;
@@ -78,7 +78,7 @@ double stream_vector_add(int KERNEL_REPEATS, int VECTOR_SIZE) {
 template <class Scalar, class Node>
 double stream_vector_copy(int KERNEL_REPEATS, int VECTOR_SIZE) {
   // PerfDetails' STREAM routines need to be instantiatiated on impl_scalar_type, not Scalar
-  using impl_scalar_type = typename Kokkos::ArithTraits<Scalar>::val_type;
+  using impl_scalar_type = typename KokkosKernels::ArithTraits<Scalar>::val_type;
 
   using exec_space   = typename Node::execution_space;
   using memory_space = typename Node::memory_space;
@@ -296,7 +296,7 @@ PerfModels<Scalar, LocalOrdinal, GlobalOrdinal, Node>::PerfModels()
   : launch_and_wait_latency_(-1.0) {}
 
 template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-PerfModels<Scalar, LocalOrdinal, GlobalOrdinal, Node>::~PerfModels() {}
+PerfModels<Scalar, LocalOrdinal, GlobalOrdinal, Node>::~PerfModels() = default;
 
 /****************************************************************************************/
 /****************************************************************************************/

@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include "KokkosKernels_Utils.hpp"
 #include <Kokkos_Core.hpp>
@@ -22,8 +9,8 @@
 #include "KokkosGraph_Distance1Color.hpp"
 #include "KokkosKernels_Uniform_Initialized_MemoryPool.hpp"
 
-#ifndef _KOKKOS_PARTITIONING_IMP_HPP
-#define _KOKKOS_PARTITIONING_IMP_HPP
+#ifndef KOKKOSSPARSE_PARTITIONING_IMPL_HPP
+#define KOKKOSSPARSE_PARTITIONING_IMPL_HPP
 
 namespace KokkosSparse {
 
@@ -129,7 +116,7 @@ struct BalloonClustering {
         distances(i) = numRows;
         pressure(i)  = 0.1;
       }
-    };
+    }
 
     KOKKOS_INLINE_FUNCTION void operator()(const UpdatePressureTag, const nnz_lno_t i) const {
       nnz_lno_t cluster = vertClusters(i);

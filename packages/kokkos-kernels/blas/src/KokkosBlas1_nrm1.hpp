@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOSBLAS1_NRM1_HPP_
 #define KOKKOSBLAS1_NRM1_HPP_
@@ -40,6 +27,8 @@ typename Kokkos::Details::InnerProductSpaceTraits<typename XVector::non_const_va
   static_assert(Kokkos::is_execution_space<execution_space>::value,
                 "KokkosBlas::nrm1: execution_space must be a Kokkos::execution_space.");
   static_assert(Kokkos::is_view<XVector>::value, "KokkosBlas::nrm1: XVector must be a Kokkos::View.");
+  static_assert(Kokkos::SpaceAccessibility<execution_space, typename XVector::memory_space>::accessible,
+                "KokkosBlas::nrm1: XVector must be accessible from execution_space");
   static_assert(XVector::rank == 1,
                 "KokkosBlas::nrm1: "
                 "Both Vector inputs must have rank 1.");

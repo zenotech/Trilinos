@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSBATCHED_TBSV_HPP_
 #define KOKKOSBATCHED_TBSV_HPP_
 
@@ -29,6 +16,15 @@ namespace KokkosBatched {
 ///   non-unit, upper or lower triangular band matrix, with ( k + 1 )
 ///   diagonals.
 ///
+/// \tparam ArgUplo: Type indicating whether A is the upper (Uplo::Upper) or lower (Uplo::Lower) triangular matrix
+/// \tparam ArgTrans: Type indicating the equations to be solved as follows
+///  - ArgTrans::NoTranspose:   A * X = B
+///  - ArgTrans::Transpose:     A**T * X = B
+///  - ArgTrans::ConjTranspose: A**H * X = B
+/// \tparam ArgDiag: Type indicating whether A is the unit (Diag::Unit) or non-unit (Diag::NonUnit) triangular matrix
+/// \tparam ArgAlgo: Type indicating the blocked (KokkosBatched::Algo::Tbsv::Blocked) or unblocked
+/// (KokkosBatched::Algo::Tbsv::Unblocked) algorithm to be used
+///
 /// \tparam AViewType: Input type for the matrix, needs to be a 2D view
 /// \tparam XViewType: Input type for the right-hand side and the solution,
 /// needs to be a 1D view
@@ -43,6 +39,16 @@ namespace KokkosBatched {
 
 template <typename ArgUplo, typename ArgTrans, typename ArgDiag, typename ArgAlgo>
 struct SerialTbsv {
+  static_assert(
+      std::is_same_v<ArgUplo, Uplo::Upper> || std::is_same_v<ArgUplo, Uplo::Lower>,
+      "KokkosBatched::tbsv: Use Uplo::Upper for upper triangular matrix or Uplo::Lower for lower triangular matrix");
+  static_assert(std::is_same_v<ArgTrans, Trans::NoTranspose> || std::is_same_v<ArgTrans, Trans::Transpose> ||
+                    std::is_same_v<ArgTrans, Trans::ConjTranspose>,
+                "KokkosBatched::tbsv: Use Trans::NoTranspose, Trans::Transpose or Trans::ConjTranspose");
+  static_assert(
+      std::is_same_v<ArgDiag, Diag::Unit> || std::is_same_v<ArgDiag, Diag::NonUnit>,
+      "KokkosBatched::tbsv: Use Diag::Unit for unit triangular matrix or Diag::NonUnit for non-unit triangular matrix");
+  static_assert(std::is_same_v<ArgAlgo, Algo::Tbsv::Unblocked>, "KokkosBatched::tbsv: Use Algo::Tbsv::Unblocked");
   template <typename AViewType, typename XViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const AViewType &A, const XViewType &X, const int k);
 };

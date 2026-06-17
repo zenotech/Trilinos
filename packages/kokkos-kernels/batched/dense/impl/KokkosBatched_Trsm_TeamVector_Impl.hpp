@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSBATCHED_TRSM_TEAMVECTOR_IMPL_HPP
 #define KOKKOSBATCHED_TRSM_TEAMVECTOR_IMPL_HPP
 
@@ -38,9 +25,19 @@ struct TeamVectorTrsm<MemberType, Side::Left, Uplo::Lower, Trans::NoTranspose, A
   template <typename ScalarType, typename AViewType, typename BViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member, const ScalarType alpha, const AViewType &A,
                                            const BViewType &B) {
+    static_assert(AViewType::rank() == 2);
+    constexpr size_t B_rank = BViewType::rank();
+    static_assert(B_rank == 1 || B_rank == 2);
+
+    // Quick return if possible
+    if (B.size() == 0) return 0;
+
+    size_t B_extent_1 = B_rank == 1 ? 1 : B.extent(1);
+    size_t B_stride_1 = B_rank == 1 ? 1 : B.stride(1);
+
     return TeamVectorTrsmInternalLeftLower<Algo::Trsm::Unblocked>::invoke(
-        member, ArgDiag::use_unit_diag, B.extent(0), B.extent(1), alpha, A.data(), A.stride_0(), A.stride_1(), B.data(),
-        B.stride_0(), B.stride_1());
+        member, ArgDiag::use_unit_diag, B.extent(0), B_extent_1, alpha, A.data(), A.stride(0), A.stride(1), B.data(),
+        B.stride(0), B_stride_1);
   }
 };
 
@@ -55,9 +52,19 @@ struct TeamVectorTrsm<MemberType, Side::Right, Uplo::Upper, Trans::NoTranspose, 
   template <typename ScalarType, typename AViewType, typename BViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member, const ScalarType alpha, const AViewType &A,
                                            const BViewType &B) {
+    static_assert(AViewType::rank() == 2);
+    constexpr size_t B_rank = BViewType::rank();
+    static_assert(B_rank == 1 || B_rank == 2);
+
+    // Quick return if possible
+    if (B.size() == 0) return 0;
+
+    size_t B_extent_1 = B_rank == 1 ? 1 : B.extent(1);
+    size_t B_stride_1 = B_rank == 1 ? 1 : B.stride(1);
+
     return TeamVectorTrsmInternalLeftLower<Algo::Trsm::Unblocked>::invoke(
-        member, ArgDiag::use_unit_diag, B.extent(1), B.extent(0), alpha, A.data(), A.stride_1(), A.stride_0(), B.data(),
-        B.stride_1(), B.stride_0());
+        member, ArgDiag::use_unit_diag, B_extent_1, B.extent(0), alpha, A.data(), A.stride(1), A.stride(0), B.data(),
+        B_stride_1, B.stride(0));
   }
 };
 
@@ -72,9 +79,19 @@ struct TeamVectorTrsm<MemberType, Side::Left, Uplo::Upper, Trans::NoTranspose, A
   template <typename ScalarType, typename AViewType, typename BViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member, const ScalarType alpha, const AViewType &A,
                                            const BViewType &B) {
+    static_assert(AViewType::rank() == 2);
+    constexpr size_t B_rank = BViewType::rank();
+    static_assert(B_rank == 1 || B_rank == 2);
+
+    // Quick return if possible
+    if (B.size() == 0) return 0;
+
+    size_t B_extent_1 = B_rank == 1 ? 1 : B.extent(1);
+    size_t B_stride_1 = B_rank == 1 ? 1 : B.stride(1);
+
     return TeamVectorTrsmInternalLeftUpper<Algo::Trsm::Unblocked>::invoke(
-        member, ArgDiag::use_unit_diag, B.extent(0), B.extent(1), alpha, A.data(), A.stride_0(), A.stride_1(), B.data(),
-        B.stride_0(), B.stride_1());
+        member, ArgDiag::use_unit_diag, B.extent(0), B_extent_1, alpha, A.data(), A.stride(0), A.stride(1), B.data(),
+        B.stride(0), B_stride_1);
   }
 };
 
@@ -89,9 +106,19 @@ struct TeamVectorTrsm<MemberType, Side::Left, Uplo::Lower, Trans::Transpose, Arg
   template <typename ScalarType, typename AViewType, typename BViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member, const ScalarType alpha, const AViewType &A,
                                            const BViewType &B) {
+    static_assert(AViewType::rank() == 2);
+    constexpr size_t B_rank = BViewType::rank();
+    static_assert(B_rank == 1 || B_rank == 2);
+
+    // Quick return if possible
+    if (B.size() == 0) return 0;
+
+    size_t B_extent_1 = B_rank == 1 ? 1 : B.extent(1);
+    size_t B_stride_1 = B_rank == 1 ? 1 : B.stride(1);
+
     return TeamVectorTrsmInternalLeftUpper<Algo::Trsm::Unblocked>::invoke(
-        member, ArgDiag::use_unit_diag, B.extent(0), B.extent(1), alpha, A.data(), A.stride_1(), A.stride_0(), B.data(),
-        B.stride_0(), B.stride_1());
+        member, ArgDiag::use_unit_diag, B.extent(0), B_extent_1, alpha, A.data(), A.stride(1), A.stride(0), B.data(),
+        B.stride(0), B_stride_1);
   }
 };
 
@@ -106,9 +133,19 @@ struct TeamVectorTrsm<MemberType, Side::Left, Uplo::Upper, Trans::Transpose, Arg
   template <typename ScalarType, typename AViewType, typename BViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member, const ScalarType alpha, const AViewType &A,
                                            const BViewType &B) {
+    static_assert(AViewType::rank() == 2);
+    constexpr size_t B_rank = BViewType::rank();
+    static_assert(B_rank == 1 || B_rank == 2);
+
+    // Quick return if possible
+    if (B.size() == 0) return 0;
+
+    size_t B_extent_1 = B_rank == 1 ? 1 : B.extent(1);
+    size_t B_stride_1 = B_rank == 1 ? 1 : B.stride(1);
+
     return TeamVectorTrsmInternalLeftLower<Algo::Trsm::Unblocked>::invoke(
-        member, ArgDiag::use_unit_diag, B.extent(0), B.extent(1), alpha, A.data(), A.stride_1(), A.stride_0(), B.data(),
-        B.stride_0(), B.stride_1());
+        member, ArgDiag::use_unit_diag, B.extent(0), B_extent_1, alpha, A.data(), A.stride(1), A.stride(0), B.data(),
+        B.stride(0), B_stride_1);
   }
 };
 

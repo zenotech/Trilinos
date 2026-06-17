@@ -104,7 +104,7 @@ void init_fad(const V1& v1, const V2& v2, const V3& v3, const V4& v4,
   Kokkos::deep_copy( v3, v3_h );
   Kokkos::deep_copy( v4, v4_h );
 
-  Kokkos::deep_copy(typename V5::array_type(v5), 0.0);
+  Kokkos::deep_copy(typename V5::type(v5), 0.0);
 }
 
 template <typename V1, typename V2, typename V3, typename V4, typename V5>
@@ -166,7 +166,7 @@ void init_array(const V1& v1, const V2& v2, const V3& v3, const V4& v4,
   Kokkos::deep_copy( v3, v3_h );
   Kokkos::deep_copy( v4, v4_h );
 
-  Kokkos::deep_copy(typename V5::array_type(v5), 0.0);
+  Kokkos::deep_copy(typename V5::type(v5), 0.0);
 }
 
 template <typename View1, typename View2>
@@ -174,8 +174,8 @@ typename std::enable_if< !Kokkos::is_view_fad<View2>::value, bool>::type
 check(const View1& v_gold, const View2& v, const double tol)
 {
   // Copy to host
-  typename View1::HostMirror v_gold_h = Kokkos::create_mirror_view(v_gold);
-  typename View2::HostMirror v_h      = Kokkos::create_mirror_view(v);
+  typename View1::host_mirror_type v_gold_h = Kokkos::create_mirror_view(v_gold);
+  typename View2::host_mirror_type v_h      = Kokkos::create_mirror_view(v);
   Kokkos::deep_copy(v_gold_h, v_gold);
   Kokkos::deep_copy(v_h, v);
 
@@ -210,8 +210,8 @@ typename std::enable_if< Kokkos::is_view_fad<View2>::value, bool>::type
 check(const View1& v_gold, const View2& v, const double tol)
 {
   // Copy to host
-  typename View1::HostMirror v_gold_h = Kokkos::create_mirror_view(v_gold);
-  typename View2::HostMirror v_h      = Kokkos::create_mirror_view(v);
+  typename View1::host_mirror_type v_gold_h = Kokkos::create_mirror_view(v_gold);
+  typename View2::host_mirror_type v_h      = Kokkos::create_mirror_view(v);
   Kokkos::deep_copy(v_gold_h, v_gold);
   Kokkos::deep_copy(v_h, v);
 

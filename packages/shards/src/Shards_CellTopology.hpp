@@ -442,9 +442,8 @@ public:
       return m_cell->permutation[permutation_ord].node[node_ord];
     }
   
-  /** \brief  Permutation of a cell's node ordinals.
+  /** \brief  Polarity of a cell's permutation.
    *  \param  permutation_ordinal [in]
-   *  \param  node_ordinal        [in]
    */
   unsigned getNodePermutationPolarity( const unsigned permutation_ord ) const
     {
@@ -484,36 +483,7 @@ public:
   CellTopology( const CellTopologyData * cell )
     : m_cell( cell )
   {}
-  
-        
-  /** \brief  Constructs custom 1-cell (line) with base topology Line<>. 
-   *          Example use: the statement
-   *          \code
-   *          CellTopology  customLine("customLine", 4);    
-   *          \endcode
-   *           defines custom line with 4 nodes.
-   */
-  CellTopology( const std::string & name,
-                const unsigned      nodeCount);
-  
-        
-  /** \brief  Construct custom 2-cell (polygon) from a list of edges.
-   *          The default base topology is the specified custom cell topology.
-   *  \param  name             [in]  - descriptive name of the custom 2-cell
-   *  \param  vertex_count     [in]  - number of vertices in the custom 2-cell
-   *  \param  node_count       [in]  - number of nodes in the custom 2-cell
-   *  \param  edges            [in]  - raw CellTopologyData for each edge (can be different!)
-   *  \param  edge_node_map    [in]  - flat array with node maps for each edge 
-   *  \param  base             [in]  - CellTopologyData of the base topology
-   */
-  CellTopology( const std::string                             & name,
-                const unsigned                                  vertex_count,
-                const unsigned                                  node_count,
-                const std::vector< const CellTopologyData * > & edges ,
-                const std::vector< unsigned >                 & edge_node_map ,
-                const CellTopologyData                        * base = NULL );
 
-  
   /** \brief  Construct custom 3-cell (polyhedron) from a list of edges and sides.
    *          The default base topology is the specified custom cell topology.
    *  \param  name             [in]  - descriptive name of the custom 3-cell

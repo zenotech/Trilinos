@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) {
 #endif
   typedef Tpetra::CrsMatrix<Scalar,LO,GO> MAT;
   typedef Tpetra::MultiVector<Scalar,LO,GO> MV;
+  typedef Tpetra::MatrixMarket::Reader<MAT> MMReader;
 
   using Tpetra::global_size_t;
   using Tpetra::Map;
@@ -66,23 +67,31 @@ int main(int argc, char *argv[]) {
 
   Teuchos::oblackholestream blackhole;
 
+  size_t numVectors = 1;
+  size_t numSolves = 1;
   bool multi_solve     = false;
   bool printMatrix     = false;
   bool printSolution   = false;
   bool checkSolution   = false;
   bool printTiming     = false;
-  bool useStackedTimer = false;
+  bool useStackedTimer = true;
   bool allprint        = false;
   bool verbose = (myRank==0);
-  bool useZoltan2 = false;
+  bool describe_on = false;
+  bool useZoltan2  = false;
   bool useParMETIS = false;
   std::string mat_filename("arc130.mtx");
+  std::string map_filename("");
   std::string rhs_filename("");
   std::string solvername("Superlu");
   std::string xml_filename("");
   Teuchos::CommandLineProcessor cmdp(false,true);
   cmdp.setOption("verbose","quiet",&verbose,"Print messages and results.");
+  cmdp.setOption("describe","no_describe",&describe_on,"Describe solver.");
   cmdp.setOption("filename",&mat_filename,"Filename for Matrix-Market test matrix.");
+  cmdp.setOption("map_filename",&map_filename,"Filename for matrix rowmap.");
+  cmdp.setOption("numSolves",&numSolves,"Number of computes & solves.");
+  cmdp.setOption("nrhs",&numVectors,"Number of right-hand-side vectors.");
   cmdp.setOption("rhs_filename",&rhs_filename,"Filename for Matrix-Market right-hand-side.");
   cmdp.setOption("solvername",&solvername,"Name of solver.");
   cmdp.setOption("xml_filename",&xml_filename,"XML Filename for Solver parameters.");
@@ -96,7 +105,7 @@ int main(int argc, char *argv[]) {
   cmdp.setOption("use-stacked-timer","no-stacked-timer",&useStackedTimer,"Use StackedTimer to print solver timing statistics");
   cmdp.setOption("all-print","root-print",&allprint,"All processors print to out");
   if (cmdp.parse(argc,argv) != Teuchos::CommandLineProcessor::PARSE_SUCCESSFUL) {
-    return -1;
+    return EXIT_FAILURE;
   }
 
   std::ostream& out = ( (allprint || (myRank == 0)) ? std::cout : blackhole );
@@ -105,10 +114,17 @@ int main(int argc, char *argv[]) {
   // Say hello
   out << myRank << " : " << Amesos2::version() << " on " << comm->getSize() << " MPIs" << std::endl << std::endl;
 
-  const size_t numVectors = 1;
-
   // Read matrix
-  RCP<MAT> A = Tpetra::MatrixMarket::Reader<MAT>::readSparseFile(mat_filename, comm);
+  RCP<MAT> A;
+  if( verbose && myRank == 0) std::cout << "Reading A from " << mat_filename << std::endl;
+  if (map_filename == "") {
+    A = MMReader::readSparseFile(mat_filename, comm);
+  } else {
+    if( verbose && myRank == 0) std::cout << " using map file " << map_filename << std::endl;
+    RCP<const Map<LO,GO> > rowMap = MMReader::readMapFile(map_filename, comm);
+    RCP<const Map<LO,GO> > colMap = Teuchos::null;
+    A = MMReader::readSparseFile (mat_filename, rowMap, colMap, rowMap, rowMap);
+  }
 
   // get the map (Range Map used for both X & B)
   RCP<const Map<LO,GO> > rngmap = A->getRangeMap();
@@ -132,10 +148,22 @@ int main(int argc, char *argv[]) {
      *   [10]
      *   [10]]
      */
-    B->putScalar(10);
+    if (true) {
+      if( verbose && myRank == 0) std::cout << "Setting B to be A*[1; ..; 1];" << std::endl;
+      X->putScalar(1);
+      A->apply(*X, *B);
+    } else {
+      if( verbose && myRank == 0) std::cout << "Setting B to be [10; ..; 10];" << std::endl;
+      B->putScalar(10);
+    }
   } else {
-    B = Tpetra::MatrixMarket::Reader<MAT>::readDenseFile (rhs_filename, comm, rngmap);
+    if( verbose && myRank == 0) std::cout << "Reading B from " << rhs_filename << std::endl;
+    B = MMReader::readDenseFile (rhs_filename, comm, rngmap);
+    numVectors = B->getNumVectors();
   }
+
+  // Randomize X
+  X->randomize();
 
   if (useZoltan2 || useParMETIS) {
 #if defined(HAVE_AMESOS2_XPETRA) && defined(HAVE_AMESOS2_ZOLTAN2)
@@ -196,7 +224,7 @@ int main(int argc, char *argv[]) {
   if( printMatrix ){
     A->describe(*fos, Teuchos::VERB_EXTREME);
   }
-  else if( verbose ){
+  else if( verbose && myRank == 0){
     std::cout << std::endl << A->description() << std::endl << std::endl;
   }
 
@@ -204,10 +232,16 @@ int main(int argc, char *argv[]) {
   RCP<Amesos2::Solver<MAT,MV> > solver;
   if( !Amesos2::query(solvername) ){
     *fos << solvername << " solver not enabled.  Exiting..." << std::endl;
-    return EXIT_SUCCESS;
+    return EXIT_FAILURE;
   }
 
   solver = Amesos2::create<MAT,MV>(solvername, A, X, B);
+  if( describe_on ) {
+    solver->describe(*fos, Teuchos::VERB_EXTREME);
+  } else if (myRank == 0) {
+    std::cout << solver->description() << std::endl << std::endl;
+  }
+
   if (xml_filename != "") {
     Teuchos::ParameterList test_params =
       Teuchos::ParameterXMLFileReader(xml_filename).getParameters();
@@ -221,71 +255,107 @@ int main(int argc, char *argv[]) {
     stackedTimer = rcp(new Teuchos::StackedTimer("Amesos2 SimpleSolve-File"));
     Teuchos::TimeMonitor::setStackedTimer(stackedTimer);
   }
-  solver->symbolicFactorization(); comm->barrier();
-  solver->numericFactorization();  comm->barrier();
-  solver->solve(); comm->barrier();
-  if (multi_solve) {
+  // perform symbolic
+  comm->barrier();
+  {
+    Teuchos::RCP< Teuchos::Time > symboTimer_ = Teuchos::TimeMonitor::getNewCounter ("Time for Symbolic Factorization");
+    Teuchos::TimeMonitor symboFactTimer(*symboTimer_);
+    try {
+      solver->symbolicFactorization();
+    } catch (const std::exception& e) {
+      *fos << "\n == solver symbolic threw exception ==\n"
+           << e.what() << "\n == Exiting ==\n" << std::endl;
+      return EXIT_FAILURE; //everyone should throw on failure
+    }
+    comm->barrier();
+  }
+  for (size_t s = 0; s < numSolves; s++) {
+    if (multi_solve && s > 0)
     {
-      // change (1,1) diagonal entry value
+      // perturb (1,1) diagonal entry value
       Teuchos::Array<GO> gblColIndsBuf (1);
       Teuchos::Array<Scalar> valsBuf (1);
-      valsBuf[0] = 7.0;
+      valsBuf[0] = Scalar(s);
       gblColIndsBuf[0] = 0;
 
       Teuchos::ArrayView<GO> gblColInds = gblColIndsBuf.view (0, 1);
       Teuchos::ArrayView<Scalar> vals = valsBuf.view (0, 1);
 
       A->resumeFill();
-      A->replaceGlobalValues (0, gblColInds, vals);
+      if (myRank == 0)
+      {
+        A->sumIntoGlobalValues (0, gblColInds, vals);
+      }
       A->fillComplete();
     }
-    // perform numeric for the second time
-    solver->numericFactorization();
+    //A->describe(*fos,Teuchos::VERB_EXTREME);
+    // perform numeric
+    comm->barrier();
+    {
+      Teuchos::RCP< Teuchos::Time > numerTimer_ = Teuchos::TimeMonitor::getNewCounter ("Time for Numeric Factorization");
+      Teuchos::TimeMonitor numerFactTimer(*numerTimer_);
 
-    // chage RHS, and re-do solve
-    B->putScalar(10);
-    solver->solve();
-  }
-  if(useStackedTimer) {
-    stackedTimer->stopBaseTimer();
-  }
-  if( printSolution ){
-    // Print the solution
-    RCP<Map<LO,GO> > root_map
-      = rcp( new Map<LO,GO>(nrows,myRank == 0 ? nrows : 0,0,comm) );
-    RCP<MV> Xhat = rcp( new MV(root_map,numVectors) );
-    RCP<Import<LO,GO> > importer = rcp( new Import<LO,GO>(rngmap,root_map) );
-    if( allprint ){
-      if( myRank == 0 ) *fos << "Solution :" << std::endl;
-      Xhat->describe(*fos,Teuchos::VERB_EXTREME);
-      *fos << std::endl;
-    } else {
-      Xhat->doImport(*X,*importer,Tpetra::REPLACE);
-      if( myRank == 0 ){
-        *fos << "Solution :" << std::endl;
+      try {
+        solver->numericFactorization();
+      } catch (const std::exception& e) {
+        *fos << "\n == solver numeric threw exception ==\n"
+             << e.what() << "\n == Exiting ==\n" << std::endl;
+        return EXIT_FAILURE; //everyone should throw on failure
+      }
+      comm->barrier();
+    }
+    // perform solve
+    {
+      Teuchos::RCP< Teuchos::Time > solveTimer_ = Teuchos::TimeMonitor::getNewCounter ("Time for Solve");
+      Teuchos::TimeMonitor solveTimer(*solveTimer_);
+
+      try {
+        solver->solve();
+      } catch (const std::exception& e) {
+        *fos << "\n == solver solve threw exception ==\n"
+             << e.what() << "\n == Exiting ==\n" << std::endl;
+        return EXIT_FAILURE; //everyone should throw on failure
+      }
+      comm->barrier();
+    }
+    if(printSolution) {
+      // Print the solution
+      RCP<Map<LO,GO> > root_map
+        = rcp( new Map<LO,GO>(nrows,myRank == 0 ? nrows : 0,0,comm) );
+      RCP<MV> Xhat = rcp( new MV(root_map,numVectors) );
+      RCP<Import<LO,GO> > importer = rcp( new Import<LO,GO>(rngmap,root_map) );
+      if( allprint ){
+        if( myRank == 0 ) *fos << "Solution :" << std::endl;
         Xhat->describe(*fos,Teuchos::VERB_EXTREME);
-        *fos << std::endl;
+        if( myRank == 0 ) *fos << std::endl;
+      } else {
+        Xhat->doImport(*X,*importer,Tpetra::REPLACE);
+        if( myRank == 0 ) *fos << "Solution :" << std::endl;
+        Xhat->describe(*fos,Teuchos::VERB_EXTREME);
+        if( myRank == 0 ) *fos << std::endl;
       }
     }
-  }
 
-  if( checkSolution ){
-    const Scalar one = Teuchos::ScalarTraits<Scalar>::one ();
-    RCP<MV> R = rcp(new MV(rngmap,numVectors));
-    A->apply(*X, *R);
-    R->update(one, *B, -one);
-    for (size_t j = 0; j < numVectors; ++j) {
-      auto Rj = R->getVector(j);
-      auto Bj = B->getVector(j);
-      auto r_norm = Rj->norm2();
-      auto b_norm = Bj->norm2();
-      if (myRank == 0) {
-        *fos << "Relative Residual norm = " << r_norm << " / " << b_norm << " = "
-             << r_norm / b_norm << std::endl;
+    if(checkSolution){
+      const Scalar one = Teuchos::ScalarTraits<Scalar>::one ();
+      RCP<MV> R = rcp(new MV(rngmap,numVectors));
+      A->apply(*X, *R);
+      R->update(one, *B, -one);
+      for (size_t j = 0; j < numVectors; ++j) {
+        auto Xj = X->getVector(j);
+        auto Rj = R->getVector(j);
+        auto Bj = B->getVector(j);
+        auto r_norm = Rj->norm2();
+        auto b_norm = Bj->norm2();
+        auto x_norm = Xj->norm2();
+        if (myRank == 0) {
+          *fos << "Relative Residual norm = " << r_norm << " / " << b_norm << " = "
+               << r_norm / b_norm << "  (xnorm = " << x_norm << ")" << std::endl;
+        }
       }
     }
-    if (myRank == 0) *fos << std::endl;
   }
+  if (checkSolution && myRank == 0) *fos << std::endl;
 
   if(useStackedTimer) {
     Teuchos::StackedTimer::OutputOptions options;
@@ -294,6 +364,7 @@ int main(int argc, char *argv[]) {
     options.output_histogram = true;
     options.output_fraction=true;
     options.output_minmax = true;
+    stackedTimer->stopBaseTimer();
     stackedTimer->report(std::cout, comm, options);
   } else if( printTiming ){
     // Print some timing statistics
@@ -303,5 +374,5 @@ int main(int argc, char *argv[]) {
   }
 
   // We are done.
-  return 0;
+  return EXIT_SUCCESS;
 }

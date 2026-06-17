@@ -11,23 +11,6 @@ TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/../../../kokkos/src)
 TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../tpetra/src)
 TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/../../../tpetra/src)
 
-IF(${PACKAGE_NAME}_ENABLE_ML)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/Include)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/Coarsen)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/Comm)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/FEGrid)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/Krylov)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/LevelWrap)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/Main)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/MatrixFree)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/MLAPI)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/Operator)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/RefMaxwell)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/Smoother)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../ml/src/Utils)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/../../../ml/src)
-  TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../../epetra/src)
-ENDIF()
 
 TRIBITS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/)
 
@@ -168,21 +151,37 @@ TRIBITS_ADD_EXECUTABLE_AND_TEST(
 ENDIF ()
 
 IF(Tpetra_INST_DOUBLE AND ${PACKAGE_NAME}_ENABLE_Experimental_KokkosKernels_Features)
-  TRIBITS_ADD_EXECUTABLE_AND_TEST(
+  TRIBITS_ADD_EXECUTABLE(
     BlockTriDiContainerUnitAndPerfTests
     SOURCES
     Ifpack2_UnitTestBlockTriDiContainer.cpp
-    ARGS ""
+    )
+
+  # Add test for block tridiagonal cases
+  TRIBITS_ADD_TEST(
+    BlockTriDiContainerUnitAndPerfTests
+    NAME
+    BlockTriDiContainer_BTD_UnitTests
+    ARGS "--test_btds --notest_jacobi"
+    COMM serial mpi
+    NUM_MPI_PROCS 1-4
+    STANDARD_PASS_OUTPUT
+    )
+
+  # Add test for block Jacobi cases
+  TRIBITS_ADD_TEST(
+    BlockTriDiContainerUnitAndPerfTests
+    NAME
+    BlockTriDiContainer_Jacobi_UnitTests
+    ARGS "--notest_btds --test_jacobi"
     COMM serial mpi
     NUM_MPI_PROCS 1-4
     STANDARD_PASS_OUTPUT
     )
 ENDIF()
 
-ASSERT_DEFINED (${PACKAGE_NAME}_ENABLE_ML)
 # mfh 01 Jan 2017:
 # Fix for https://github.com/trilinos/Trilinos/issues/935
-ASSERT_DEFINED (${PROJECT_NAME}_ENABLE_Epetra)
 
 TRIBITS_ADD_EXECUTABLE_AND_TEST(
   SolverFactory

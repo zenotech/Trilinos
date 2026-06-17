@@ -225,33 +225,9 @@ Teko::LinearOp FullMaxwellPreconditionerFactory::buildPreconditionerOperator(Tek
 
        // Get coordinates
        {
-#ifndef PANZER_HIDE_DEPRECATED_CODE
-         if (useTpetra && ((S_E_prec_type_ == "MueLuRefMaxwell") || (S_E_prec_type_ == "MueLuRefMaxwell-Tpetra"))) {
-#else
          if (useTpetra && (S_E_prec_type_ == "MueLuRefMaxwell")) {
-#endif
            RCP<Tpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node> > Coordinates = S_E_prec_pl.get<RCP<Tpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node> > >("Coordinates");
            S_E_prec_pl.sublist("Preconditioner Types").sublist(S_E_prec_type_).set("Coordinates",Coordinates);
-#ifdef PANZER_HAVE_EPETRA_STACK
-#ifndef PANZER_HIDE_DEPRECATED_CODE
-         } else if (!useTpetra && ((S_E_prec_type_ == "MueLuRefMaxwell") || (S_E_prec_type_ == "MueLuRefMaxwell-Tpetra"))) {
-#else
-         } else if (!useTpetra && (S_E_prec_type_ == "MueLuRefMaxwell")) {
-#endif
-           RCP<Epetra_MultiVector> Coordinates = S_E_prec_pl.get<RCP<Epetra_MultiVector> >("Coordinates");
-           S_E_prec_pl.sublist("Preconditioner Types").sublist(S_E_prec_type_).set("Coordinates",Coordinates);
-
-         } else if (S_E_prec_type_ == "ML") {
-           double* x_coordinates = S_E_prec_pl.sublist("ML Settings").get<double*>("x-coordinates");
-           S_E_prec_pl.sublist("ML Settings").sublist("refmaxwell: 11list").set("x-coordinates",x_coordinates);
-           S_E_prec_pl.sublist("ML Settings").sublist("refmaxwell: 22list").set("x-coordinates",x_coordinates);
-           double* y_coordinates = S_E_prec_pl.sublist("ML Settings").get<double*>("y-coordinates");
-           S_E_prec_pl.sublist("ML Settings").sublist("refmaxwell: 11list").set("y-coordinates",y_coordinates);
-           S_E_prec_pl.sublist("ML Settings").sublist("refmaxwell: 22list").set("y-coordinates",y_coordinates);
-           double* z_coordinates = S_E_prec_pl.sublist("ML Settings").get<double*>("z-coordinates");
-           S_E_prec_pl.sublist("ML Settings").sublist("refmaxwell: 11list").set("z-coordinates",z_coordinates);
-           S_E_prec_pl.sublist("ML Settings").sublist("refmaxwell: 22list").set("z-coordinates",z_coordinates);
-#endif // PANZER_HAVE_EPETRA_STACK
          } else
            TEUCHOS_ASSERT(false);
        }
@@ -260,17 +236,7 @@ Teko::LinearOp FullMaxwellPreconditionerFactory::buildPreconditionerOperator(Tek
 
        {
          Teko::InverseLibrary myInvLib = invLib;
-         if (S_E_prec_type_ == "ML") {
-#ifdef PANZER_HAVE_EPETRA_STACK
-           RCP<const Epetra_CrsMatrix> eInvDiagQ_rho = get_Epetra_CrsMatrix(*invDiagQ_rho,get_Epetra_CrsMatrix(*Q_B)->RowMap().Comm());
-           S_E_prec_pl.sublist("ML Settings").set("M0inv",eInvDiagQ_rho);
-
-           S_E_prec_pl.set("Type",S_E_prec_type_);
-           myInvLib.addInverse("S_E Preconditioner",S_E_prec_pl);
-#else
-           TEUCHOS_TEST_FOR_EXCEPTION(true,std::runtime_error,"ERROR: MiniEM_FullMaxwellPreconditionerFactory: ML is not supported in this build! Requires Epetra support be enabled!");
-#endif
-         } else {
+         {
            S_E_prec_pl.sublist("Preconditioner Types").sublist(S_E_prec_type_).set("M0inv",invDiagQ_rho);
 
            S_E_prec_pl.sublist("Preconditioner Types").sublist(S_E_prec_type_).set("Type",S_E_prec_type_);
@@ -293,6 +259,47 @@ Teko::LinearOp FullMaxwellPreconditionerFactory::buildPreconditionerOperator(Tek
            invS_E = Teko::buildInverse(*invLib.getInverseFactory("S_E Solve"),S_E,S_E_prec_);
          }
        } 
+     } else if (S_E_prec_type_ == "MueLuMaxwell1") {// Maxwell1
+
+       RCP<Teko::InverseFactory> S_E_prec_factory;
+       Teuchos::ParameterList S_E_prec_pl;
+       S_E_prec_factory = invLib.getInverseFactory("S_E Preconditioner");
+       S_E_prec_pl = *S_E_prec_factory->getParameterList();
+
+       // Get coordinates
+       {
+         TEUCHOS_ASSERT(useTpetra)
+         RCP<Tpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node> > Coordinates = S_E_prec_pl.get<RCP<Tpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node> > >("Coordinates");
+         S_E_prec_pl.sublist("Preconditioner Types").sublist(S_E_prec_type_).set("Coordinates",Coordinates);
+       }
+
+       // Form the curl-curl matrix
+       if (S_E_prec_pl.sublist("Preconditioner Types").sublist(S_E_prec_type_).sublist("maxwell1: 11list").get<std::string>("multigrid algorithm") == "smoothed reitzinger") {
+         auto curl_curl = Teko::explicitAdd(S_E, Teko::scale(-1.0, Q_E), Teuchos::null);
+         S_E_prec_pl.sublist("Preconditioner Types").sublist(S_E_prec_type_).set("CurlCurl",curl_curl);
+       }
+
+       {
+         Teko::InverseLibrary myInvLib = invLib;
+         S_E_prec_pl.sublist("Preconditioner Types").sublist(S_E_prec_type_).set("Type",S_E_prec_type_);
+         myInvLib.addInverse("S_E Preconditioner",S_E_prec_pl.sublist("Preconditioner Types").sublist(S_E_prec_type_));
+         S_E_prec_factory = myInvLib.getInverseFactory("S_E Preconditioner");
+       }
+
+       // Are we building a solver or a preconditioner?
+       {
+         Teuchos::TimeMonitor tm(*Teuchos::TimeMonitor::getNewTimer("MaxwellPreconditioner: Build S_E preconditioner"));
+
+         if (useAsPreconditioner)
+           invS_E = Teko::buildInverse(*S_E_prec_factory,S_E);
+         else {
+           if (S_E_prec_.is_null())
+             S_E_prec_ = Teko::buildInverse(*S_E_prec_factory,S_E);
+           else
+             Teko::rebuildInverse(*S_E_prec_factory,S_E, S_E_prec_);
+           invS_E = Teko::buildInverse(*invLib.getInverseFactory("S_E Solve"),S_E,S_E_prec_);
+         }
+       }
      } else {
        if (useAsPreconditioner)
          invS_E = Teko::buildInverse(*invLib.getInverseFactory("S_E Preconditioner"),S_E);
@@ -473,6 +480,27 @@ void FullMaxwellPreconditionerFactory::initializeFromParameterList(const Teuchos
      describeMatrix("DiscreteGradient",*T,debug);
 
      invLib.addInverse("S_E Preconditioner",S_E_prec_pl);
+
+   } else if (S_E_prec_type_ == "MueLuMaxwell1") { // RefMaxwell based solve
+
+     // S_E solve
+     Teuchos::ParameterList ml_pl = pl.sublist("S_E Solve");
+     invLib.addInverse("S_E Solve",ml_pl);
+
+     // S_E preconditioner
+     Teuchos::ParameterList S_E_prec_pl = pl.sublist("S_E Preconditioner");
+
+     // add discrete gradient
+     auto T = getRequestHandler()->request<Teko::LinearOp>(Teko::RequestMesg("Discrete Gradient"));
+     S_E_prec_pl.sublist("Preconditioner Types").sublist(S_E_prec_type_).set("D0",T);
+
+     if (dump) {
+       writeOut("DiscreteGradient.mm",*T);
+     }
+     describeMatrix("DiscreteGradient",*T,debug);
+
+     invLib.addInverse("S_E Preconditioner",S_E_prec_pl);
+
    } else {
      // S_E solve
      if (pl.isParameter("S_E Solve")) {

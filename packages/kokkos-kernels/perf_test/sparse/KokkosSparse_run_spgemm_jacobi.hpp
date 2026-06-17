@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include "KokkosSparse_CrsMatrix.hpp"
 #include "KokkosKernels_TestParameters.hpp"
@@ -176,8 +163,8 @@ crsMat_t3 run_experiment(crsMat_t crsMat, crsMat_t2 crsMat2, Parameters params) 
       sequential_kh.set_dynamic_scheduling(true);
     }
 
-    spgemm_symbolic(&sequential_kh, m, n, k, crsMat.graph.row_map, crsMat.graph.entries, TRANSPOSEFIRST,
-                    crsMat2.graph.row_map, crsMat2.graph.entries, TRANSPOSESECOND, row_mapC_ref);
+    KokkosSparse::spgemm_symbolic(&sequential_kh, m, n, k, crsMat.graph.row_map, crsMat.graph.entries, TRANSPOSEFIRST,
+                                  crsMat2.graph.row_map, crsMat2.graph.entries, TRANSPOSESECOND, row_mapC_ref);
 
     ExecSpace().fence();
 
@@ -217,8 +204,8 @@ crsMat_t3 run_experiment(crsMat_t crsMat, crsMat_t2 crsMat2, Parameters params) 
     valuesC  = scalar_view_t("valuesC (empty)", 0);
 
     Kokkos::Timer timer1;
-    spgemm_symbolic(&kh, m, n, k, crsMat.graph.row_map, crsMat.graph.entries, TRANSPOSEFIRST, crsMat2.graph.row_map,
-                    crsMat2.graph.entries, TRANSPOSESECOND, row_mapC);
+    KokkosSparse::spgemm_symbolic(&kh, m, n, k, crsMat.graph.row_map, crsMat.graph.entries, TRANSPOSEFIRST,
+                                  crsMat2.graph.row_map, crsMat2.graph.entries, TRANSPOSESECOND, row_mapC);
 
     ExecSpace().fence();
     double symbolic_time = timer1.seconds();

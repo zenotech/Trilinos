@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOSPARSE_SPMV_MV_TPL_SPEC_DECL_HPP_
 #define KOKKOSPARSE_SPMV_MV_TPL_SPEC_DECL_HPP_
@@ -22,13 +9,11 @@
 
 #ifdef KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
 
-/* CUSPARSE_VERSION < 10301 either doesn't have cusparseSpMM
-   or the non-tranpose version produces incorrect results.
-
-   Version 11702 corresponds to CUDA 11.6.1, which also produces incorrect
+/*
+   Version 11702 corresponds to CUDA 11.6.1, which produces incorrect
    results. 11701 (CUDA 11.6.0) is OK.
 */
-#if defined(CUSPARSE_VERSION) && (10301 <= CUSPARSE_VERSION) && (CUSPARSE_VERSION != 11702)
+#if defined(CUSPARSE_VERSION) && (CUSPARSE_VERSION != 11702)
 #include "cusparse.h"
 #include "KokkosSparse_Utils_cusparse.hpp"
 
@@ -48,17 +33,10 @@ template <typename AScalar, typename XScalar = AScalar, typename YScalar = AScal
 cudaDataType compute_type() {
   return cuda_data_type_from<AScalar>();
 }
-#if CUSPARSE_VERSION >= 11501
 template <>
 inline cudaDataType compute_type<Kokkos::Experimental::half_t>() {
   return CUDA_R_32F;
 }
-#else
-template <>
-inline cudaDataType compute_type<Kokkos::Experimental::half_t>() {
-  return cuda_data_type_from<Kokkos::Experimental::half_t>();
-}
-#endif
 
 /*! \brief convert a 2D view to a cusparseDnMatDescr_t
 
@@ -87,8 +65,9 @@ cusparseDnMatDescr_t make_cusparse_dn_mat_descr_t(ViewType &view) {
   const cusparseOrder_t order = CUSPARSE_ORDER_COL;
 
   cusparseDnMatDescr_t descr;
-  KOKKOS_CUSPARSE_SAFE_CALL(cusparseCreateDnMat(&descr, static_cast<int64_t>(rows), static_cast<int64_t>(cols),
-                                                static_cast<int64_t>(ld), values, valueType, order));
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseCreateDnMat(&descr, static_cast<int64_t>(rows),
+                                                           static_cast<int64_t>(cols), static_cast<int64_t>(ld), values,
+                                                           valueType, order));
 
   return descr;
 }
@@ -143,13 +122,7 @@ void spmv_mv_cusparse(const Kokkos::Cuda &exec, Handle *handle, const char mode[
   cusparseDnMatDescr_t vecY = make_cusparse_dn_mat_descr_t(y);
   cusparseOperation_t opB   = xIsLL ? CUSPARSE_OPERATION_NON_TRANSPOSE : CUSPARSE_OPERATION_TRANSPOSE;
 
-// CUSPARSE_MM_ALG_DEFAULT was deprecated in CUDA 11.0.1 / cuSPARSE 11.0.0 and
-// removed in CUDA 12.0.0 / cuSPARSE 12.0.0
-#if CUSPARSE_VERSION < 11000
-  cusparseSpMMAlg_t algo = CUSPARSE_MM_ALG_DEFAULT;
-#else
   cusparseSpMMAlg_t algo = CUSPARSE_SPMM_ALG_DEFAULT;
-#endif
 
   // the precision of the SpMV
   const cudaDataType computeType = compute_type<value_type, x_value_type, y_value_type>();
@@ -175,22 +148,23 @@ void spmv_mv_cusparse(const Kokkos::Cuda &exec, Handle *handle, const char mode[
     subhandle         = new KokkosSparse::Impl::CuSparse10_SpMV_Data(exec);
     handle->tpl_rank2 = subhandle;
     /* create matrix */
-    KOKKOS_CUSPARSE_SAFE_CALL(cusparseCreateCsr(&subhandle->mat, A.numRows(), A.numCols(), A.nnz(),
-                                                (void *)A.graph.row_map.data(), (void *)A.graph.entries.data(),
-                                                (void *)A.values.data(), myCusparseOffsetType, myCusparseEntryType,
-                                                CUSPARSE_INDEX_BASE_ZERO, aCusparseType));
+    KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(
+        cusparseCreateCsr(&subhandle->mat, A.numRows(), A.numCols(), A.nnz(), (void *)A.graph.row_map.data(),
+                          (void *)A.graph.entries.data(), (void *)A.values.data(), myCusparseOffsetType,
+                          myCusparseEntryType, CUSPARSE_INDEX_BASE_ZERO, aCusparseType));
 
-    KOKKOS_CUSPARSE_SAFE_CALL(cusparseSpMM_bufferSize(cusparseHandle, opA, opB, &alpha, subhandle->mat, vecX, &beta,
-                                                      vecY, computeType, algo, &subhandle->bufferSize));
+    KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseSpMM_bufferSize(cusparseHandle, opA, opB, &alpha, subhandle->mat, vecX,
+                                                                 &beta, vecY, computeType, algo,
+                                                                 &subhandle->bufferSize));
 
     KOKKOS_IMPL_CUDA_SAFE_CALL(cudaMalloc(&subhandle->buffer, subhandle->bufferSize));
   }
 
-  KOKKOS_CUSPARSE_SAFE_CALL(cusparseSpMM(cusparseHandle, opA, opB, &alpha, subhandle->mat, vecX, &beta, vecY,
-                                         computeType, algo, subhandle->buffer));
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseSpMM(cusparseHandle, opA, opB, &alpha, subhandle->mat, vecX, &beta, vecY,
+                                                    computeType, algo, subhandle->buffer));
 
-  KOKKOS_CUSPARSE_SAFE_CALL(cusparseDestroyDnMat(vecX));
-  KOKKOS_CUSPARSE_SAFE_CALL(cusparseDestroyDnMat(vecY));
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseDestroyDnMat(vecX));
+  KOKKOSSPARSE_IMPL_CUSPARSE_SAFE_CALL(cusparseDestroyDnMat(vecY));
 }
 
 #define KOKKOSSPARSE_SPMV_MV_CUSPARSE(SCALAR, ORDINAL, OFFSET, XL, YL, SPACE)                                       \
@@ -215,7 +189,7 @@ void spmv_mv_cusparse(const Kokkos::Cuda &exec, Handle *handle, const char mode[
                                                                                                                     \
     static void spmv_mv(const Kokkos::Cuda &exec, Handle *handle, const char mode[], const coefficient_type &alpha, \
                         const AMatrix &A, const XVector &x, const coefficient_type &beta, const YVector &y) {       \
-      std::string label = "KokkosSparse::spmv_mv[TPL_CUSPARSE," + Kokkos::ArithTraits<SCALAR>::name() + "]";        \
+      std::string label = "KokkosSparse::spmv_mv[TPL_CUSPARSE," + KokkosKernels::ArithTraits<SCALAR>::name() + "]"; \
       Kokkos::Profiling::pushRegion(label);                                                                         \
       spmv_mv_cusparse(exec, handle, mode, alpha, A, x, beta, y);                                                   \
       Kokkos::Profiling::popRegion();                                                                               \
@@ -275,7 +249,7 @@ KOKKOSSPARSE_SPMV_MV_CUSPARSE(Kokkos::Experimental::half_t, int, int, Kokkos::La
 
 }  // namespace Impl
 }  // namespace KokkosSparse
-#endif  // defined(CUSPARSE_VERSION) && (10301 <= CUSPARSE_VERSION)
+#endif  // defined(CUSPARSE_VERSION) && (CUSPARSE_VERSION != 11702)
 #endif  // KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
 
 // rocSPARSE
@@ -407,7 +381,7 @@ void spmv_mv_rocsparse(const Kokkos::HIP &exec, Handle *handle, const char mode[
                                                                                                                        \
     static void spmv_mv(const Kokkos::HIP &exec, Handle *handle, const char mode[], const coefficient_type &alpha,     \
                         const AMatrix &A, const XVector &x, const coefficient_type &beta, const YVector &y) {          \
-      std::string label = "KokkosSparse::spmv_mv[TPL_ROCSPARSE," + Kokkos::ArithTraits<SCALAR>::name() + "]";          \
+      std::string label = "KokkosSparse::spmv_mv[TPL_ROCSPARSE," + KokkosKernels::ArithTraits<SCALAR>::name() + "]";   \
       Kokkos::Profiling::pushRegion(label);                                                                            \
       spmv_mv_rocsparse(exec, handle, mode, alpha, A, x, beta, y);                                                     \
       Kokkos::Profiling::popRegion();                                                                                  \

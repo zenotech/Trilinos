@@ -1,21 +1,8 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
-#ifndef _KOKKOS_GRAPH_COLORDISTANCE2_HPP
-#define _KOKKOS_GRAPH_COLORDISTANCE2_HPP
+#ifndef KOKKOSGRAPH_GRAPH_COLORDISTANCE2_HPP
+#define KOKKOSGRAPH_GRAPH_COLORDISTANCE2_HPP
 
 #include "KokkosGraph_Distance2ColorHandle.hpp"
 #include "KokkosGraph_Distance2Color_impl.hpp"
@@ -207,4 +194,4 @@ void bipartite_color_columns(KernelHandle *handle, typename KernelHandle::nnz_ln
 }  // end namespace Experimental
 }  // end namespace KokkosGraph
 
-#endif  //_KOKKOS_GRAPH_COLORDISTANCE2_HPP
+#endif  // KOKKOSGRAPH_GRAPH_COLORDISTANCE2_HPP

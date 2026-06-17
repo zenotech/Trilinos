@@ -88,7 +88,7 @@ public:
     auto [first, second] = m_connectivity.empty() ? IndexRange{0, 0} : m_offsets[bktOrdinal];
     const unsigned len = second - first;
     const Entity* ptr = len==0 ? nullptr : m_connectivity.data()+first;
-    return ConnectedEntities(ptr, len);
+    return ConnectedEntities(ptr, len, 1);
   }
 
   const Entity* begin(unsigned bktOrdinal) const
@@ -167,7 +167,7 @@ public:
   bool remove_connectivity(unsigned bktOrdinal,
                            Entity entity,
                            ConnectivityOrdinal ordinal,
-                           Permutation perm = INVALID_PERMUTATION)
+                           [[maybe_unused]] Permutation perm = INVALID_PERMUTATION)
   {
     IndexRange& indices = m_offsets[bktOrdinal];
     UpwardConnIndexType idx = indices.second;
@@ -303,7 +303,7 @@ public:
   {
     m_bucketCapacity = std::max(bktOrdinal+1, m_bucketCapacity);
     if (bktOrdinal >= m_offsets.size()) {
-      const unsigned candidate = m_offsets.empty() ? bktOrdinal+1 : 2*m_offsets.size();
+      const unsigned candidate = std::max(static_cast<unsigned>(bktOrdinal+1u), static_cast<unsigned>(2u*m_offsets.size()));
       const unsigned newSize = std::min(m_bucketCapacity, candidate);
       m_offsets.resize(newSize, IndexRange(0u, 0u));
 

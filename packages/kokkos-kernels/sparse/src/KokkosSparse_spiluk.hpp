@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 /// \file KokkosSparse_spiluk.hpp
 /// \brief Parallel incomplete LU factorization ILU(k)
@@ -33,7 +20,6 @@
 #include "KokkosSparse_spiluk_numeric_spec.hpp"
 
 namespace KokkosSparse {
-namespace Experimental {
 
 #define KOKKOSKERNELS_SPILUK_SAME_TYPE(A, B) \
   std::is_same<typename std::remove_const<A>::type, typename std::remove_const<B>::type>::value
@@ -411,6 +397,8 @@ void spiluk_numeric(KernelHandle* handle, typename KernelHandle::const_nnz_lno_t
                                                                        A_values_i, L_rowmap_i, L_entries_i, L_values_i,
                                                                        U_rowmap_i, U_entries_i, U_values_i);
 }  // spiluk_numeric
+
+namespace Experimental {
 
 template <class ExecutionSpace, typename KernelHandle, typename ARowMapType, typename AEntriesType,
           typename AValuesType, typename LRowMapType, typename LEntriesType, typename LValuesType, typename URowMapType,

@@ -1,20 +1,7 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #include "Kokkos_Core.hpp"
-#include "Kokkos_ArithTraits.hpp"
+#include "KokkosKernels_ArithTraits.hpp"
 #include "Kokkos_UnorderedMap.hpp"
 #include <iostream>
 #include <limits>
@@ -24,8 +11,8 @@
 #include "KokkosKernels_PrintUtils.hpp"
 #include "KokkosKernels_VectorUtils.hpp"
 
-#ifndef _KOKKOSKERNELSUTILS_HPP
-#define _KOKKOSKERNELSUTILS_HPP
+#ifndef KOKKOSKERNELS_UTILS_HPP
+#define KOKKOSKERNELS_UTILS_HPP
 
 namespace KokkosKernels {
 
@@ -34,10 +21,6 @@ namespace Impl {
 template <typename ExecutionSpace>
 ExecSpaceType get_exec_space_type() {
   return kk_get_exec_space_type<ExecutionSpace>();
-}
-
-inline int get_suggested_vector__size(size_t nr, size_t nnz, ExecSpaceType exec_space) {
-  return kk_get_suggested_vector_size(nr, nnz, exec_space);
 }
 
 template <typename in_lno_view_t, typename out_lno_view_t, typename MyExecSpace>
@@ -124,7 +107,6 @@ struct FillSymmetricEdgesHashMap {
   in_lno_nnz_view_t adj;
   hashmap_t umap;
   out_lno_row_view_t pre_pps;
-  bool lower_only;
 
   FillSymmetricEdgesHashMap(idx num_rows_, in_lno_row_view_t xadj_, in_lno_nnz_view_t adj_, hashmap_t hashmap_,
                             out_lno_row_view_t pre_pps_)
@@ -177,7 +159,7 @@ struct FillSymmetricLowerEdgesHashMap {
   out_lno_row_view_t pre_pps;
 
   FillSymmetricLowerEdgesHashMap(idx num_rows_, in_lno_row_view_t xadj_, in_lno_nnz_view_t adj_, hashmap_t hashmap_,
-                                 out_lno_row_view_t pre_pps_, bool /* lower_only_ */ = false)
+                                 out_lno_row_view_t pre_pps_)
       : num_rows(num_rows_), nnz(adj_.extent(0)), xadj(xadj_), adj(adj_), umap(hashmap_), pre_pps(pre_pps_) {}
 
   KOKKOS_INLINE_FUNCTION
@@ -496,8 +478,10 @@ struct Reverse_Map_Scale_Init {
     typedef typename std::remove_reference<decltype(reverse_map_xadj(0))>::type atomic_incr_type;
     forward_type fm = forward_map[ii];
     fm              = fm << multiply_shift_for_scale;
-    fm += ii >> division_shift_for_bucket;
-    Kokkos::atomic_fetch_add(&(reverse_map_xadj(fm)), atomic_incr_type(1));
+    // Avoid shift by a negative number of bits (division_shift_for_bucket may be positive or negative)
+    size_t adjust =
+        (division_shift_for_bucket >= 0) ? (ii >> division_shift_for_bucket) : (ii << (-division_shift_for_bucket));
+    Kokkos::atomic_fetch_add(&(reverse_map_xadj(fm + adjust)), atomic_incr_type(1));
   }
 };
 
@@ -527,9 +511,12 @@ struct Fill_Reverse_Scale_Map {
     forward_type fm = forward_map[ii];
 
     fm = fm << multiply_shift_for_scale;
-    fm += ii >> division_shift_for_bucket;
-    const reverse_type future_index = Kokkos::atomic_fetch_add(&(reverse_map_xadj(fm - 1)), atomic_incr_type(1));
-    reverse_map_adj(future_index)   = ii;
+    // Avoid shift by a negative number of bits (division_shift_for_bucket may be positive or negative)
+    size_t adjust =
+        (division_shift_for_bucket >= 0) ? (ii >> division_shift_for_bucket) : (ii << (-division_shift_for_bucket));
+    const reverse_type future_index =
+        Kokkos::atomic_fetch_add(&(reverse_map_xadj(fm + adjust - 1)), atomic_incr_type(1));
+    reverse_map_adj(future_index) = ii;
   }
 };
 
@@ -541,10 +528,7 @@ struct StridedCopy {
   StridedCopy(const from_view_t from_, to_view_t to_, size_t stride_) : from(from_), to(to_), stride(stride_) {}
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(const size_t &ii) const {
-    // std::cout << "ii:" << ii << " ii * stride:" << ii * stride << std::endl;
-    to[ii] = from[(ii + 1) * stride - 1];
-  }
+  void operator()(const size_t &ii) const { to[ii] = from[(ii + 1) * stride - 1]; }
 };
 
 /**
@@ -587,9 +571,12 @@ void create_reverse_map(MyExecSpace my_exec_space,
                                        num_forward_elements);
 
   if (num_reverse_elements < MINIMUM_TO_ATOMIC) {
-    const lno_t scale_size                = 1024;
-    const lno_t multiply_shift_for_scale  = 10;
-    const lno_t division_shift_for_bucket = lno_t(ceil(log(double(num_forward_elements) / scale_size) / log(2)));
+    // Number of reverse elements (e.g. colors) is small, so counting and filling with atomics would cause high
+    // contention. So expand each bucket into many sub-buckets.
+    const lno_t scale_size               = 1024;
+    const lno_t multiply_shift_for_scale = 10;
+    const lno_t division_shift_for_bucket =
+        num_forward_elements ? Kokkos::ceil(Kokkos::log2(double(num_forward_elements) / scale_size)) : 0;
     // const lno_t bucket_range_size = pow(2, division_shift_for_bucket);
 
     // coloring indices are base-1. we end up using not using element 1.
@@ -601,20 +588,16 @@ void create_reverse_map(MyExecSpace my_exec_space,
         forward_map, tmp_color_xadj, multiply_shift_for_scale, division_shift_for_bucket);
     Kokkos::parallel_for("KokkosKernels::Common::ReverseMapScaleInit",
                          range_policy_t(my_exec_space, 0, num_forward_elements), rmi);
-    my_exec_space.fence();
 
     inclusive_parallel_prefix_sum<reverse_array_type, MyExecSpace>(my_exec_space, tmp_reverse_size + 1, tmp_color_xadj);
-    my_exec_space.fence();
 
     Kokkos::parallel_for(
         "KokkosKernels::Common::StridedCopy", range_policy_t(my_exec_space, 0, num_reverse_elements + 1),
         StridedCopy<reverse_array_type, reverse_array_type>(tmp_color_xadj, reverse_map_xadj, scale_size));
-    my_exec_space.fence();
     Fill_Reverse_Scale_Map<forward_array_type, reverse_array_type> frm(
         forward_map, tmp_color_xadj, reverse_map_adj, multiply_shift_for_scale, division_shift_for_bucket);
     Kokkos::parallel_for("KokkosKernels::Common::FillReverseMap",
                          range_policy_t(my_exec_space, 0, num_forward_elements), frm);
-    my_exec_space.fence();
   } else
   // atomic implementation.
   {
@@ -625,18 +608,15 @@ void create_reverse_map(MyExecSpace my_exec_space,
 
     Kokkos::parallel_for("KokkosKernels::Common::ReverseMapInit",
                          range_policy_t(my_exec_space, 0, num_forward_elements), rmi);
-    my_exec_space.fence();
-    // print_1Dview(reverse_map_xadj);
 
     inclusive_parallel_prefix_sum<reverse_array_type, MyExecSpace>(my_exec_space, num_reverse_elements + 1,
                                                                    reverse_map_xadj);
     Kokkos::deep_copy(my_exec_space, tmp_color_xadj, reverse_map_xadj);
-    my_exec_space.fence();
     Fill_Reverse_Map<forward_array_type, reverse_array_type> frm(forward_map, tmp_color_xadj, reverse_map_adj);
     Kokkos::parallel_for("KokkosKernels::Common::FillReverseMap",
                          range_policy_t(my_exec_space, 0, num_forward_elements), frm);
-    my_exec_space.fence();
   }
+  my_exec_space.fence();
 }
 
 template <typename forward_array_type, typename reverse_array_type,
@@ -744,7 +724,7 @@ template <class ExecSpaceIn, typename value_array_type>
 void zero_vector(ExecSpaceIn &exec_space_in, typename value_array_type::value_type /* num_elements */,
                  value_array_type &vector) {
   typedef typename value_array_type::non_const_value_type val_type;
-  Kokkos::deep_copy(exec_space_in, vector, Kokkos::ArithTraits<val_type>::zero());
+  Kokkos::deep_copy(exec_space_in, vector, KokkosKernels::ArithTraits<val_type>::zero());
   exec_space_in.fence();
 }
 
@@ -870,7 +850,7 @@ void symmetrize_and_get_lower_diagonal_edge_list(typename in_lno_nnz_view_t::val
   Kokkos::deep_copy(h_sym_edge_size, d_sym_edge_size);
   num_symmetric_edges = h_sym_edge_size();
   /*
-  typename out_lno_nnz_view_t::HostMirror h_sym_edge_size =
+  typename out_lno_nnz_view_t::host_mirror_type h_sym_edge_size =
   Kokkos::create_mirror_view (pre_pps_);
 
   Kokkos::deep_copy (h_sym_edge_size , pre_pps_);
@@ -948,7 +928,7 @@ void symmetrize_graph_symbolic_hashmap(typename in_lno_row_view_t::value_type nu
 
   // out_lno_row_view_t d_sym_edge_size = Kokkos::subview(pre_pps_,
   // num_rows_to_symmetrize, num_rows_to_symmetrize );
-  typename out_lno_row_view_t::HostMirror h_sym_edge_size = Kokkos::create_mirror_view(pre_pps_);
+  typename out_lno_row_view_t::host_mirror_type h_sym_edge_size = Kokkos::create_mirror_view(pre_pps_);
 
   Kokkos::deep_copy(h_sym_edge_size, pre_pps_);
   num_symmetric_edges = h_sym_edge_size(h_sym_edge_size.extent(0) - 1);
@@ -1002,7 +982,7 @@ void copy_view(size_t num_elements, from_vector from, to_vector to) {
 }
 
 template <typename from_view>
-void safe_device_to_host_deep_copy(size_t num_elements, from_view from, typename from_view::HostMirror to) {
+void safe_device_to_host_deep_copy(size_t num_elements, from_view from, typename from_view::host_mirror_type to) {
   typedef typename from_view::value_type scalar_t;
   typedef typename from_view::device_type device_t;
 
@@ -1013,24 +993,24 @@ void safe_device_to_host_deep_copy(size_t num_elements, from_view from, typename
 
   Kokkos::fence();
 
-  typedef typename unstrided_from_view_t::HostMirror host_unstrided_from_view_t;
+  typedef typename unstrided_from_view_t::host_mirror_type host_unstrided_from_view_t;
   host_unstrided_from_view_t h_unstrided_from = Kokkos::create_mirror_view(unstrided_from);
 
   Kokkos::deep_copy(h_unstrided_from, unstrided_from);
   Kokkos::fence();
 
-  copy_view<host_unstrided_from_view_t, typename from_view::HostMirror,
+  copy_view<host_unstrided_from_view_t, typename from_view::host_mirror_type,
             typename host_unstrided_from_view_t::device_type::execution_space>(num_elements, h_unstrided_from, to);
 
   Kokkos::fence();
 }
 
 template <typename to_view>
-void safe_host_to_device_deep_copy(size_t num_elements, typename to_view::HostMirror from, to_view to) {
+void safe_host_to_device_deep_copy(size_t num_elements, typename to_view::host_mirror_type from, to_view to) {
   typedef typename to_view::value_type scalar_t;
   typedef typename to_view::device_type device_t;
 
-  typedef typename to_view::HostMirror::device_type h_device_t;
+  typedef typename to_view::host_mirror_type::device_type h_device_t;
 
   typedef Kokkos::View<scalar_t *, h_device_t> host_unstrided_view_t;
   typedef Kokkos::View<scalar_t *, device_t> device_unstrided_view_t;
@@ -1038,7 +1018,7 @@ void safe_host_to_device_deep_copy(size_t num_elements, typename to_view::HostMi
   host_unstrided_view_t host_unstrided_from("unstrided", num_elements);
   device_unstrided_view_t device_unstrided_to("unstrided", num_elements);
 
-  copy_view<typename to_view::HostMirror, host_unstrided_view_t, typename h_device_t::execution_space>(
+  copy_view<typename to_view::host_mirror_type, host_unstrided_view_t, typename h_device_t::execution_space>(
       num_elements, from, host_unstrided_from);
 
   Kokkos::fence();
@@ -1312,9 +1292,8 @@ KOKKOS_INLINE_FUNCTION T *alignPtrTo(InPtr *p) {
 }  // namespace KokkosKernels
 
 // Define the identity for array_sum_reduce
-namespace Kokkos {
 template <typename scalar_t, int N>
-struct reduction_identity<KokkosKernels::Impl::array_sum_reduce<scalar_t, N>> {
+struct Kokkos::reduction_identity<KokkosKernels::Impl::array_sum_reduce<scalar_t, N>> {
   typedef KokkosKernels::Impl::array_sum_reduce<scalar_t, N> T;
   KOKKOS_FORCEINLINE_FUNCTION static T sum() {
     // default constructor default-initializes each element (this should always
@@ -1322,6 +1301,5 @@ struct reduction_identity<KokkosKernels::Impl::array_sum_reduce<scalar_t, N>> {
     return T();
   }
 };
-}  // namespace Kokkos
 
 #endif

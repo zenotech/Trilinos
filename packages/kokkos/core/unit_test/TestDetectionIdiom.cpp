@@ -1,20 +1,9 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #include <Kokkos_DetectionIdiom.hpp>
+
+#include <cstddef>
 
 void test_nonesuch() {
   using Kokkos::nonesuch;
@@ -31,6 +20,7 @@ template <class T>
 using copy_assign_t = decltype(std::declval<T&>() = std::declval<const T&>());
 
 struct Meow {};
+// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
 struct Purr {
   void operator=(const Purr&) = delete;
 };

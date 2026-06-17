@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 /// \author Kyungjoo Kim (kyukim@sandia.gov)
 
 // #define __KOKKOSBATCHED_INTEL_MKL__
@@ -155,7 +142,7 @@ void LU(const int NN) {
             "KokkosBatched::PerfTest::LUHost::LAPACKE_dgetrfOpenMP", policy, KOKKOS_LAMBDA(const int k) {
               auto aa = Kokkos::subview(a, k, Kokkos::ALL(), Kokkos::ALL());
               auto pp = Kokkos::subview(p, k, Kokkos::ALL());
-              LAPACKE_dgetrf(LAPACK_ROW_MAJOR, BlkSize, BlkSize, (double*)aa.data(), aa.stride_0(), (int*)pp.data());
+              LAPACKE_dgetrf(LAPACK_ROW_MAJOR, BlkSize, BlkSize, (double*)aa.data(), aa.stride(0), (int*)pp.data());
             });
 
         HostSpaceType().fence();
@@ -200,8 +187,8 @@ void LU(const int NN) {
           HostSpaceType().fence();
           timer.reset();
 
-          mkl_dgetrfnp_compact(MKL_ROW_MAJOR, BlkSize, BlkSize, (double*)a.data(), a.stride_1(), (MKL_INT*)&info,
-                               format, (MKL_INT)N * VectorLength);
+          mkl_dgetrfnp_compact(MKL_ROW_MAJOR, BlkSize, BlkSize, (double*)a.data(), a.stride(1), (MKL_INT*)&info, format,
+                               (MKL_INT)N * VectorLength);
 
           HostSpaceType().fence();
           const double t = timer.seconds();

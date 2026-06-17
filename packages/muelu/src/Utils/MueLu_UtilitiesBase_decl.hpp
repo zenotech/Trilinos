@@ -14,11 +14,15 @@
 
 #include "MueLu_ConfigDefs.hpp"
 
+#include "MueLu_BaseClass.hpp"
+#include "MueLu_Level_fwd.hpp"
+#include "MueLu_PerfUtils_fwd.hpp"
+
 #include <Teuchos_DefaultComm.hpp>
 #include <Teuchos_ScalarTraits.hpp>
 #include <Teuchos_ParameterList.hpp>
 
-#include "Kokkos_ArithTraits.hpp"
+#include "KokkosKernels_ArithTraits.hpp"
 
 #include <Xpetra_BlockedCrsMatrix_fwd.hpp>
 #include <Xpetra_BlockedMap_fwd.hpp>
@@ -32,6 +36,8 @@
 #include <Xpetra_Map_fwd.hpp>
 #include <Xpetra_MapFactory_fwd.hpp>
 #include <Xpetra_Matrix_fwd.hpp>
+#include <Xpetra_MatrixFactory_fwd.hpp>
+#include <Xpetra_MatrixUtils_fwd.hpp>
 #include <Xpetra_MultiVector_fwd.hpp>
 #include <Xpetra_MultiVectorFactory_fwd.hpp>
 #include <Xpetra_Operator_fwd.hpp>
@@ -74,7 +80,7 @@ class UtilitiesBase {
 
     NOTE -- it's assumed that A has been fillComplete'd.
   */
-  static RCP<CrsMatrixWrap> GetThresholdedMatrix(const RCP<Matrix>& Ain, const Magnitude threshold, const bool keepDiagonal = true, const GlobalOrdinal expectedNNZperRow = -1);
+  static RCP<Matrix> GetThresholdedMatrix(const RCP<Matrix>& Ain, const Magnitude threshold, const bool keepDiagonal = true);
 
   /*! @brief Threshold a graph
 
@@ -82,7 +88,7 @@ class UtilitiesBase {
 
     NOTE -- it's assumed that A has been fillComplete'd.
   */
-  static RCP<Xpetra::CrsGraph<LocalOrdinal, GlobalOrdinal, Node>> GetThresholdedGraph(const RCP<Matrix>& A, const Magnitude threshold, const GlobalOrdinal expectedNNZperRow = -1);
+  static RCP<Xpetra::CrsGraph<LocalOrdinal, GlobalOrdinal, Node>> GetThresholdedGraph(const RCP<Matrix>& A, const Magnitude threshold);
 
   /*! @brief Extract Matrix Diagonal
 
@@ -162,6 +168,15 @@ class UtilitiesBase {
   static RCP<Xpetra::Vector<Magnitude, LocalOrdinal, GlobalOrdinal, Node>>
   GetMatrixOverlappedAbsDeletedRowsum(const Matrix& A);
 
+  /*! @brief Counts the number of negative diagonal entries
+
+    Returns a GlobalOrdinal with the number of negative diagonal entries
+    This generally will involve MPI communication and this must be called
+    on all ranks in A's communicator.
+    NOTE: This only works on matrices locally fitted column maps.
+   */
+  static GlobalOrdinal CountNegativeDiagonalEntries(const Matrix& A);
+
   // TODO: should NOT return an Array. Definition must be changed to:
   // - ArrayRCP<> ResidualNorm(Matrix const &Op, MultiVector const &X, MultiVector const &RHS)
   // or
@@ -180,13 +195,14 @@ class UtilitiesBase {
     @param scaleByDiag if true, estimate the largest eigenvalue of \f$ D^; A \f$.
     @param niters maximum number of iterations
     @param tolerance stopping tolerance
+    @param diagonalReplacementTolernace tolernace for assuming the diagonal is zero
     @verbose if true, print iteration information
     @seed  seed for randomizing initial guess
 
     (Shamelessly grabbed from tpetra/examples.)
   */
   static Scalar PowerMethod(const Matrix& A, bool scaleByDiag = true,
-                            LocalOrdinal niters = 10, Magnitude tolerance = 1e-2, bool verbose = false, unsigned int seed = 123);
+                            LocalOrdinal niters = 10, Magnitude tolerance = 1e-2, Magnitude diagonalReplacementTol = Teuchos::ScalarTraits<Scalar>::eps() * 100, bool verbose = false, unsigned int seed = 123);
 
   /*! @brief Power method.
 
@@ -455,6 +471,16 @@ class UtilitiesBase {
   /*! Perform a Reverse Cuthill-McKee (RCM) ordering of the local component of the matrix.
    */
   static RCP<Xpetra::Vector<LocalOrdinal, LocalOrdinal, GlobalOrdinal, Node>> ReverseCuthillMcKee(const Matrix& Op);
+
+  static void TripleMatrixProduct(const Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& R,
+                                  const Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& A,
+                                  const Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& P,
+                                  Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& Ac,
+                                  const Teuchos::ParameterList& pL,
+                                  const MueLu::BaseClass& verbObj,
+                                  Teuchos::RCP<Teuchos::ParameterList>& APparams,
+                                  Teuchos::RCP<Teuchos::ParameterList>& RAPparams,
+                                  Level* coarseLevel = nullptr);
 
 };  // class UtilitiesBase
 

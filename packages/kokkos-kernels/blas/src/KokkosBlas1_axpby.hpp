@@ -1,25 +1,8 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
-#ifndef KOKKOSBLAS1_AXPBY_HPP_
-#define KOKKOSBLAS1_AXPBY_HPP_
-
-#if (KOKKOSKERNELS_DEBUG_LEVEL > 0)
-#include <iostream>
-#endif  // KOKKOSKERNELS_DEBUG_LEVEL
+#ifndef KOKKOSBLAS1_AXPBY_HPP
+#define KOKKOSBLAS1_AXPBY_HPP
 
 #include <KokkosBlas1_axpby_spec.hpp>
 #include <KokkosBlas_serial_axpy.hpp>
@@ -71,9 +54,6 @@ void axpby(const execution_space& exec_space, const AV& a, const XMV& X, const B
   // Perform compile time checks and run time checks.
   // **********************************************************************
   AxpbyTraits::performChecks(a, X, b, Y);
-#if (KOKKOSKERNELS_DEBUG_LEVEL > 1)
-  AxpbyTraits::printInformation(std::cout, "axpby(), unif information");
-#endif  // KOKKOSKERNELS_DEBUG_LEVEL
 
   // **********************************************************************
   // Call Impl::Axpby<...>::axpby(...)
@@ -134,9 +114,9 @@ void axpby(const execution_space& exec_space, const AV& a, const XMV& X, const B
       // ******************************************************************
       typename AxpbyTraits::InternalTypeA_managed managed_a("managed_a", layoutStrideA);
       if constexpr (AxpbyTraits::atInputLayoutA_isStride) {
-        Kokkos::deep_copy(managed_a, a);
+        Kokkos::deep_copy(exec_space, managed_a, a);
       } else {
-        Impl::populateRank1Stride1ViewWithScalarOrNonStrideView(a, managed_a);
+        Impl::fill_rank1_view(exec_space, a, managed_a);
       }
       internal_a = managed_a;
 
@@ -146,9 +126,9 @@ void axpby(const execution_space& exec_space, const AV& a, const XMV& X, const B
         // ****************************************************************
         typename AxpbyTraits::InternalTypeB_managed managed_b("managed_b", layoutStrideB);
         if constexpr (AxpbyTraits::atInputLayoutB_isStride) {
-          Kokkos::deep_copy(managed_b, b);
+          Kokkos::deep_copy(exec_space, managed_b, b);
         } else {
-          Impl::populateRank1Stride1ViewWithScalarOrNonStrideView(b, managed_b);
+          Impl::fill_rank1_view(exec_space, b, managed_b);
         }
         internal_b = managed_b;
 
@@ -163,9 +143,9 @@ void axpby(const execution_space& exec_space, const AV& a, const XMV& X, const B
         // ****************************************************************
         typename AxpbyTraits::InternalTypeB_managed managed_b("managed_b", numScalarsB);
         if constexpr (AxpbyTraits::atInputLayoutB_isStride) {
-          Kokkos::deep_copy(managed_b, b);
+          Kokkos::deep_copy(exec_space, managed_b, b);
         } else {
-          Impl::populateRank1Stride1ViewWithScalarOrNonStrideView(b, managed_b);
+          Impl::fill_rank1_view(exec_space, b, managed_b);
         }
         internal_b = managed_b;
 
@@ -181,9 +161,9 @@ void axpby(const execution_space& exec_space, const AV& a, const XMV& X, const B
       // ******************************************************************
       typename AxpbyTraits::InternalTypeA_managed managed_a("managed_a", numScalarsA);
       if constexpr (AxpbyTraits::atInputLayoutA_isStride) {
-        Kokkos::deep_copy(managed_a, a);
+        Kokkos::deep_copy(exec_space, managed_a, a);
       } else {
-        Impl::populateRank1Stride1ViewWithScalarOrNonStrideView(a, managed_a);
+        Impl::fill_rank1_view(exec_space, a, managed_a);
       }
       internal_a = managed_a;
 
@@ -193,9 +173,9 @@ void axpby(const execution_space& exec_space, const AV& a, const XMV& X, const B
         // ****************************************************************
         typename AxpbyTraits::InternalTypeB_managed managed_b("managed_b", layoutStrideB);
         if constexpr (AxpbyTraits::atInputLayoutB_isStride) {
-          Kokkos::deep_copy(managed_b, b);
+          Kokkos::deep_copy(exec_space, managed_b, b);
         } else {
-          Impl::populateRank1Stride1ViewWithScalarOrNonStrideView(b, managed_b);
+          Impl::fill_rank1_view(exec_space, b, managed_b);
         }
         internal_b = managed_b;
 
@@ -210,9 +190,9 @@ void axpby(const execution_space& exec_space, const AV& a, const XMV& X, const B
         // ****************************************************************
         typename AxpbyTraits::InternalTypeB_managed managed_b("managed_b", numScalarsB);
         if constexpr (AxpbyTraits::atInputLayoutB_isStride) {
-          Kokkos::deep_copy(managed_b, b);
+          Kokkos::deep_copy(exec_space, managed_b, b);
         } else {
-          Impl::populateRank1Stride1ViewWithScalarOrNonStrideView(b, managed_b);
+          Impl::fill_rank1_view(exec_space, b, managed_b);
         }
         internal_b = managed_b;
 
@@ -275,7 +255,7 @@ void axpby(const AV& a, const XMV& X, const BV& b, const YMV& Y) {
 ///                        stored.
 template <class execution_space, class AV, class XMV, class YMV>
 void axpy(const execution_space& exec_space, const AV& a, const XMV& X, const YMV& Y) {
-  axpby(exec_space, a, X, Kokkos::ArithTraits<typename YMV::non_const_value_type>::one(), Y);
+  axpby(exec_space, a, X, KokkosKernels::ArithTraits<typename YMV::non_const_value_type>::one(), Y);
 }
 
 /// \brief Computes Y := a*X + Y
@@ -306,21 +286,23 @@ void axpy(const AV& a, const XMV& X, const YMV& Y) {
 ///
 template <class scalar_type, class XMV, class YMV>
 KOKKOS_FUNCTION void serial_axpy(const scalar_type alpha, const XMV X, YMV Y) {
-#if (KOKKOSKERNELS_DEBUG_LEVEL > 0)
   static_assert(Kokkos::is_view<XMV>::value, "KokkosBlas::serial_axpy: XMV is not a Kokkos::View");
   static_assert(Kokkos::is_view<YMV>::value, "KokkosBlas::serial_axpy: YMV is not a Kokkos::View");
   static_assert(XMV::rank == 1 || XMV::rank == 2, "KokkosBlas::serial_axpy: XMV must have rank 1 or 2.");
   static_assert(XMV::rank == YMV::rank, "KokkosBlas::serial_axpy: XMV and YMV must have the same rank.");
 
+#ifndef NDEBUG
   if (X.extent(0) != Y.extent(0) || X.extent(1) != Y.extent(1)) {
     Kokkos::abort("KokkosBlas::serial_axpy: X and Y dimensions do not match");
   }
-#endif  // KOKKOSKERNELS_DEBUG_LEVEL
-
-  return Impl::serial_axpy_mv(X.extent(0), X.extent(1), alpha, X.data(), Y.data(), X.stride_0(), X.stride_1(),
-                              Y.stride_0(), Y.stride_1());
+#endif  // NDEBUG
+  if constexpr (XMV::rank() == 1)
+    return Impl::serial_axpy(X.extent(0), alpha, X.data(), Y.data(), X.stride(0), Y.stride(0));
+  else
+    return Impl::serial_axpy_mv(X.extent(0), X.extent(1), alpha, X.data(), Y.data(), X.stride(0), X.stride(1),
+                                Y.stride(0), Y.stride(1));
 }
 
 }  // namespace KokkosBlas
 
-#endif
+#endif  // KOKKOSBLAS1_AXPBY_HPP

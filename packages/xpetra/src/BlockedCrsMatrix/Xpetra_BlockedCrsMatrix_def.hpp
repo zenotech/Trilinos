@@ -74,8 +74,8 @@ BlockedCrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>::BlockedCrsMatrix(co
 }
 
 template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-BlockedCrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>::BlockedCrsMatrix(Teuchos::RCP<const MapExtractor>& rangeMapExtractor,
-                                                                              Teuchos::RCP<const MapExtractor>& domainMapExtractor,
+BlockedCrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>::BlockedCrsMatrix(Teuchos::RCP<const Xpetra::MapExtractor<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& rangeMapExtractor,
+                                                                              Teuchos::RCP<const Xpetra::MapExtractor<Scalar, LocalOrdinal, GlobalOrdinal, Node>>& domainMapExtractor,
                                                                               size_t numEntriesPerRow)
   : is_diagonal_(true)
   , domainmaps_(domainMapExtractor)
@@ -1252,7 +1252,7 @@ typename Xpetra::CrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>::local_mat
 }
 
 template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
-typename Xpetra::CrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>::local_matrix_type::HostMirror BlockedCrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>::getLocalMatrixHost() const {
+typename Xpetra::CrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>::local_matrix_type::host_mirror_type BlockedCrsMatrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>::getLocalMatrixHost() const {
   if (Rows() == 1 && Cols() == 1) {
     return getMatrix(0, 0)->getLocalMatrixHost();
   }

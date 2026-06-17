@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 /// \file Test_Sparse_SortCrs.hpp
 /// \brief Tests for sort_crs_matrix and sort_crs_graph in
@@ -28,7 +15,7 @@
 #include <KokkosSparse_SortCrs.hpp>
 #include <KokkosKernels_default_types.hpp>
 #include <KokkosSparse_CrsMatrix.hpp>
-#include <Kokkos_ArithTraits.hpp>
+#include <KokkosKernels_ArithTraits.hpp>
 #include <Kokkos_Complex.hpp>
 #include <cstdlib>
 
@@ -154,9 +141,6 @@ void testSortCRSUnmanaged(bool doValues, bool doStructInterface) {
   crsMat_Managed_t A_managed =
       KokkosSparse::Impl::kk_generate_sparse_matrix<crsMat_Managed_t>(numRows, numCols, nnz, 2, numCols / 2);
   crsMat_t A(A_managed);
-  auto rowmap  = A.graph.row_map;
-  auto entries = A.graph.entries;
-  auto values  = A.values;
   if (doValues) {
     if (doStructInterface) {
       KokkosSparse::sort_crs_matrix(A);
@@ -420,7 +404,7 @@ void testSortAndMerge(bool justGraph, int howExecSpecified, bool doStructInterfa
   EXPECT_EQ(goldEntries.size(), outEntries.extent(0));
   if (!justGraph) {
     EXPECT_EQ(goldValues.size(), outValues.extent(0));
-    EXPECT_EQ(goldValues.size(), output.nnz());
+    EXPECT_EQ(goldValues.size(), size_t(output.nnz()));
   }
   for (size_t i = 0; i < goldRowmap.size(); i++) EXPECT_EQ(goldRowmap[i], outRowmap(i));
   for (size_t i = 0; i < goldEntries.size(); i++) {

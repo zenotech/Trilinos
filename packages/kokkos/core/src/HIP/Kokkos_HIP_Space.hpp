@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOS_HIPSPACE_HPP
 #define KOKKOS_HIPSPACE_HPP
@@ -58,11 +45,14 @@ class HIPSpace {
   /*--------------------------------*/
 
   HIPSpace();
-  HIPSpace(HIPSpace&& rhs)                 = default;
-  HIPSpace(const HIPSpace& rhs)            = default;
-  HIPSpace& operator=(HIPSpace&& rhs)      = default;
-  HIPSpace& operator=(const HIPSpace& rhs) = default;
-  ~HIPSpace()                              = default;
+
+ private:
+  HIPSpace(int device_id, hipStream_t stream);
+
+ public:
+  static HIPSpace impl_create(int device_id, hipStream_t stream) {
+    return HIPSpace(device_id, stream);
+  }
 
   /**\brief  Allocate untracked memory in the hip space */
 #ifdef KOKKOS_IMPL_HIP_UNIFIED_MEMORY
@@ -76,12 +66,12 @@ class HIPSpace {
                  const size_t arg_logical_size = 0) const {
     return allocate(arg_label, arg_alloc_size, arg_logical_size);
   }
-#else
+#endif
+
   void* allocate(const HIP& exec_space, const size_t arg_alloc_size) const;
   void* allocate(const HIP& exec_space, const char* arg_label,
                  const size_t arg_alloc_size,
                  const size_t arg_logical_size = 0) const;
-#endif
   void* allocate(const size_t arg_alloc_size) const;
   void* allocate(const char* arg_label, const size_t arg_alloc_size,
                  const size_t arg_logical_size = 0) const;
@@ -93,8 +83,8 @@ class HIPSpace {
                   const size_t arg_logical_size = 0) const;
 
  private:
-  void* impl_allocate(const hipStream_t stream, const char* arg_label,
-                      const size_t arg_alloc_size,
+  void* impl_allocate(const int device_id, const hipStream_t stream,
+                      const char* arg_label, const size_t arg_alloc_size,
                       const size_t arg_logical_size,
                       bool stream_sync_only) const;
   void impl_deallocate(const char* arg_label, void* const arg_alloc_ptr,
@@ -108,8 +98,8 @@ class HIPSpace {
   static constexpr const char* name() { return "HIP"; }
 
  private:
-  int m_device;  ///< Which HIP device
-  hipStream_t m_stream;
+  int m_device;          // HIP device
+  hipStream_t m_stream;  // HIP stream
 };
 
 template <>
@@ -136,11 +126,14 @@ class HIPHostPinnedSpace {
   /*--------------------------------*/
 
   HIPHostPinnedSpace();
-  HIPHostPinnedSpace(HIPHostPinnedSpace&& rhs)                 = default;
-  HIPHostPinnedSpace(const HIPHostPinnedSpace& rhs)            = default;
-  HIPHostPinnedSpace& operator=(HIPHostPinnedSpace&& rhs)      = default;
-  HIPHostPinnedSpace& operator=(const HIPHostPinnedSpace& rhs) = default;
-  ~HIPHostPinnedSpace()                                        = default;
+
+ private:
+  HIPHostPinnedSpace(int device_id, hipStream_t stream);
+
+ public:
+  static HIPHostPinnedSpace impl_create(int device_id, hipStream_t stream) {
+    return HIPHostPinnedSpace(device_id, stream);
+  }
 
   /**\brief  Allocate untracked memory in the space */
   template <typename ExecutionSpace>
@@ -178,6 +171,10 @@ class HIPHostPinnedSpace {
   /**\brief Return Name of the MemorySpace */
   static constexpr const char* name() { return "HIPHostPinned"; }
 
+ private:
+  int m_device;          // HIP device
+  hipStream_t m_stream;  // HIP stream
+
   /*--------------------------------*/
 };
 
@@ -209,11 +206,14 @@ class HIPManagedSpace {
   /*--------------------------------*/
 
   HIPManagedSpace();
-  HIPManagedSpace(HIPManagedSpace&& rhs)                 = default;
-  HIPManagedSpace(const HIPManagedSpace& rhs)            = default;
-  HIPManagedSpace& operator=(HIPManagedSpace&& rhs)      = default;
-  HIPManagedSpace& operator=(const HIPManagedSpace& rhs) = default;
-  ~HIPManagedSpace()                                     = default;
+
+ private:
+  HIPManagedSpace(int device_id, hipStream_t stream);
+
+ public:
+  static HIPManagedSpace impl_create(int device_id, hipStream_t stream) {
+    return HIPManagedSpace(device_id, stream);
+  }
 
   /**\brief  Allocate untracked memory in the space */
   template <typename ExecutionSpace>
@@ -240,7 +240,6 @@ class HIPManagedSpace {
   bool impl_hip_driver_check_page_migration() const;
 
  private:
-  int m_device;  ///< Which HIP device
   void* impl_allocate(const char* arg_label, const size_t arg_alloc_size,
                       const size_t arg_logical_size = 0,
                       const Kokkos::Tools::SpaceHandle =
@@ -255,6 +254,9 @@ class HIPManagedSpace {
   /**\brief Return Name of the MemorySpace */
   static constexpr const char* name() { return "HIPManaged"; }
 
+ private:
+  int m_device;          // HIP device
+  hipStream_t m_stream;  // HIP stream
   /*--------------------------------*/
 };
 

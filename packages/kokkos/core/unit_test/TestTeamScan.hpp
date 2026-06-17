@@ -1,20 +1,15 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
+#include <Kokkos_Macros.hpp>
+#ifdef KOKKOS_ENABLE_EXPERIMENTAL_CXX20_MODULES
+import kokkos.core;
+import kokkos.core_impl;
+#else
 #include <Kokkos_Core.hpp>
+#endif
+#include <Kokkos_TypeInfo.hpp>
+
 #include <cstdio>
 #include <cstdint>
 #include <sstream>
@@ -68,9 +63,11 @@ struct TestTeamScan {
     // be used.
     if (ExecutionSpace().concurrency() > 10000)
       Kokkos::parallel_for(policy_type(M, 127), *this);
-    else if (ExecutionSpace().concurrency() > 2)
-      Kokkos::parallel_for(policy_type(M, 3), *this);
-    else
+    else if (ExecutionSpace().concurrency() > 2) {
+      auto max_team_size =
+          policy_type(M, 1).team_size_max(*this, Kokkos::ParallelForTag{});
+      Kokkos::parallel_for(policy_type(M, std::min(3, max_team_size)), *this);
+    } else
       Kokkos::parallel_for(policy_type(M, 1), *this);
 
     auto a_i = Kokkos::create_mirror_view(a_d);
@@ -92,7 +89,7 @@ struct TestTeamScan {
       for (int32_t j = 0; j < N; ++j) {
         scan_ref += a_i(i, j);
         scan_calc = a_o(i, j);
-        if (std::is_integral<value_type>::value) {
+        if (std::is_integral_v<value_type>) {
           ASSERT_EQ(scan_ref, scan_calc)
               << test_id
               << " calculated scan output value differs from reference at "
@@ -187,9 +184,11 @@ struct TestTeamScanRetVal {
     // be used.
     if (ExecutionSpace().concurrency() > 10000)
       Kokkos::parallel_for(policy_type(M, 127), *this);
-    else if (ExecutionSpace().concurrency() > 2)
-      Kokkos::parallel_for(policy_type(M, 3), *this);
-    else
+    else if (ExecutionSpace().concurrency() > 2) {
+      auto max_team_size =
+          policy_type(M, 1).team_size_max(*this, Kokkos::ParallelForTag{});
+      Kokkos::parallel_for(policy_type(M, std::min(3, max_team_size)), *this);
+    } else
       Kokkos::parallel_for(policy_type(M, 1), *this);
 
     Kokkos::fence();
@@ -214,7 +213,7 @@ struct TestTeamScanRetVal {
       for (int32_t j = 0; j < N; ++j) {
         scan_ref += a_i(i, j);
         scan_calc = a_o(i, j);
-        if (std::is_integral<value_type>::value) {
+        if (std::is_integral_v<value_type>) {
           ASSERT_EQ(scan_ref, scan_calc)
               << test_id
               << " calculated scan output value differs from reference at "
@@ -230,7 +229,7 @@ struct TestTeamScanRetVal {
         }
       }
       // Validate return value from parallel_scan
-      if (std::is_integral<value_type>::value) {
+      if (std::is_integral_v<value_type>) {
         ASSERT_EQ(scan_ref, a_os(i));
       } else {
         ASSERT_NEAR(scan_ref, a_os(i), abs_err);

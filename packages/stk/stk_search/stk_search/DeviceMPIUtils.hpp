@@ -166,13 +166,13 @@ class DeviceDataExchangeUnknownPattern
     using DeviceBuffers = impl::DeviceMPIBuffers<T, ExecutionSpace>;
     using HostMirrorSpace = typename DeviceBuffers::BufferSizesView::host_mirror_space;
 
-    using BufferSizesHostView = typename DeviceBuffers::BufferSizesView::HostMirror;
-    using BufferHostView      = typename DeviceBuffers::BufferView::HostMirror;
+    using BufferSizesHostView = typename DeviceBuffers::BufferSizesView::host_mirror_type;
+    using BufferHostView      = typename DeviceBuffers::BufferView::host_mirror_type;
 
     // Note: running the ConeCrush and Jenga performance tests on Vortex showed device MPI
     //       was never faster than host MPI and sometimes ~5% slower.  Setting useDeviceMPI
     //       to false for now, maybe things will be better on ATS-4
-    explicit DeviceDataExchangeUnknownPattern(const DeviceBuffers& sendBuffers, ExecutionSpace execSpace,
+    explicit DeviceDataExchangeUnknownPattern(const DeviceBuffers& sendBuffers, ExecutionSpace /*execSpace*/,
                                               MPI_Comm comm, bool useDeviceMPI=false) :
       m_sendBuffers(sendBuffers),
       m_recvBuffers(stk::parallel_machine_size(comm)),

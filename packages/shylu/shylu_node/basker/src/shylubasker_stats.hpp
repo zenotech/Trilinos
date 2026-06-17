@@ -17,17 +17,11 @@
 #include "shylubasker_types.hpp"
 
 /*Kokkos Includes*/
-#ifdef BASKER_KOKKOS
 #include <Kokkos_Core.hpp>
-#else
-#include <omp.h>
-#endif
 
 /*System Includes*/
 #include <iostream>
 #include <string>
-
-using namespace std;
 
 namespace BaskerNS
 {

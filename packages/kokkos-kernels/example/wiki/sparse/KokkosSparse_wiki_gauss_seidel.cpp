@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #include "Kokkos_Core.hpp"
 #include "KokkosKernels_default_types.hpp"
 #include "KokkosKernels_Handle.hpp"
@@ -31,7 +18,7 @@
 // Helper to print out colors in the shape of the grid
 int main() {
   using Scalar    = KokkosKernels::default_scalar;
-  using Mag       = Kokkos::ArithTraits<Scalar>::mag_type;
+  using Mag       = KokkosKernels::ArithTraits<Scalar>::mag_type;
   using Ordinal   = KokkosKernels::default_lno_t;
   using Offset    = KokkosKernels::default_size_type;
   using ExecSpace = Kokkos::DefaultExecutionSpace;
@@ -42,8 +29,8 @@ int main() {
   using Matrix    = KokkosSparse::CrsMatrix<Scalar, Ordinal, Device, void, Offset>;
   using Vector    = typename Matrix::values_type;
   constexpr Ordinal numRows = 10000;
-  const Scalar one          = Kokkos::ArithTraits<Scalar>::one();
-  const Mag magOne          = Kokkos::ArithTraits<Mag>::one();
+  const Scalar one          = KokkosKernels::ArithTraits<Scalar>::one();
+  const Mag magOne          = KokkosKernels::ArithTraits<Mag>::one();
   // Solve tolerance
   const Mag tolerance = 1e-6 * magOne;
   Kokkos::initialize();
@@ -60,13 +47,11 @@ int main() {
     Handle handle;
     handle.create_gs_handle(KokkosSparse::GS_DEFAULT);
     // Set up Gauss-Seidel for the graph (matrix sparsity pattern)
-    KokkosSparse::Experimental::gauss_seidel_symbolic(&handle, numRows, numRows, A.graph.row_map, A.graph.entries,
-                                                      false);
+    KokkosSparse::gauss_seidel_symbolic(&handle, numRows, numRows, A.graph.row_map, A.graph.entries, false);
     // Set up Gauss-Seidel for the matrix values (numeric)
     // Another matrix with the same sparsity pattern could re-use the handle and
     // symbolic phase, and only call numeric.
-    KokkosSparse::Experimental::gauss_seidel_numeric(&handle, numRows, numRows, A.graph.row_map, A.graph.entries,
-                                                     A.values, false);
+    KokkosSparse::gauss_seidel_numeric(&handle, numRows, numRows, A.graph.row_map, A.graph.entries, A.values, false);
     // Now, preconditioner is ready to use. Set up an unknown vector
     // (uninitialized) and randomized right-hand-side vector.
     Vector x(Kokkos::view_alloc(Kokkos::WithoutInitializing, "x"), numRows);
@@ -87,8 +72,8 @@ int main() {
       //  * to zero out x (it was uninitialized)
       //  * that b has changed since the previous apply (since there was no
       //  previous apply)
-      KokkosSparse::Experimental::forward_sweep_gauss_seidel_apply(
-          &handle, numRows, numRows, A.graph.row_map, A.graph.entries, A.values, x, b, firstIter, firstIter, one, 1);
+      KokkosSparse::forward_sweep_gauss_seidel_apply(&handle, numRows, numRows, A.graph.row_map, A.graph.entries,
+                                                     A.values, x, b, firstIter, firstIter, one, 1);
       firstIter = false;
       // Now, compute the new residual norm using SPMV
       Kokkos::deep_copy(res, b);

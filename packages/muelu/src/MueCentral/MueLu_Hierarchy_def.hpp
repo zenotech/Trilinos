@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <sstream>
+#include <list>
 
 #include <Xpetra_Matrix.hpp>
 #include <Xpetra_MultiVectorFactory.hpp>
@@ -32,6 +33,7 @@
 #include "MueLu_PFactory.hpp"
 #include "MueLu_SmootherFactory.hpp"
 #include "MueLu_SmootherBase.hpp"
+#include "MueLu_Behavior.hpp"
 
 #include "Teuchos_TimeMonitor.hpp"
 
@@ -59,6 +61,7 @@ Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Hierarchy()
 template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
 Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Hierarchy(const std::string& label)
   : Hierarchy() {
+  SetLabel(label);
   setObjectLabel(label);
   Levels_[0]->setObjectLabel(label);
 }
@@ -234,23 +237,20 @@ void Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::SetMatvecParams(RCP<P
           xpExporter->setDistributorParameters(matvecParams);
       }
     }
-    if (level->IsAvailable("P")) {
-      RCP<Matrix> P                = level->Get<RCP<Matrix>>("P");
-      RCP<const Import> xpImporter = P->getCrsGraph()->getImporter();
-      if (!xpImporter.is_null())
-        xpImporter->setDistributorParameters(matvecParams);
-      RCP<const Export> xpExporter = P->getCrsGraph()->getExporter();
-      if (!xpExporter.is_null())
-        xpExporter->setDistributorParameters(matvecParams);
-    }
-    if (level->IsAvailable("R")) {
-      RCP<Matrix> R                = level->Get<RCP<Matrix>>("R");
-      RCP<const Import> xpImporter = R->getCrsGraph()->getImporter();
-      if (!xpImporter.is_null())
-        xpImporter->setDistributorParameters(matvecParams);
-      RCP<const Export> xpExporter = R->getCrsGraph()->getExporter();
-      if (!xpExporter.is_null())
-        xpExporter->setDistributorParameters(matvecParams);
+    const std::list<std::string> matrices = {"P", "R", "D0", "NodeMatrix"};
+    for (auto it = matrices.begin(); it != matrices.end(); ++it) {
+      if (level->IsAvailable(*it)) {
+        RCP<Matrix> mat = level->Get<RCP<Matrix>>(*it);
+        if (!mat.is_null()) {
+          RCP<const Import> xpImporter = mat->getCrsGraph()->getImporter();
+          if (!xpImporter.is_null()) {
+            xpImporter->setDistributorParameters(matvecParams);
+          }
+          RCP<const Export> xpExporter = mat->getCrsGraph()->getExporter();
+          if (!xpExporter.is_null())
+            xpExporter->setDistributorParameters(matvecParams);
+        }
+      }
     }
     if (level->IsAvailable("Importer")) {
       RCP<const Import> xpImporter = level->Get<RCP<const Import>>("Importer");
@@ -276,8 +276,12 @@ bool Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Setup(int coarseLevel
 
   Level& level = *Levels_[coarseLevelID];
 
+  bool useStackedTimer = !Teuchos::TimeMonitor::stackedTimerNameIsDefault();
+
   std::string label = FormattingHelper::getColonLabel(level.getObjectLabel());
-  TimeMonitor m1(*this, label + this->ShortClassName() + ": " + "Setup (total)");
+  RCP<TimeMonitor> m1;
+  if (!useStackedTimer)
+    m1 = rcp(new TimeMonitor(*this, label + this->ShortClassName() + ": " + "Setup (total)"));
   TimeMonitor m2(*this, label + this->ShortClassName() + ": " + "Setup" + " (total, level=" + Teuchos::toString(coarseLevelID) + ")");
 
   // TODO: pass coarseLevelManager by reference
@@ -510,6 +514,7 @@ bool Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Setup(int coarseLevel
       Levels_[nextLevelID - 2]->Release(*coarseFact);
     }
     Levels_.resize(actualNumLevels);
+    levelManagers_.resize(actualNumLevels);
   }
 
   // I think this is the proper place for graph so that it shows every dependence
@@ -770,8 +775,7 @@ ConvergenceStatus Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Iterate(
   MagnitudeType prevNorm = STS::magnitude(STS::one()), curNorm = STS::magnitude(STS::one());
   rate_ = 1.0;
 
-  for (LO i = 1; i <= nIts; i++) {
-#ifdef HAVE_MUELU_DEBUG
+  if (Behavior::debug()) {
     if (A->getDomainMap()->isCompatible(*(X.getMap())) == false) {
       std::ostringstream ss;
       ss << "Level " << startLevel << ": level A's domain map is not compatible with X";
@@ -783,7 +787,6 @@ ConvergenceStatus Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Iterate(
       ss << "Level " << startLevel << ": level A's range map is not compatible with B";
       throw Exceptions::Incompatible(ss.str());
     }
-#endif
   }
 
   bool emptyFineSolve = true;
@@ -893,7 +896,7 @@ ConvergenceStatus Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Iterate(
   std::string levelSuffix  = " (level=" + toString(startLevel) + ")";
   std::string levelSuffix1 = " (level=" + toString(startLevel + 1) + ")";
 
-  bool useStackedTimer = !Teuchos::TimeMonitor::getStackedTimer().is_null();
+  bool useStackedTimer = !Teuchos::TimeMonitor::stackedTimerNameIsDefault();
 
   RCP<Monitor> iterateTime;
   RCP<TimeMonitor> iterateTime1;
@@ -1072,7 +1075,7 @@ ConvergenceStatus Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::Iterate(
 
           Iterate(*coarseRhs, *coarseX, 1, true, startLevel + 1);
           // ^^ zero initial guess
-          if (Cycle_ == WCYCLE && WCycleStartLevel_ >= startLevel)
+          if (Cycle_ == WCYCLE && WCycleStartLevel_ <= startLevel)
             Iterate(*coarseRhs, *coarseX, 1, false, startLevel + 1);
           // ^^ nonzero initial guess
 
@@ -1270,8 +1273,9 @@ void Hierarchy<Scalar, LocalOrdinal, GlobalOrdinal, Node>::describe(Teuchos::Fan
       std::ostringstream oss;
       oss << std::setfill(' ');
       oss << "\n--------------------------------------------------------------------------------\n";
-      oss << "---                            Multigrid Summary " << std::setw(28) << std::left << label << "---\n";
+      oss << "---                            Multigrid Summary " << std::setw(32) << "---\n";
       oss << "--------------------------------------------------------------------------------" << std::endl;
+      if (hierarchyLabel_ != "") oss << "Label               = " << hierarchyLabel_ << std::endl;
       if (verbLevel & Parameters1)
         oss << "Scalar              = " << Teuchos::ScalarTraits<Scalar>::name() << std::endl;
       oss << "Number of levels    = " << numLevels << std::endl;

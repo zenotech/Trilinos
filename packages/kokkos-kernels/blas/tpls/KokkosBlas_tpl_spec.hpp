@@ -1,21 +1,10 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 
 #ifndef KOKKOSBLAS_TPL_SPEC_HPP_
 #define KOKKOSBLAS_TPL_SPEC_HPP_
+
+#include "KokkosKernels_Singleton.hpp"
 
 #ifdef KOKKOSKERNELS_ENABLE_TPL_CUBLAS
 #include "cuda_runtime.h"
@@ -28,12 +17,13 @@ struct CudaBlasSingleton {
   cublasHandle_t handle;
 
   CudaBlasSingleton();
+  ~CudaBlasSingleton();
 
   static bool is_initialized();
   static CudaBlasSingleton& singleton();
 
  private:
-  static std::unique_ptr<CudaBlasSingleton>& get_instance();
+  static KokkosKernels::Impl::Singleton<CudaBlasSingleton>& get_instance();
 };
 
 inline void cublas_internal_error_throw(cublasStatus_t cublasState, const char* name, const char* file,
@@ -115,13 +105,14 @@ struct RocBlasSingleton {
   rocblas_handle handle;
 
   RocBlasSingleton();
+  ~RocBlasSingleton();
 
   static bool is_initialized();
 
   static RocBlasSingleton& singleton();
 
  private:
-  static std::unique_ptr<RocBlasSingleton>& get_instance();
+  static KokkosKernels::Impl::Singleton<RocBlasSingleton>& get_instance();
 };
 
 inline void rocblas_internal_error_throw(rocblas_status rocblasState, const char* name, const char* file,

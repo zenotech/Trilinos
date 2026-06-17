@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2024 National Technology & Engineering Solutions
+// Copyright(C) 1999-2025 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -6,11 +6,10 @@
 
 #include <assert.h>
 #include <cmath>
+#include <cstdlib>
 #include <fmt/ostream.h>
-#include <fmt/ranges.h>
 #include <iosfwd>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string>
 #include <vector>
 
@@ -184,19 +183,24 @@ bool Ioss::Compare::compare_database(Ioss::Region &input_region_1, Ioss::Region 
     cs2_names = input_region_2.get_database()->internal_change_set_describe();
   }
 
-  for (const auto &cs1_name : cs1_names) {
-    auto it = std::find(cs2_names.cbegin(), cs2_names.cend(), cs1_name);
-    if (it == cs2_names.cend()) {
-      fmt::print(Ioss::WarnOut(), "Skipping change set {}, not found in input #2.\n", cs1_name);
-      continue;
-    }
-
-    bool success1 = open_change_set(cs1_name, input_region_1);
-    bool success2 = open_change_set(cs1_name, input_region_2);
-    if (!success1 || !success2) {
-      continue;
-    }
+  if (cs1_names.empty() && cs2_names.empty()) {
     overall_result &= compare_database_internal(input_region_1, input_region_2, options);
+  }
+  else {
+    for (const auto &cs1_name : cs1_names) {
+      auto it = std::find(cs2_names.cbegin(), cs2_names.cend(), cs1_name);
+      if (it == cs2_names.cend()) {
+        fmt::print(Ioss::WarnOut(), "Skipping change set {}, not found in input #2.\n", cs1_name);
+        continue;
+      }
+
+      bool success1 = open_change_set(cs1_name, input_region_1);
+      bool success2 = open_change_set(cs1_name, input_region_2);
+      if (!success1 || !success2) {
+        continue;
+      }
+      overall_result &= compare_database_internal(input_region_1, input_region_2, options);
+    }
   }
   return overall_result;
 }

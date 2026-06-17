@@ -14,7 +14,7 @@
 #include <iomanip>
 
 #include "Kokkos_Core.hpp"
-#include "Kokkos_StaticCrsGraph.hpp"
+#include "KokkosSparse_StaticCrsGraph.hpp"
 
 #include "Stokhos_Multiply.hpp"
 #include "Stokhos_MatrixMarket.hpp"
@@ -51,12 +51,13 @@ public:
   typedef ValueType value_type;
   typedef Kokkos::View< value_type[], Layout, execution_space > values_type;
 #ifdef KOKKOS_ENABLE_DEPRECATED_CODE // Don't remove this until Kokkos has removed the deprecated code path probably around September 2018
-  typedef Kokkos::StaticCrsGraph< int , Layout, execution_space , int > graph_type;
+  typedef KokkosSparse::StaticCrsGraph< int , Layout, execution_space , int > graph_type;
 #else
-  typedef Kokkos::StaticCrsGraph< int , Layout, execution_space , void, int > graph_type;
+  typedef KokkosSparse::StaticCrsGraph< int , Layout, execution_space , void, int > graph_type;
 #endif
 
-  typedef CrsMatrix< ValueType, typename values_type::host_mirror_space, Layout> HostMirror;
+  typedef CrsMatrix< ValueType, typename values_type::host_mirror_space, Layout> host_mirror_type;
+  typedef host_mirror_type HostMirror;
 
   values_type values;
   graph_type graph;
@@ -631,9 +632,9 @@ void multiply(const CrsMatrix<MatrixValue,Device,Layout>& A,
 namespace Kokkos {
 
 template <typename ValueType, typename Layout, typename Device>
-typename Stokhos::CrsMatrix<ValueType,Device,Layout>::HostMirror
+typename Stokhos::CrsMatrix<ValueType,Device,Layout>::host_mirror_type
 create_mirror(const Stokhos::CrsMatrix<ValueType,Device,Layout>& A) {
-  typename Stokhos::CrsMatrix<ValueType,Device,Layout>::HostMirror mirror_A;
+  typename Stokhos::CrsMatrix<ValueType,Device,Layout>::host_mirror_type mirror_A;
   mirror_A.values = Kokkos::create_mirror(A.values);
   mirror_A.graph = Kokkos::create_mirror(A.graph); // this deep copies
   mirror_A.dev_config = A.dev_config;
@@ -641,9 +642,9 @@ create_mirror(const Stokhos::CrsMatrix<ValueType,Device,Layout>& A) {
 }
 
 template <typename ValueType, typename Layout, typename Device>
-typename Stokhos::CrsMatrix<ValueType,Device,Layout>::HostMirror
+typename Stokhos::CrsMatrix<ValueType,Device,Layout>::host_mirror_type
 create_mirror_view(const Stokhos::CrsMatrix<ValueType,Device,Layout>& A) {
-  typename Stokhos::CrsMatrix<ValueType,Device,Layout>::HostMirror mirror_A;
+  typename Stokhos::CrsMatrix<ValueType,Device,Layout>::host_mirror_type mirror_A;
   mirror_A.values = Kokkos::create_mirror_view(A.values);
   mirror_A.graph = Kokkos::create_mirror(A.graph); // this deep copies
   mirror_A.dev_config = A.dev_config;
@@ -679,7 +680,7 @@ public:
     file.precision(16);
     file.setf(std::ios::scientific);
 
-    typename matrix_type::HostMirror hA = Kokkos::create_mirror_view(A);
+    typename matrix_type::host_mirror_type hA = Kokkos::create_mirror_view(A);
     Kokkos::deep_copy(hA, A);
 
     const size_type nRow = hA.graph.row_map.extent(0) - 1 ;

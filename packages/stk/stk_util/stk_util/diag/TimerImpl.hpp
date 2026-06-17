@@ -35,6 +35,7 @@
 #ifndef STK_UTIL_DIAG_TimerImpl_hpp
 #define STK_UTIL_DIAG_TimerImpl_hpp
 
+#include "stk_util/stk_config.h"
 #include "stk_util/diag/TimerMetricTraits.hpp"
 #include "stk_util/util/string_case_compare.hpp"  // for equal_case
 #include "stk_util/diag/Timer.hpp"
@@ -77,8 +78,6 @@ public:
   static Timer createRootTimer(const std::string &name, const TimerSet &timer_set);
 
   static void deleteRootTimer(TimerImpl *root_timer);
-
-  static void findTimer(TimerImpl *timer, std::vector<std::string> &path_tail_vector, std::vector<Timer> &found_timers);
 
 private:
   /**
@@ -270,17 +269,6 @@ public:
 
   Timer getSubtimer(const std::string &name);
 
-public:
-  /**
-   * Member function <b>dump</b> writes the timer to the specified
-   * diagnostic writer.
-   *
-   * @param dout    a <b>Writer</b> variable reference to write the timer to.
-   *
-   * @return      a <b>Writer</b> reference to <it>dout</it>.
-   */
-  Writer &dump(Writer &dout) const;
-
 private:
   /**
    * Member function <b>addSubtimer</b> returns a reference to an existing or new
@@ -314,14 +302,10 @@ private:
   Timer::Metric<WallTime>       m_wallTime;     ///< Wall time
   Timer::Metric<MPICount>       m_MPICount;     ///< MPI call count
   Timer::Metric<MPIByteCount>   m_MPIByteCount; ///< MPI byte count
+#ifndef STK_HIDE_DEPRECATED_CODE // Delete after Nov 2025
   Timer::Metric<HeapAlloc>      m_heapAlloc;    ///< Heap allocated
+#endif
 };
-
-inline Writer &operator<<(Writer &dout, const TimerImpl &timer) {
-  return timer.dump(dout);
-}
-
-
 
 template<>
 inline const Timer::Metric<LapCount> &
@@ -358,11 +342,14 @@ TimerImpl::getMetric<MPIByteCount>() const {
 }
 
 
+#ifndef STK_HIDE_DEPRECATED_CODE // Delete after Nov 2025
 template<>
+STK_DEPRECATED
 inline const Timer::Metric<HeapAlloc> &
 TimerImpl::getMetric<HeapAlloc>() const {
   return m_heapAlloc;
 }
+#endif
 
 
 }

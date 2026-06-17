@@ -1,18 +1,5 @@
-//@HEADER
-// ************************************************************************
-//
-//                        Kokkos v. 4.0
-//       Copyright (2022) National Technology & Engineering
-//               Solutions of Sandia, LLC (NTESS).
-//
-// Under the terms of Contract DE-NA0003525 with NTESS,
-// the U.S. Government retains certain rights in this software.
-//
-// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
-// See https://kokkos.org/LICENSE for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//@HEADER
+// SPDX-FileCopyrightText: Copyright Contributors to the Kokkos project
 #ifndef KOKKOSBLAS1_AXPBY_UNIFICATION_ATTEMPT_TRAITS_HPP_
 #define KOKKOSBLAS1_AXPBY_UNIFICATION_ATTEMPT_TRAITS_HPP_
 
@@ -191,8 +178,9 @@ struct AxpbyUnificationAttemptTraits {
   using InternalLayoutA =
       std::conditional_t<(a_is_r1d || a_is_r1s) && atInputLayoutA_isStride, AtInputLayoutA, InternalLayoutX>;
 
-  static constexpr bool atInputScalarTypeA_mustRemain = Kokkos::ArithTraits<AtInputScalarTypeA_nonConst>::is_complex &&
-                                                        !Kokkos::ArithTraits<AtInputScalarTypeX_nonConst>::is_complex;
+  static constexpr bool atInputScalarTypeA_mustRemain =
+      KokkosKernels::ArithTraits<AtInputScalarTypeA_nonConst>::is_complex &&
+      !KokkosKernels::ArithTraits<AtInputScalarTypeX_nonConst>::is_complex;
 
   using InternalScalarTypeA =
       std::conditional_t<atInputScalarTypeA_mustRemain || ((a_is_r1d || a_is_r1s) && xyRank2Case),
@@ -240,8 +228,9 @@ struct AxpbyUnificationAttemptTraits {
   using InternalLayoutB =
       std::conditional_t<(b_is_r1d || b_is_r1s) && atInputLayoutB_isStride, AtInputLayoutB, InternalLayoutY>;
 
-  static constexpr bool atInputScalarTypeB_mustRemain = Kokkos::ArithTraits<AtInputScalarTypeB_nonConst>::is_complex &&
-                                                        !Kokkos::ArithTraits<AtInputScalarTypeY_nonConst>::is_complex;
+  static constexpr bool atInputScalarTypeB_mustRemain =
+      KokkosKernels::ArithTraits<AtInputScalarTypeB_nonConst>::is_complex &&
+      !KokkosKernels::ArithTraits<AtInputScalarTypeY_nonConst>::is_complex;
 
   using InternalScalarTypeB =
       std::conditional_t<atInputScalarTypeB_mustRemain || ((b_is_r1d || b_is_r1s) && xyRank2Case),
@@ -350,10 +339,10 @@ struct AxpbyUnificationAttemptTraits {
                   ": one must have either both X and Y as rank 1, or both X and Y as "
                   "rank 2");
 
-    if constexpr (!Kokkos::ArithTraits<AtInputScalarTypeY_nonConst>::is_complex) {
-      static_assert((!Kokkos::ArithTraits<AtInputScalarTypeA_nonConst>::is_complex) &&
-                        (!Kokkos::ArithTraits<AtInputScalarTypeX_nonConst>::is_complex) &&
-                        (!Kokkos::ArithTraits<AtInputScalarTypeB_nonConst>::is_complex),
+    if constexpr (!KokkosKernels::ArithTraits<AtInputScalarTypeY_nonConst>::is_complex) {
+      static_assert((!KokkosKernels::ArithTraits<AtInputScalarTypeA_nonConst>::is_complex) &&
+                        (!KokkosKernels::ArithTraits<AtInputScalarTypeX_nonConst>::is_complex) &&
+                        (!KokkosKernels::ArithTraits<AtInputScalarTypeB_nonConst>::is_complex),
                     "KokkosBlas::Impl::AxpbyUnificationAttemptTraits::performChecks()"
                     ": if Y is not complex, then A, X and B cannot be complex");
     }
@@ -650,7 +639,7 @@ struct AxpbyUnificationAttemptTraits {
   // ********************************************************************
   // Routine to print information on input variables and internal variables
   // ********************************************************************
-#if (KOKKOSKERNELS_DEBUG_LEVEL > 0)
+#ifndef NDEBUG
   static void printInformation(std::ostream& os, std::string const& headerMsg) {
     os << headerMsg << ": AV = "
        << typeid(AV).name()
@@ -659,7 +648,7 @@ struct AxpbyUnificationAttemptTraits {
        // typeid(AV::non_const_data_type).name()
        << ", AtInputScalarTypeA = " << typeid(AtInputScalarTypeA).name()
        << ", isConst = " << std::is_const_v<AtInputScalarTypeA> << ", isComplex = "
-       << Kokkos::ArithTraits<AtInputScalarTypeA_nonConst>::is_complex
+       << KokkosKernels::ArithTraits<AtInputScalarTypeA_nonConst>::is_complex
        << ", AtInputScalarTypeA_nonConst = " << typeid(AtInputScalarTypeA_nonConst).name()
        << ", InternalTypeA = " << typeid(InternalTypeA).name() << "\n"
        << ", InternalTypeA_managed = " << typeid(InternalTypeA_managed).name() << "\n"
@@ -670,7 +659,7 @@ struct AxpbyUnificationAttemptTraits {
        << "XMV::non_const_data_type = " << typeid(typename XMV::non_const_data_type).name() << "\n"
        << "AtInputScalarTypeX = " << typeid(AtInputScalarTypeX).name() << "\n"
        << "isConst = " << std::is_const_v<AtInputScalarTypeX> << "\n"
-       << "isComplex = " << Kokkos::ArithTraits<AtInputScalarTypeX_nonConst>::is_complex << "\n"
+       << "isComplex = " << KokkosKernels::ArithTraits<AtInputScalarTypeX_nonConst>::is_complex << "\n"
        << "AtInputScalarTypeX_nonConst = " << typeid(AtInputScalarTypeX_nonConst).name() << "\n"
        << "InternalTypeX = " << typeid(InternalTypeX).name() << "\n"
        << "\n"
@@ -681,7 +670,7 @@ struct AxpbyUnificationAttemptTraits {
        // typeid(BV::non_const_data_type).name()
        << ", AtInputScalarTypeB = " << typeid(AtInputScalarTypeB).name()
        << ", isConst = " << std::is_const_v<AtInputScalarTypeB> << ", isComplex = "
-       << Kokkos::ArithTraits<AtInputScalarTypeB_nonConst>::is_complex
+       << KokkosKernels::ArithTraits<AtInputScalarTypeB_nonConst>::is_complex
        << ", AtInputScalarTypeB_nonConst = " << typeid(AtInputScalarTypeB_nonConst).name()
        << ", InternalTypeB = " << typeid(InternalTypeB).name() << "\n"
        << ", InternalTypeB_managed = " << typeid(InternalTypeB_managed).name() << "\n"
@@ -692,7 +681,7 @@ struct AxpbyUnificationAttemptTraits {
        << "YMV::non_const_data_type = " << typeid(typename YMV::non_const_data_type).name() << "\n"
        << "AtInputScalarTypeY = " << typeid(AtInputScalarTypeY).name() << "\n"
        << "isConst = " << std::is_const_v<AtInputScalarTypeY> << "\n"
-       << "isComplex = " << Kokkos::ArithTraits<AtInputScalarTypeY_nonConst>::is_complex << "\n"
+       << "isComplex = " << KokkosKernels::ArithTraits<AtInputScalarTypeY_nonConst>::is_complex << "\n"
        << "AtInputScalarTypeY_nonConst = " << typeid(AtInputScalarTypeY_nonConst).name() << "\n"
        << "InternalTypeY = " << typeid(InternalTypeY).name() << "\n"
        << std::endl;
@@ -745,7 +734,7 @@ size_t getStrideInCoefficient(T const& coeff) {
   size_t result = 1;
   if constexpr (Kokkos::is_view_v<T>) {
     if constexpr ((T::rank == 1) && (std::is_same_v<typename T::array_layout, Kokkos::LayoutStride>)) {
-      result = coeff.stride_0();
+      result = coeff.stride(0);
     }
   }
   return result;
@@ -753,8 +742,8 @@ size_t getStrideInCoefficient(T const& coeff) {
 
 // --------------------------------
 
-template <class T_in, class T_out>
-static void populateRank1Stride1ViewWithScalarOrNonStrideView(T_in const& coeff_in, T_out& coeff_out) {
+template <typename ExecSpace, class T_in, class T_out>
+static void fill_rank1_view(const ExecSpace& exec, T_in const& coeff_in, T_out& coeff_out) {
   // ***********************************************************************
   // 'coeff_out' is assumed to be rank-1, of LayoutLeft or LayoutRight
   //
@@ -769,22 +758,22 @@ static void populateRank1Stride1ViewWithScalarOrNonStrideView(T_in const& coeff_
     // 'coeff_in' is scalar
     // *********************************************************************
     ScalarOutType scalarValue(coeff_in);
-    Kokkos::deep_copy(coeff_out, scalarValue);
+    Kokkos::deep_copy(exec, coeff_out, scalarValue);
   } else if constexpr (T_in::rank == 0) {
     // *********************************************************************
     // 'coeff_in' is rank-0
     // *********************************************************************
-    typename T_in::HostMirror h_coeff_in("h_coeff_in");
-    Kokkos::deep_copy(h_coeff_in, coeff_in);
+    typename T_in::host_mirror_type h_coeff_in("h_coeff_in");
+    Kokkos::deep_copy(h_coeff_in, coeff_in);  // fence before accessing h_coeff_in
     ScalarOutType scalarValue(h_coeff_in());
-    Kokkos::deep_copy(coeff_out, scalarValue);
+    Kokkos::deep_copy(exec, coeff_out, scalarValue);
   } else {
     // *********************************************************************
     // 'coeff_in' is also rank-1
     // *********************************************************************
     if (coeff_out.extent(0) != coeff_in.extent(0)) {
       std::ostringstream msg;
-      msg << "In populateRank1Stride1ViewWithScalarOrNonStrideView()"
+      msg << "In fill_rank1_view()"
           << ": 'in' and 'out' should have the same extent(0)"
           << ", T_in = " << typeid(T_in).name() << ", coeff_in.label() = " << coeff_in.label()
           << ", coeff_in.extent(0) = " << coeff_in.extent(0) << ", T_out = " << typeid(T_out).name()
@@ -796,13 +785,13 @@ static void populateRank1Stride1ViewWithScalarOrNonStrideView(T_in const& coeff_
     if constexpr (std::is_same_v<ScalarInType, ScalarOutType>) {
       coeff_out = coeff_in;
     } else if (coeff_out.extent(0) == 1) {
-      typename T_in::HostMirror h_coeff_in("h_coeff_in");
-      Kokkos::deep_copy(h_coeff_in, coeff_in);
+      typename T_in::host_mirror_type h_coeff_in("h_coeff_in");
+      Kokkos::deep_copy(h_coeff_in, coeff_in);  // fence before accessing h_coeff_in[0]
       ScalarOutType scalarValue(h_coeff_in[0]);
-      Kokkos::deep_copy(coeff_out, scalarValue);
+      Kokkos::deep_copy(exec, coeff_out, scalarValue);
     } else {
       std::ostringstream msg;
-      msg << "In populateRank1Stride1ViewWithScalarOrNonStrideView()"
+      msg << "In fill_rank1_view()"
           << ": scalar types 'in' and 'out' should be the same"
           << ", T_in = " << typeid(T_in).name() << ", ScalarInType = " << typeid(ScalarInType).name()
           << ", coeff_in.label() = " << coeff_in.label() << ", coeff_in.extent(0) = " << coeff_in.extent(0)
@@ -811,7 +800,7 @@ static void populateRank1Stride1ViewWithScalarOrNonStrideView(T_in const& coeff_
       KokkosKernels::Impl::throw_runtime_exception(msg.str());
     }
   }
-}  // populateRank1Stride1ViewWithScalarOrNonStrideView()
+}  // fill_rank1_view()
 
 }  // namespace Impl
 }  // namespace KokkosBlas
