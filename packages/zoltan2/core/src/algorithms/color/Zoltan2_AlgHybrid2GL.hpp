@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <iostream>
 #include <queue>
+#include <chrono>
 #ifdef _WIN32
 #include <time.h>
 #else
@@ -66,9 +67,8 @@ class AlgTwoGhostLayer : public Algorithm<Adapter> {
     using host_mem = typename femv_t::host_view_type::device_type::memory_space;
 
     double timer(){
-      struct timeval tp;
-      gettimeofday(&tp, NULL);
-      return ((double) (tp.tv_sec) + 1e-6 * tp.tv_usec);
+      return std::chrono::duration<double>(
+          std::chrono::steady_clock::now().time_since_epoch()).count();
     }
   private:
 
